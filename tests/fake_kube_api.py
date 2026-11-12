@@ -49,6 +49,8 @@ class FakeKubeApi:
         self.requests: list[dict] = []             # {"method", "path", "query", "content_type", "body"}
         self.silent_watch = 0.0                    # seconds a watch stays open without sending a byte, then is cut
         self.refuse: dict[tuple, tuple] = {}       # (method, plural) -> (code, reason, message): answered instead
+        self.plain_refusals = False                # refuse in plain text with a header that differs every time (a proxy, load shedding)
+        self.mute: dict[str, float] = {}           # part of a path -> seconds: the request is taken and never answered
         self._lock = threading.Lock()
         self._version = 100
         self._events: list[tuple] = []             # (group/version, plural, type, object), in order
@@ -74,6 +76,13 @@ class FakeKubeApi:
 
             def _handle(self, method: str) -> None:
                 url = urlsplit(self.path)
+                for part, seconds in fake.mute.items():
+                    if part in url.path:
+                        self.rfile.read(int(self.headers.get("Content-Length") or 0))
+                        fake.requests.append({"method": method, "path": url.path, "query": parse_qs(url.query), "content_type": "", "body": None})
+                        time.sleep(seconds)
+                        self.close_connection = True
+                        return
                 query = parse_qs(url.query)
                 raw = self.rfile.read(int(self.headers.get("Content-Length") or 0))
                 content_type = (self.headers.get("Content-Type") or "").split(";")[0].strip()
@@ -111,7 +120,17 @@ class FakeKubeApi:
                 sub = rest[4] if len(rest) > 4 else None
                 kind = fake.kinds[gv][plural]
                 if (method, plural) in fake.refuse:
-                    return self._failure(*fake.refuse[(method, plural)])
+                    code, reason, message = fake.refuse[(method, plural)]
+                    if not fake.plain_refusals:
+                        return self._failure(code, reason, message)
+                    data = (message + "\n").encode("utf-8")
+                    self.send_response(code)
+                    self.send_header("Content-Type", "text/plain; charset=utf-8")
+                    self.send_header("Audit-Id", f"audit-{len(fake.requests)}")
+                    self.send_header("Content-Length", str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
                 key = (gv, plural, namespace, name)
                 if method == "GET" and name is None:
                     if str((query.get("watch") or ["false"])[0]).lower() in ("true", "1"):
@@ -216,7 +235,8 @@ class FakeKubeApi:
         meta = dict(obj.get("metadata") or {})
         meta["uid"] = (previous.get("metadata") or {}).get("uid") or f"uid-{self._version}"
         meta["resourceVersion"] = str(self._version)
-        meta.setdefault("generation", 1)
+        before = (previous.get("metadata") or {}).get("generation")      # counts the changes of the spec, never of the status
+        meta["generation"] = 1 if before is None else before + (obj.get("spec") != previous.get("spec"))
         saved = dict(obj, metadata=meta)
         self.objects[key] = saved
         self._events.append((key[0], key[1], event, saved))

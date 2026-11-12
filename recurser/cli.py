@@ -481,12 +481,13 @@ def cmd_users(args) -> int:
     return 0
 
 
-def k8s_files(namespace: str = "recurser", name: str = "team", image: str = "ghcr.io/OWNER/recurser:0.2.0", pull_secret: str = "") -> dict[str, str]:
+def k8s_files(namespace: str = "recurser", name: str = "team", image: str = "", pull_secret: str = "") -> dict[str, str]:
     """The files under deploy/k8s/, as text.  ``recurser k8s write`` saves them; a test keeps them current."""
     import yaml
 
     from . import k8s
 
+    image = image or k8s.DEFAULT_IMAGE
     ex = k8s.example(name, namespace, image, pull_secret)
     config_map = dict(ex["config"], data={k8s.CONFIG_KEY: yaml.safe_dump(ex["config"]["data"][k8s.CONFIG_KEY], sort_keys=False)})
     plain = k8s.render(name, namespace, ex["app"]["spec"])
@@ -659,7 +660,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("what", choices=["crd", "controller", "example", "plain", "write"])
     sp.add_argument("--namespace", default="recurser")
     sp.add_argument("--name", default="team", help="name of the RecurserApp and of its Service")
-    sp.add_argument("--image", default="ghcr.io/OWNER/recurser:0.2.0")
+    sp.add_argument("--image", default="", help="the image built from this version of the tool (default: a placeholder with this version as its tag)")
     sp.add_argument("--image-pull-secret", dest="image_pull_secret", help="name of a registry Secret, for an image in a private registry")
     sp.add_argument("--out", default=os.path.join(ROOT, "deploy", "k8s"), help="folder for `write`")
     sp.set_defaults(fn=cmd_k8s)

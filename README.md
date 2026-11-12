@@ -39,7 +39,7 @@ Sync → *Save history* and *Merge a saved history file* move it anywhere else.
 ## Share it with a team
 
 ```bash
-python3 -m recurser users add sam --projects tide-loader,harbor-notes    # prints sam's personal link
+python3 -m recurser users add sam --projects <project-a>,<project-b>    # prints sam's personal link
 python3 -m recurser users add wk --all
 python3 -m recurser serve --host 0.0.0.0 --users users.json
 ```

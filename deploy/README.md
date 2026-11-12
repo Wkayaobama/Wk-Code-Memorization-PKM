@@ -29,13 +29,13 @@ and Secrets there, looking only at the names of their keys.
 ```bash
 # 0. The image. The decks under data/ are copied in, so build from the checkout that holds
 #    the decks this deployment may serve, and push to a registry as private as those decks.
-docker build -t ghcr.io/<you>/recurser:0.2.0 .
-docker push ghcr.io/<you>/recurser:0.2.0
+docker build -t ghcr.io/<you>/recurser:0.3.0 .
+docker push ghcr.io/<you>/recurser:0.3.0
 
 # 1. Your own copy of the files, with your image in them (deploy/k8s/ holds the same with a placeholder).
 #    --image-pull-secret names the registry credential of step 2. Leave it out if the cluster can
 #    already pull the image.
-python3 -m recurser k8s write --image ghcr.io/<you>/recurser:0.2.0 --image-pull-secret regcred \
+python3 -m recurser k8s write --image ghcr.io/<you>/recurser:0.3.0 --image-pull-secret regcred \
   --namespace recurser --name team --out my-k8s
 
 # 2. Namespace and custom resource definition, the registry credential, then controller and settings.
@@ -47,7 +47,7 @@ kubectl apply -f my-k8s/02-controller.yaml -f my-k8s/03-config.yaml
 # 3. Secrets, created with kubectl so that no credential is ever written to a file in git.
 kubectl -n recurser create secret generic team-anthropic --from-literal=ANTHROPIC_API_KEY=<your key>
 python3 -m recurser users add wk  --all                              --file users.json
-python3 -m recurser users add sam --projects tide-loader,harbor-notes --file users.json
+python3 -m recurser users add sam --projects <project-a>,<project-b>   --file users.json
 kubectl -n recurser create secret generic team-users --from-file=users.json=users.json
 
 # 4. The application: one object.
@@ -60,7 +60,12 @@ kubectl -n recurser port-forward svc/team 8000:80
 ```
 
 `users add` prints each person's link. Send it over a private channel: the token in it is
-that person's sign-in. `users.json` must stay out of git.
+that person's sign-in. `users.json` must stay out of git. Project names are the ones the
+page shows; this lists them:
+
+```bash
+python3 -m recurser sql "select code, slug from projects order by code"
+```
 
 Without the controller, skip `01` and `02` and apply `my-k8s/plain/recurser.yaml` instead of
 `05`: it holds the same Deployment, Service, volume claim and NetworkPolicy as static files.
@@ -126,7 +131,7 @@ answer comes back with the passage each sentence rests on.
 | `llm.effort` | `medium` | `low`, `medium`, `high`, `xhigh` or `max` |
 | `llm.fallbacks` | `true` | when a safety classifier declines a request, the API re-runs it on a fallback model in the same call |
 | `llm.timeout_seconds` | `60` | the longest silence tolerated from the API |
-| `llm.answer_seconds` | `180` | the longest one answer may take in all; at least twice `llm.timeout_seconds` |
+| `llm.answer_seconds` | `180` | the longest a person waits for one answer, whatever the API is doing |
 | `llm.enabled` | `true` | `false` turns the assistant off |
 | `retrieval.top_k` | `8` | passages sent with a question |
 | `server.ask_per_10_minutes` | `30` | questions per person |
@@ -136,15 +141,20 @@ Without a `secretRef` the page works and the assistant is off.
 ## If something is off
 
 - `kubectl -n recurser get recurserapps` shows `READY` and `REASON`: `ConfigMissing`,
-  `ConfigInvalid`, `SecretKeyMissing`, `UsersMissing`, `ApplyFailed` and the like name the
-  cause, and `kubectl describe` has the sentence.
+  `ConfigInvalid`, `SecretKeyMissing`, `UsersMissing`, `ApplyFailed`, `ReadFailed` and the
+  like name the cause, and `kubectl describe` has the sentence, in the API's own words where
+  it gave any.
 - `Progressing` for long: `kubectl -n recurser logs deploy/team`. The server says what stops
   it, for example a project name in `users.json` that is not in the image.
 - History is not saved: the volume must be writable by user and group `10001`. Most
   storage classes honour `fsGroup`; a class that does not needs its own fix.
 - `ImagePullBackOff`: the cluster may not pull the image. See `--image-pull-secret` in step 1.
-- After updating these files from a newer version of the tool, apply `01-crd.yaml` and
-  `02-controller.yaml` again: the controller's permissions are part of them.
+- The files and the image belong together: the controller's probe and permissions and the
+  pod's arguments are written for the code of the same version. After updating the tool,
+  build and push the image under the new version's tag, run `k8s write` again with it, and
+  apply `01-crd.yaml`, `02-controller.yaml` and `05-recurserapp.yaml`.
+- A change to the ConfigMap or to a Secret reaches the pod at the controller's next full
+  pass, every 30 seconds. A change to the `RecurserApp` itself is acted on at once.
 - OpenShift is not covered. It assigns user ids itself and would refuse the fixed id `10001`.
 
 ## What was tested, and what was not
@@ -155,12 +165,14 @@ Tested here, without a cluster:
   `config.yaml`, and the stop signal a pod receives ends it at once.
 - Sign-in, per-person decks and histories, in a browser.
 - The SDK calls against a local stand-in that speaks the streaming protocol, including
-  refusals, errors in the middle of an answer and an answer that never ends.
+  refusals, errors in the middle of an answer, an answer that never ends, and two people
+  asking through one client over TLS while one of the answers is given up.
 - Every generated object against the typed models of the official Kubernetes Python client
   (`tests/check_manifests.py`).
 - The controller driven through that client, version 37.0.2, against a local stand-in for
   the API server (`tests/fake_kube_api.py`): discovery, server-side apply, the status
-  subresource, removal, the watch, and a connection that goes silent.
+  subresource, removal, the watch, refusals of every kind, requests that are never answered,
+  and the controller as a process that is stopped the way a pod is.
 
 Not tested: the image build, the objects on a real cluster (admission, permissions as the
 cluster enforces them, storage, the NetworkPolicy, the probes), and a request to the live

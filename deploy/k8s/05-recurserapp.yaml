@@ -6,7 +6,7 @@ metadata:
   name: team
   namespace: recurser
 spec:
-  image: ghcr.io/OWNER/recurser:0.2.0
+  image: ghcr.io/OWNER/recurser:0.3.0
   configRef:
     name: team-config
   secretRef:

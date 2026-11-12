@@ -21,6 +21,11 @@ import copy
 import hashlib
 import json
 
+try:
+    from . import __version__
+except ImportError:  # pragma: no cover
+    __version__ = "0"
+
 GROUP = "recurser.wkayaobama.github.io"
 VERSION = "v1alpha1"
 KIND = "RecurserApp"
@@ -37,6 +42,9 @@ USERS_KEY = "users.json"
 API_KEY_ENV = "ANTHROPIC_API_KEY"
 DATA_DIR = "/var/lib/recurser"   # one history file per person, on the volume claim
 RUN_AS = 10001
+# The files and the image belong together: the controller's probe, its permissions and the arguments of the pod
+# are written for the code of this version.  A new version of the tool means a new tag.
+DEFAULT_IMAGE = f"ghcr.io/OWNER/recurser:{__version__}"
 
 SPEC_DEFAULTS = {
     "image": "",
@@ -54,7 +62,8 @@ SPEC_DEFAULTS = {
 
 # Objects that exist only when the spec asks for them: the controller removes its own when it no longer does.
 OPTIONAL_KINDS = (("networking.k8s.io/v1", "NetworkPolicy"), ("networking.k8s.io/v1", "Ingress"))
-ALIVE_FILE = "/tmp/recurser-controller.alive"      # touched by the controller at every pass; its liveness probe reads the age
+ALIVE_FILE = "/tmp/recurser-controller.alive"      # touched by the controller as it works; its liveness probe reads the age
+ALIVE_SECONDS = 600                                 # no sign for this long means a controller that hangs: ten slow calls take less
 NAME_LIMIT = 58                                     # the volume claim is named <name>-data and a name holds 63 characters
 
 
@@ -321,7 +330,7 @@ def controller_manifests(namespace: str, image: str, pull_secret: str = "") -> l
         # these two exist only while the spec asks for them, so the controller must be able to remove its own
         {"apiGroups": ["networking.k8s.io"], "resources": ["networkpolicies", "ingresses"], "verbs": ["get", "create", "patch", "delete"]},
     ]
-    alive = ("import os,sys,time; sys.exit(0 if time.time() - os.path.getmtime('" + ALIVE_FILE + "') < 240 else 1)")
+    alive = ("import os,sys,time; sys.exit(0 if time.time() - os.path.getmtime('" + ALIVE_FILE + "') < ALIVE_SECONDS else 1)".replace("ALIVE_SECONDS", str(ALIVE_SECONDS)))
     return [
         {"apiVersion": "v1", "kind": "ServiceAccount", "metadata": copy.deepcopy(meta)},
         {"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "Role", "metadata": copy.deepcopy(meta), "rules": rules},
@@ -351,7 +360,7 @@ def controller_manifests(namespace: str, image: str, pull_secret: str = "") -> l
     ]
 
 
-def example(name: str = "team", namespace: str = "recurser", image: str = "ghcr.io/OWNER/recurser:0.2.0", pull_secret: str = "") -> dict:
+def example(name: str = "team", namespace: str = "recurser", image: str = DEFAULT_IMAGE, pull_secret: str = "") -> dict:
     """The objects a person writes by hand: the ConfigMap, the two Secrets (placeholders only) and the RecurserApp."""
     from . import config as config_mod
 

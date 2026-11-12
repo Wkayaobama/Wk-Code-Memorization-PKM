@@ -895,11 +895,10 @@ class RetrievalTests(unittest.TestCase):
         for bad in ({"llm": {"modle": "x"}}, {"llm": {"provider": "other"}}, {"server": {"port": "8000"}}, {"nope": {}}, {"llm": {"effort": "extreme"}},
                     {"llm": {"max_tokens": 512}}, {"llm": {"model": " "}}, {"access": {"trust_user_header": "X-User"}},
                     {"access": {"trust_user_header": "X-User", "trusted_proxies": ["not-an-address"]}},
-                    {"llm": {"timeout_seconds": 120}},                              # two silences would outlast the whole-answer limit
-                    {"llm": {"timeout_seconds": 600, "answer_seconds": 900}}):
+                    {"llm": {"answer_seconds": 5}}, {"llm": {"timeout_seconds": 1}}):
             with self.assertRaises(config.ConfigError):
                 config.merge(bad)
-        self.assertEqual(config.merge({"llm": {"timeout_seconds": 120, "answer_seconds": 240}})["llm"]["answer_seconds"], 240)
+        self.assertEqual(config.merge({"llm": {"timeout_seconds": 120}})["llm"]["answer_seconds"], 180)      # the two limits are independent
         self.assertEqual(config.merge({"access": {"trust_user_header": "X-User", "trusted_proxies": ["10.42.0.0/16"]}})["access"]["trusted_proxies"], ["10.42.0.0/16"])
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "config.yaml")
@@ -980,22 +979,92 @@ class AssistantTests(unittest.TestCase):
             assistant.ask("q", self.passages, client=self.client, answer_seconds=-1)
         self.assertEqual(caught.exception.status, 504)
 
-    def test_an_answer_that_only_sends_keep_alives_is_abandoned_at_the_deadline(self):
+    def settle(self, seconds=10):
+        """Wait for the threads that still read an abandoned answer: each ends by itself at its next event."""
+        for thread in threading.enumerate():
+            if thread.name == "recurser-answer":
+                thread.join(seconds)
+        self.assertFalse([t for t in threading.enumerate() if t.name == "recurser-answer"], "a thread that reads an answer is still running")
+
+    def test_the_person_asking_waits_no_longer_than_the_deadline(self):
         import time
 
-        self.api.mode = "pings:4"
-        begun = time.monotonic()
+        from fake_anthropic import expected_text
+
+        cases = {"keep-alives every 0.1 s": "[[id=A; ping:20:0.1; end]]", "keep-alives every 0.8 s": "[[id=A; ping:3:0.8; end]]",
+                 "one event, then silence": "[[id=A; silence:2; end]]", "text that does not end in time": "[[id=A; text:20:0.1; end]]",
+                 "an API that says nothing at all": "[[id=A; mute:2]]"}
+        for label, plan in cases.items():
+            begun = time.monotonic()
+            with self.assertRaises(assistant.AssistantError) as caught:
+                assistant.ask("Which key does the loader merge on? " + plan, self.passages, client=self.client, answer_seconds=0.5)
+            took = time.monotonic() - begun
+            self.assertEqual(caught.exception.status, 504, label)
+            self.assertIn("took too long", str(caught.exception))
+            self.assertLess(abs(took - 0.5), 0.3, f"{label}: told after {took:.2f} s")
+        self.settle()
+        self.assertTrue(self.api.hung_up)                # the threads left behind closed their streams themselves
+        # an answer that fits in the time is returned whole, on the same client
+        answer = assistant.ask("Which key? [[id=B; ping:3:0.1; text:4:0.05; end]]", self.passages, client=self.client, answer_seconds=20)
+        self.assertEqual((answer["text"], answer["truncated"]), (expected_text("B", 4), False))
+        self.settle()
+
+    def test_an_abandoned_answer_never_disturbs_another_one(self):
+        """Two people, one client, as in the server.  Over TLS when the openssl command is there to make a
+        certificate: that is where reading a connection another thread has closed returns somebody else's bytes."""
+        import ssl
+        import time
+
+        from fake_anthropic import FakeAnthropic, expected_text, make_certificate
+
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        pair = make_certificate(folder.name)
+        if pair:
+            api = FakeAnthropic(tls=pair)
+            self.addCleanup(api.close)
+            client = anthropic.Anthropic(api_key="test-key", base_url=api.url, max_retries=0,
+                                         http_client=anthropic.DefaultHttpxClient(verify=ssl.create_default_context(cafile=pair[0]), trust_env=False))
+            self.addCleanup(client.close)
+        else:
+            api, client = self.api, self.client
+        card, results = {"slug": "tide-loader", "question": "q", "answer": "a"}, {}
+
+        def ask(name, plan, limit):
+            try:
+                results[name] = assistant.critique(card, {}, "typed " + plan, client=client, answer_seconds=limit)["text"]
+            except assistant.AssistantError as exc:
+                results[name] = exc.status
+
+        for n in range(4):
+            left = threading.Thread(target=ask, args=(f"A{n}", f"[[id=A{n}; ping:10:0.1; end]]", 0.4))
+            left.start()
+            time.sleep(0.5)                              # A has just been given up; its thread still reads keep-alives
+            other = threading.Thread(target=ask, args=(f"B{n}", f"[[id=B{n}; burst:3000; end]]", 30))
+            other.start()
+            left.join(10)
+            other.join(40)
+            self.assertEqual(results[f"A{n}"], 504)
+            self.assertEqual(results[f"B{n}"], expected_text(f"B{n}", 3000).strip(), f"round {n}: B did not get its own complete answer")
+        self.settle()
+        self.assertEqual(api.url.startswith("https"), bool(pair))
+
+    def test_odd_failures_are_answers_too(self):
+        question = "Which key does the loader merge on?"
+        self.api.mode = "error_text"                     # an error event whose "error" is a sentence, not an object
         with self.assertRaises(assistant.AssistantError) as caught:
-            assistant.ask("Which key does the loader merge on?", self.passages, client=self.client, answer_seconds=1)
-        took = time.monotonic() - begun
-        self.assertEqual(caught.exception.status, 504)
-        self.assertIn("took too long", str(caught.exception))
-        self.assertLess(took, 3, f"abandoned only after {took:.1f} s")       # not the four seconds the keep-alives last
-        # the same slow answer is read to its end when the deadline allows it
-        self.api.mode = "pings:0.5"
-        answer = assistant.ask("Which key does the loader merge on?", self.passages, client=self.client, answer_seconds=20)
-        self.assertFalse(answer["truncated"])
-        self.assertTrue(answer["text"])
+            assistant.ask(question, self.passages, client=self.client)
+        self.assertEqual((caught.exception.status, caught.exception.retry_after), (503, 20))
+        self.api.mode = "garbage"                        # an event that is not JSON: whatever the SDK raises is reported, not raised
+        with self.assertRaises(assistant.AssistantError) as caught:
+            assistant.ask(question, self.passages, client=self.client)
+        self.assertEqual(caught.exception.status, 502)
+        self.assertIn("could not be read", str(caught.exception))
+        # a profile or federation setting that cannot yield a token only fails when a question is sent
+        failure = assistant._failure(anthropic.CredentialsError("Config file not found: no such profile"), "claude-opus-5-5")
+        self.assertEqual(failure.status, 503)
+        self.assertIn("credential could not be loaded: Config file not found", str(failure))
+        self.settle()
 
     def test_a_credential_that_cannot_be_loaded_turns_the_assistant_off(self):
         saved = {k: os.environ.pop(k, None) for k in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_PROFILE", "ANTHROPIC_FEDERATION_RULE_ID")}
@@ -1495,9 +1564,101 @@ class KubernetesTests(unittest.TestCase):
             with mock.patch.dict(os.environ, {"RECURSER_ALIVE_FILE": path}):
                 operator.run(cluster, "recurser", resync=1, stop=stop, log=log)
             self.assertEqual(check(), 0)                                   # a pass was made a moment ago
-            old = os.path.getmtime(path) - 600
+            recent = os.path.getmtime(path) - 300
+            os.utime(path, (recent, recent))
+            self.assertEqual(check(), 0)                                   # five minutes on a slow cluster: still alive
+            old = recent - 600
             os.utime(path, (old, old))
-            self.assertEqual(check(), 1)                                   # nothing for ten minutes: restart
+            self.assertEqual(check(), 1)                                   # nothing for a quarter of an hour: restart
+
+    def test_a_long_pause_between_passes_is_watched_in_short_stretches(self):
+        cluster, stop, asked, signs = self.cluster(), threading.Event(), [], []
+
+        def watch(namespace, timeout):
+            asked.append(timeout)
+            signs.append(os.path.getmtime(path))
+            if len(asked) == 3:
+                stop.set()
+            return iter(())
+
+        cluster.watch_apps = watch
+        with tempfile.TemporaryDirectory() as tmp:
+            from unittest import mock
+
+            path = os.path.join(tmp, "alive")
+            with mock.patch.dict(os.environ, {"RECURSER_ALIVE_FILE": path}):
+                operator.run(cluster, "recurser", resync=600, stop=stop, log=lambda line: None)
+        self.assertEqual(asked, [60, 60, 60])                              # never one request for the ten minutes
+        self.assertEqual(len(signs), 3)
+
+    def test_a_read_that_fails_is_said_on_the_object(self):
+        for kind in ("ConfigMap", "Secret", "Deployment", "Ingress"):
+            cluster, app = self.cluster(), self.app()
+            operator.reconcile(cluster, app)                               # a first pass that goes well
+            writes = len(cluster.statuses)
+
+            def get(api_version, kind_asked, namespace, name, kind=kind):
+                if kind_asked == kind:
+                    raise RuntimeError(f"{kind.lower()}s is forbidden: the controller may not read it")
+                return FakeCluster.get(cluster, api_version, kind_asked, namespace, name)
+
+            cluster.get = get
+            cond = operator.reconcile(cluster, app)["conditions"][0]
+            self.assertEqual((cond["status"], cond["reason"]), ("False", "ReadFailed"), kind)
+            self.assertIn(f"{kind} ", cond["message"])
+            self.assertIn("could not be read: ", cond["message"])
+            self.assertEqual(len(cluster.statuses), writes + 1, kind)      # the old status does not stay standing
+
+    def test_the_reason_of_a_failure_is_one_stable_line(self):
+        class Refused(Exception):
+            def __init__(self, status, reason, body, headers):
+                super().__init__(f"{status}\nReason: {reason}\nHTTP response headers: {headers}\nHTTP response body: {body}")
+                self.status, self.reason, self.body, self.headers = status, reason, body, headers
+
+        told = json.dumps({"kind": "Status", "message": 'deployments.apps "team" is forbidden:\n  not allowed'})
+        self.assertEqual(operator._why(Refused(403, "Forbidden", told, {"Audit-Id": "1"})), 'deployments.apps "team" is forbidden: not allowed')
+        self.assertEqual(operator._why(Refused(403, "Forbidden", told.encode(), {"Audit-Id": "2"})), 'deployments.apps "team" is forbidden: not allowed')
+        plain = [operator._why(Refused(429, "Too Many Requests", "Too many requests, please try again later.\n", {"Audit-Id": str(n), "Date": f"day {n}"})) for n in (1, 2)]
+        self.assertEqual(plain, ["HTTP 429 Too Many Requests: Too many requests, please try again later."] * 2)       # no header in it, so no change
+        self.assertEqual(operator._why(Refused(502, "Bad Gateway", "", {"Server": "a proxy"})), "HTTP 502 Bad Gateway")
+        self.assertEqual(operator._why(RuntimeError("Read timed out.\n(read timeout=30)")), "Read timed out. (read timeout=30)")
+
+    def test_a_secret_named_like_the_settings_does_not_hide_their_edits(self):
+        spec = {**k8s.example()["app"]["spec"], "usersRef": {"name": "config"}, "configRef": {"name": "config"}}
+        cluster = FakeCluster([
+            {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"namespace": "recurser", "name": "config", "resourceVersion": "11"}, "data": {"config.yaml": "llm:\n  effort: low\n"}},
+            {"apiVersion": "v1", "kind": "Secret", "metadata": {"namespace": "recurser", "name": "team-anthropic", "resourceVersion": "12"}, "data": {"ANTHROPIC_API_KEY": "eA=="}},
+            {"apiVersion": "v1", "kind": "Secret", "metadata": {"namespace": "recurser", "name": "config", "resourceVersion": "13"}, "data": {"users.json": "eA=="}}])
+        app = self.app(spec)
+        operator.reconcile(cluster, app)
+        stamp = lambda: cluster.objects[("apps/v1", "Deployment", "recurser", "team")]["spec"]["template"]["metadata"]["annotations"]
+        first = dict(stamp())
+        cluster.objects[("v1", "ConfigMap", "recurser", "config")]["metadata"]["resourceVersion"] = "21"
+        operator.reconcile(cluster, app)
+        second = dict(stamp())
+        self.assertNotEqual(first, second)                                  # the settings changed: the pod is rolled
+        cluster.objects[("v1", "Secret", "recurser", "config")]["metadata"]["resourceVersion"] = "22"
+        operator.reconcile(cluster, app)
+        self.assertNotEqual(second, dict(stamp()))                          # the users changed: rolled again
+
+    def test_only_a_changed_spec_starts_a_pass_between_two_full_ones(self):
+        seen = {"metadata": {"generation": 3}, "status": {"observedGeneration": 3}}
+        self.assertTrue(operator._settled(seen))                           # e.g. the controller's own status write coming back
+        self.assertFalse(operator._settled({"metadata": {"generation": 4}, "status": {"observedGeneration": 3}}))
+        self.assertFalse(operator._settled({"metadata": {"generation": 1}}))                              # a new object
+        self.assertFalse(operator._settled({"metadata": {}, "status": {}}))
+        cluster, stop, lines = self.cluster(), threading.Event(), []
+        app = self.app()
+        cluster.objects[(k8s.API_VERSION, k8s.KIND, "recurser", "team")] = app
+        events = [("MODIFIED", app), ("MODIFIED", app), ("ADDED", app)]    # all three carry the status of the first pass
+
+        def watch(namespace, timeout):
+            stop.set()
+            return iter(events)
+
+        cluster.watch_apps = watch
+        operator.run(cluster, "recurser", resync=30, stop=threading.Event() if False else stop, log=lines.append)
+        self.assertEqual(len(lines), 1, lines)                             # the full pass, and nothing for the three events
 
     def test_every_call_to_the_cluster_has_a_time_limit(self):
         if kubernetes is None:          # the calls only import the name of one error class
@@ -1570,12 +1731,13 @@ class ControllerThroughTheClientTests(unittest.TestCase):
         self.addCleanup(self.api.close)
         tmp = tempfile.TemporaryDirectory()          # the client keeps a discovery cache file in the temp folder
         self.addCleanup(tmp.cleanup)
+        self.cache_dir = tmp.name
         patcher = mock.patch.object(tempfile, "tempdir", tmp.name)
         patcher.start()
         self.addCleanup(patcher.stop)
         configuration = client.Configuration(host=self.api.url)
         configuration.proxy = None                   # a local server, whatever the environment says about proxies
-        self.cluster = operator.KubeCluster(client.ApiClient(configuration))
+        self.cluster = operator.KubeCluster(configuration)
         self.addCleanup(self.cluster.dyn.client.close)
         meta = lambda name: {"namespace": "recurser", "name": name}
         self.api.put({"apiVersion": "v1", "kind": "ConfigMap", "metadata": meta("team-config"), "data": {"config.yaml": "llm:\n  effort: low\n"}})
@@ -1645,21 +1807,90 @@ class ControllerThroughTheClientTests(unittest.TestCase):
 
         def log(line):
             lines.append(line)
-            if len(lines) == 2:                      # the first pass, then the same object as the watch presents it
+            if len(lines) == 1:                      # after the first full pass somebody edits the spec
                 stored = self.api.get(k8s.API_VERSION, k8s.PLURAL, "recurser", "team")
                 self.api.put({**stored, "spec": {**stored["spec"], "image": "registry.example.internal/recurser:2"}})
-            if len(lines) >= 3:                      # the change, seen through the watch
+            if len(lines) >= 2:                      # the change, seen through the watch
                 stop.set()
 
-        worker = threading.Thread(target=operator.run, args=(self.cluster, "recurser"), kwargs={"resync": 3, "stop": stop, "log": log, "pause": 0.1}, daemon=True)
+        worker = threading.Thread(target=operator.run, args=(self.cluster, "recurser"), kwargs={"resync": 20, "stop": stop, "log": log, "pause": 0.1}, daemon=True)
         worker.start()
         worker.join(15)
         self.assertFalse(worker.is_alive(), lines)
-        self.assertTrue(all(line.startswith("team: Ready=False (Progressing)") for line in lines), lines)
+        self.assertEqual(lines, ["team: Ready=False (Progressing)"] * 2)
         watch = [r for r in self.api.sent("GET", "/recurserapps") if "watch" in r["query"]]
-        self.assertEqual((watch[0]["query"]["watch"][0].lower(), watch[0]["query"]["timeoutSeconds"]), ("true", ["3"]))
+        self.assertEqual((watch[0]["query"]["watch"][0].lower(), watch[0]["query"]["timeoutSeconds"]), ("true", ["20"]))
         image = self.api.get("apps/v1", "deployments", "recurser", "team")["spec"]["template"]["spec"]["containers"][0]["image"]
         self.assertEqual(image, "registry.example.internal/recurser:2")
+        stored = self.api.get(k8s.API_VERSION, k8s.PLURAL, "recurser", "team")
+        self.assertEqual((stored["metadata"]["generation"], stored["status"]["observedGeneration"]), (2, 2))
+        self.assertEqual(len(self.api.sent("PATCH", "/recurserapps/team/status")), 2)       # one per version of the spec
+
+    def test_its_own_status_writes_do_not_start_new_passes(self):
+        """A refusal that is not the API's JSON (a proxy's page, an answer that sheds load) carries headers that
+        differ every time.  The status says one stable line, and writing it does not bring on another pass."""
+        import time
+
+        self.api.plain_refusals = True
+        self.api.refuse[("PATCH", "deployments")] = (429, "Too Many Requests", "Too many requests, please try again later.")
+        stop, lines = threading.Event(), []
+        worker = threading.Thread(target=operator.run, args=(self.cluster, "recurser"), kwargs={"resync": 30, "stop": stop, "log": lines.append, "pause": 0.1}, daemon=True)
+        worker.start()
+        time.sleep(3)
+        stop.set()
+        worker.join(40)
+        self.assertEqual(lines, ["team: Ready=False (ApplyFailed)"])                         # one pass in three seconds, not hundreds
+        self.assertEqual(len(self.api.sent("PATCH", "/recurserapps/team/status")), 1)
+        message = self.api.get(k8s.API_VERSION, k8s.PLURAL, "recurser", "team")["status"]["conditions"][0]["message"]
+        self.assertEqual(message, "Deployment team was refused: HTTP 429 Too Many Requests: Too many requests, please try again later.")
+
+    def test_a_read_the_cluster_refuses_reaches_the_status(self):
+        operator.reconcile(self.cluster, self.app())
+        words = 'secrets "team-anthropic" is forbidden: User "system:serviceaccount:recurser:recurser-controller" cannot get resource "secrets"'
+        self.api.refuse[("GET", "secrets")] = (403, "Forbidden", words)
+        stored = self.api.get(k8s.API_VERSION, k8s.PLURAL, "recurser", "team")
+        self.api.put({**stored, "spec": {**stored["spec"], "image": "registry.example.internal/recurser:2"}})
+        cond = operator.reconcile(self.cluster, self.app())["conditions"][0]
+        self.assertEqual((cond["reason"], cond["message"]), ("ReadFailed", "Secret team-anthropic could not be read: " + words))
+        status = self.api.get(k8s.API_VERSION, k8s.PLURAL, "recurser", "team")["status"]
+        self.assertEqual((status["conditions"][0]["reason"], status["observedGeneration"]), ("ReadFailed", 2))
+
+    def test_a_request_is_made_once_and_never_waits_without_limit(self):
+        """Also the requests the client makes on its own to learn what the cluster offers."""
+        import time
+        from unittest import mock
+
+        from kubernetes import client
+
+        patcher = mock.patch.object(operator.KubeCluster, "TIMEOUT", (1, 1))      # one second in place of thirty, for the whole test
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+        def fresh():
+            for name in os.listdir(self.cache_dir):      # no memory of what an earlier client learnt
+                os.remove(os.path.join(self.cache_dir, name))
+            configuration = client.Configuration(host=self.api.url)
+            configuration.proxy = None
+            cluster = operator.KubeCluster(configuration)
+            self.addCleanup(cluster.dyn.client.close)
+            return cluster
+
+        def unanswered(part, call):
+            self.api.mute = {part: 6}
+            before, begun = len(self.api.requests), time.monotonic()
+            with self.assertRaises(Exception):
+                call()
+            self.assertLess(time.monotonic() - begun, 4, part)                    # one second of patience, not six
+            self.api.mute = {}
+            return [r["path"] for r in self.api.requests[before:] if part in r["path"]]
+
+        cluster = fresh()
+        asked = unanswered("/configmaps/team-config", lambda: cluster.get("v1", "ConfigMap", "recurser", "team-config"))
+        self.assertEqual(asked, ["/api/v1/namespaces/recurser/configmaps/team-config"])              # asked once: no second try
+        self.assertIsNotNone(cluster.get("v1", "ConfigMap", "recurser", "team-config"))              # the cluster answers again: so does the client
+        other = fresh()
+        asked = unanswered("/apis/networking.k8s.io/v1", lambda: other.get("networking.k8s.io/v1", "Ingress", "recurser", "team"))
+        self.assertEqual(asked, ["/apis/networking.k8s.io/v1"])                   # the document that lists the kinds, asked once
 
     def test_a_connection_that_went_silent_does_not_stop_the_loop(self):
         import time

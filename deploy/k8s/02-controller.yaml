@@ -116,7 +116,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: controller
-        image: ghcr.io/OWNER/recurser:0.2.0
+        image: ghcr.io/OWNER/recurser:0.3.0
         imagePullPolicy: IfNotPresent
         command:
         - python
@@ -139,7 +139,7 @@ spec:
             command:
             - python
             - -c
-            - import os,sys,time; sys.exit(0 if time.time() - os.path.getmtime('/tmp/recurser-controller.alive') < 240 else
+            - import os,sys,time; sys.exit(0 if time.time() - os.path.getmtime('/tmp/recurser-controller.alive') < 600 else
               1)
           initialDelaySeconds: 60
           periodSeconds: 30

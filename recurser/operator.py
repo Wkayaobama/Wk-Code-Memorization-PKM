@@ -12,12 +12,18 @@ small interface (get, apply, delete, set_status, list and watch), so they are te
 """
 from __future__ import annotations
 
-import argparse
-import json
-import os
 import signal
 import sys
+
+if __name__ == "__main__":        # a container's command: take the stop request before anything else is loaded
+    signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(0))
+
+import argparse
+import json
+import math
+import os
 import threading
+import time
 from datetime import datetime, timezone
 
 try:
@@ -38,18 +44,39 @@ def _condition(ok: bool, reason: str, message: str, previous: dict | None, gener
 
 
 def _why(exc: Exception) -> str:
-    """Why a call to the cluster failed, on one line: the API's own sentence when the error carries one."""
+    """Why a call to the cluster failed, on one line and the same line every time: the API's own sentence when
+    the error carries one, else the status and the first line of the answer.  Never the response headers:
+    they differ with every request, and a status message that changes is a status that is written again."""
+    def one_line(text) -> str:
+        return " ".join(str(text).split())[:300]
+
     body = getattr(exc, "body", None)
     if isinstance(body, bytes):
         body = body.decode("utf-8", "replace")
-    if isinstance(body, str):
+    body = body.strip() if isinstance(body, str) else ""
+    if body:
         try:
             message = json.loads(body).get("message")
         except (ValueError, AttributeError):
             message = None
         if message:
-            return " ".join(str(message).split())[:300]
-    return " ".join(str(exc).split())[:300]
+            return one_line(message)
+    status = getattr(exc, "status", None)
+    if status:                    # not the API's JSON: a proxy's page, an answer that sheds load
+        said = one_line(f"HTTP {status} {getattr(exc, 'reason', None) or ''}")
+        return one_line(f"{said}: {body.splitlines()[0]}") if body else said
+    return one_line(exc)
+
+
+class _Unreadable(Exception):
+    """Something the RecurserApp refers to, or one of its own objects, could not be read."""
+
+
+def _settled(app: dict) -> bool:
+    """True when the status on the object already answers its present spec.  The controller's own status writes
+    come back as change events; without this test each of them would start another pass."""
+    generation = (app.get("metadata") or {}).get("generation")
+    return generation is not None and (app.get("status") or {}).get("observedGeneration") == generation
 
 
 def _parse_config(text: str):
@@ -71,56 +98,64 @@ def reconcile(cluster, app: dict) -> dict:
             cluster.set_status(app, status)
         return status
 
+    def read(api_version: str, kind: str, object_name: str):
+        try:
+            return cluster.get(api_version, kind, namespace, object_name)
+        except Exception as exc:  # refused, or no answer: say so on the object instead of leaving an old status standing
+            raise _Unreadable(f"{kind} {object_name} could not be read: {_why(exc)}") from exc
+
     problems = k8s.validate_name(name) + k8s.validate_spec(app.get("spec"))
     if problems:
         return finish(False, "InvalidSpec", "; ".join(problems[:4]))
     spec = k8s.with_defaults(app["spec"])
     checksums = {}
-
-    config_map = cluster.get("v1", "ConfigMap", namespace, spec["configRef"]["name"])
-    if config_map is None:
-        return finish(False, "ConfigMissing", f"ConfigMap {spec['configRef']['name']} was not found")
-    if k8s.CONFIG_KEY not in (config_map.get("data") or {}):
-        return finish(False, "ConfigKeyMissing", f"ConfigMap {spec['configRef']['name']} has no key {k8s.CONFIG_KEY}")
     try:
-        _parse_config(config_map["data"][k8s.CONFIG_KEY])
-    except config_mod.ConfigError as exc:
-        return finish(False, "ConfigInvalid", str(exc))
-    checksums["config"] = config_map["metadata"].get("resourceVersion")
-
-    for ref, key, missing, key_missing in ((spec["secretRef"], spec["secretRef"].get("key") or k8s.API_KEY_ENV, "SecretMissing", "SecretKeyMissing"),
-                                           (spec["usersRef"], k8s.USERS_KEY, "UsersMissing", "UsersKeyMissing")):
-        if not ref["name"]:
-            continue
-        secret = cluster.get("v1", "Secret", namespace, ref["name"])
-        if secret is None:
-            return finish(False, missing, f"Secret {ref['name']} was not found")
-        if key not in (secret.get("data") or {}):          # only the key names are looked at, never a value
-            return finish(False, key_missing, f"Secret {ref['name']} has no key {key}")
-        checksums[ref["name"]] = secret["metadata"].get("resourceVersion")
-
-    rendered = k8s.render(name, namespace, app["spec"], owner=k8s.owner_reference(app), checksums=checksums)
-    refused = []
-    for obj in rendered:              # one refused object (a volume claim asked to shrink) must not hold the others back
+        config_map = read("v1", "ConfigMap", spec["configRef"]["name"])
+        if config_map is None:
+            return finish(False, "ConfigMissing", f"ConfigMap {spec['configRef']['name']} was not found")
+        if k8s.CONFIG_KEY not in (config_map.get("data") or {}):
+            return finish(False, "ConfigKeyMissing", f"ConfigMap {spec['configRef']['name']} has no key {k8s.CONFIG_KEY}")
         try:
-            cluster.apply(obj)
-        except Exception as exc:
-            refused.append(f"{obj['kind']} {obj['metadata']['name']} was refused: {_why(exc)}")
-    wanted = {(o["apiVersion"], o["kind"]) for o in rendered}
-    for api_version, kind in k8s.OPTIONAL_KINDS:      # an Ingress or NetworkPolicy the spec no longer asks for
-        if (api_version, kind) in wanted:
-            continue
-        stale = cluster.get(api_version, kind, namespace, name)
-        owners = (stale or {}).get("metadata", {}).get("ownerReferences") or []
-        if stale and meta.get("uid") and any(o.get("uid") == meta["uid"] for o in owners):       # only what this RecurserApp created
-            try:
-                cluster.delete(api_version, kind, namespace, name)
-            except Exception as exc:
-                refused.append(f"{kind} {name} could not be removed: {_why(exc)}")
-    if refused:
-        return finish(False, "ApplyFailed", "; ".join(refused[:3]))
+            _parse_config(config_map["data"][k8s.CONFIG_KEY])
+        except config_mod.ConfigError as exc:
+            return finish(False, "ConfigInvalid", str(exc))
+        checksums["ConfigMap/" + spec["configRef"]["name"]] = config_map["metadata"].get("resourceVersion")
 
-    deployment = cluster.get("apps/v1", "Deployment", namespace, name) or {}
+        for ref, key, missing, key_missing in ((spec["secretRef"], spec["secretRef"].get("key") or k8s.API_KEY_ENV, "SecretMissing", "SecretKeyMissing"),
+                                               (spec["usersRef"], k8s.USERS_KEY, "UsersMissing", "UsersKeyMissing")):
+            if not ref["name"]:
+                continue
+            secret = read("v1", "Secret", ref["name"])
+            if secret is None:
+                return finish(False, missing, f"Secret {ref['name']} was not found")
+            if key not in (secret.get("data") or {}):          # only the key names are looked at, never a value
+                return finish(False, key_missing, f"Secret {ref['name']} has no key {key}")
+            checksums["Secret/" + ref["name"]] = secret["metadata"].get("resourceVersion")
+
+        rendered = k8s.render(name, namespace, app["spec"], owner=k8s.owner_reference(app), checksums=checksums)
+        refused = []
+        for obj in rendered:              # one refused object (a volume claim asked to shrink) must not hold the others back
+            try:
+                cluster.apply(obj)
+            except Exception as exc:
+                refused.append(f"{obj['kind']} {obj['metadata']['name']} was refused: {_why(exc)}")
+        wanted = {(o["apiVersion"], o["kind"]) for o in rendered}
+        for api_version, kind in k8s.OPTIONAL_KINDS:      # an Ingress or NetworkPolicy the spec no longer asks for
+            if (api_version, kind) in wanted:
+                continue
+            stale = read(api_version, kind, name)
+            owners = (stale or {}).get("metadata", {}).get("ownerReferences") or []
+            if stale and meta.get("uid") and any(o.get("uid") == meta["uid"] for o in owners):       # only what this RecurserApp created
+                try:
+                    cluster.delete(api_version, kind, namespace, name)
+                except Exception as exc:
+                    refused.append(f"{kind} {name} could not be removed: {_why(exc)}")
+        if refused:
+            return finish(False, "ApplyFailed", "; ".join(refused[:3]))
+
+        deployment = read("apps/v1", "Deployment", name) or {}
+    except _Unreadable as exc:
+        return finish(False, "ReadFailed", str(exc))
     if (deployment.get("status") or {}).get("availableReplicas", 0) >= 1:
         note = "" if spec["secretRef"]["name"] else " (no secretRef: the assistant is off)"
         return finish(True, "Available", "the Deployment and the Service are in place and the pod is ready" + note)
@@ -134,18 +169,32 @@ class KubeCluster:
     TIMEOUT = (5, 30)          # seconds to connect, seconds to read
     WATCH_MARGIN = 15          # seconds of silence tolerated after the moment the server was to end the watch
 
-    def __init__(self, api_client=None):
-        """``api_client``: a configured ``kubernetes.client.ApiClient``; by default the pod's own service
-        account, or the current kubectl context outside a cluster."""
+    def __init__(self, configuration=None):
+        """``configuration``: a ``kubernetes.client.Configuration``; by default the pod's own service account,
+        or the current kubectl context outside a cluster."""
+        import urllib3
         from kubernetes import client, config, dynamic
 
-        if api_client is None:
+        if configuration is None:
             try:
                 config.load_incluster_config()
             except config.ConfigException:
                 config.load_kube_config()
-            api_client = client.ApiClient()
-        self.dyn = dynamic.DynamicClient(api_client)
+            configuration = client.Configuration.get_default_copy()
+        # A read is tried once: the limit above is then the limit, not a quarter of the wait.  A connection
+        # that could not be opened is tried once more.
+        configuration.retries = urllib3.Retry(total=1, connect=1, read=False, status=0, other=0, redirect=0)
+        limit = self.TIMEOUT
+
+        class Limited(client.ApiClient):
+            """Every request has a time limit, the ones the client makes on its own (discovery) included."""
+
+            def call_api(self, *args, **kwargs):
+                if kwargs.get("_request_timeout") is None:
+                    kwargs["_request_timeout"] = limit
+                return super().call_api(*args, **kwargs)
+
+        self.dyn = dynamic.DynamicClient(Limited(configuration))
         self._cache: dict = {}
 
     def _resource(self, api_version: str, kind: str):
@@ -194,9 +243,13 @@ class KubeCluster:
             yield event["type"], event["raw_object"]
 
 
+SLICE = 60                    # seconds one watch request lasts at most; between two of them the loop shows it is alive
+
+
 def run(cluster, namespace: str, resync: int = 30, stop: threading.Event | None = None, log=print, pause: float = 5) -> None:
     """Reconcile everything, then follow changes; every ``resync`` seconds look at everything again, which is
-    also how a pod becoming ready reaches the status.  After a failed pass, wait ``pause`` seconds."""
+    also how a pod becoming ready, or an edited ConfigMap or Secret, reaches the object.  After a failed pass,
+    wait ``pause`` seconds."""
     stop = stop or threading.Event()
 
     def safe(app: dict) -> None:
@@ -219,12 +272,22 @@ def run(cluster, namespace: str, resync: int = 30, stop: threading.Event | None 
             alive()
             for app in cluster.list_apps(namespace):
                 safe(app)
-            alive()
-            for kind, app in cluster.watch_apps(namespace, resync):
-                if stop.is_set():
+                alive()           # after every object: a slow cluster with many of them is still alive
+            until = time.monotonic() + resync
+            while not stop.is_set():
+                left = until - time.monotonic()
+                if left <= 0:
                     break
-                if kind in ("ADDED", "MODIFIED"):
-                    safe(app)
+                begun = time.monotonic()
+                for kind, app in cluster.watch_apps(namespace, max(1, min(SLICE, math.ceil(left)))):
+                    if stop.is_set():
+                        break
+                    if kind in ("ADDED", "MODIFIED") and not _settled(app):
+                        safe(app)
+                    alive()
+                alive()
+                if time.monotonic() - begun < 1:       # a watch that ends at once must not make this a busy loop
+                    stop.wait(1)
         except Exception as exc:
             log(f"watch interrupted: {_why(exc)}")
             stop.wait(pause)

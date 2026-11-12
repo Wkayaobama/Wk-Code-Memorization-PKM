@@ -15,8 +15,8 @@ fallback model inside the same call.  Set ``llm.fallbacks: false`` in the config
 """
 from __future__ import annotations
 
+import queue
 import threading
-import time
 
 DEFAULT_MODEL = "claude-opus-5-5"
 DEFAULT_EFFORT = "medium"
@@ -109,11 +109,20 @@ def _send(client, *, system: str, content: list, model: str, effort: str, max_to
     """One streamed request; returns the final message.  Every failure becomes an AssistantError, including
     the ones that arrive after the stream has opened.
 
-    Two limits apply.  The client's timeout is the longest silence tolerated; with one retry, an API that
-    never answers is given up after about twice that.  ``answer_seconds`` is the longest one answer may take
-    once it has started, keep-alives included; the settings keep it at twice the timeout or more."""
+    Two limits apply.  The client's timeout is the longest silence tolerated from the API.  ``answer_seconds``
+    is the longest the person asking waits, whatever the API is doing: connecting, retrying, sending
+    keep-alives, or writing.
+
+    The answer is read on a thread of its own, and the caller waits for that thread with the deadline.  When
+    the deadline passes, the caller leaves and the thread is told that nobody is waiting: at its next event,
+    or when the client's timeout ends a silence, it closes its own stream.  Nothing ever reaches into a
+    connection from another thread.  (Closing or shutting down a stream that another thread is reading frees
+    or disturbs a descriptor that thread still uses; over TLS it then reads somebody else's answer.)"""
     if effort not in EFFORTS:
         raise AssistantError(f"effort must be one of {', '.join(EFFORTS)}", status=500)
+    too_long = "the answer took too long and was abandoned"
+    if answer_seconds <= 0:
+        raise AssistantError(too_long, status=504)
     params = dict(
         model=model,
         max_tokens=max_tokens,
@@ -124,46 +133,34 @@ def _send(client, *, system: str, content: list, model: str, effort: str, max_to
     )
     if fallbacks:
         params.update(betas=[FALLBACK_BETA], fallbacks="default")
-    deadline = time.monotonic() + answer_seconds
-    expired = threading.Event()
-    too_long = "the answer took too long and was abandoned"
+    nobody_waits = threading.Event()
+    outcome: queue.Queue = queue.Queue(maxsize=1)       # (message, None) or (None, the exception)
 
-    def give_up(stream) -> None:
-        # Runs on a timer.  The loop below only sees real events: an answer that sends nothing but keep-alives
-        # would be waited for as long as they keep coming.  Closing the stream ends that wait at the next read.
-        expired.set()
+    def read() -> None:
         try:
-            stream.close()
-        except Exception:
-            pass
+            with client.beta.messages.stream(**params) as stream:
+                for _ in stream:
+                    if nobody_waits.is_set():
+                        return              # leaving the block closes the stream, from the thread that reads it
+                outcome.put((stream.get_final_message(), None))
+        except Exception as exc:
+            outcome.put((None, exc))
 
+    threading.Thread(target=read, name="recurser-answer", daemon=True).start()
     try:
-        with client.beta.messages.stream(**params) as stream:
-            timer = threading.Timer(max(0.0, deadline - time.monotonic()), give_up, args=(stream,))
-            timer.daemon = True
-            timer.start()
-            try:
-                for _ in stream:            # the client's timeout bounds each silence; the deadline bounds the whole answer
-                    if expired.is_set() or time.monotonic() > deadline:
-                        raise AssistantError(too_long, status=504)
-                if expired.is_set():
-                    raise AssistantError(too_long, status=504)
-                return stream.get_final_message()
-            finally:
-                timer.cancel()
-    except AssistantError:
-        raise
-    except Exception as exc:
-        if expired.is_set():                # whatever the closed stream raised, the cause is the deadline
-            raise AssistantError(too_long, status=504) from exc
-        failure = _failure(exc, model)
-        if failure is None:
-            raise
-        raise failure from exc
+        message, failed = outcome.get(timeout=answer_seconds)
+    except queue.Empty:
+        nobody_waits.set()
+        raise AssistantError(too_long, status=504) from None
+    if failed is None:
+        return message
+    if isinstance(failed, AssistantError):
+        raise failed
+    raise (_failure(failed, model) or AssistantError(f"the answer could not be read ({type(failed).__name__})", status=502)) from failed
 
 
 def _failure(exc: Exception, model: str):
-    """The AssistantError that stands for ``exc``, or None when ``exc`` is not a failure of the request."""
+    """The AssistantError that stands for ``exc``, or None for an error this function does not know."""
     import anthropic
 
     try:
@@ -185,14 +182,16 @@ def _failure(exc: Exception, model: str):
         return AssistantError(f"the Anthropic API rejected the request: {exc.message}", status=502)
     if isinstance(exc, anthropic.APIStatusError):
         if exc.status_code < 400:           # an error event inside a stream that had started with 200
-            body = exc.body if isinstance(exc.body, dict) else {}
-            kind = (body.get("error") or {}).get("type") or "error"
+            error = exc.body.get("error") if isinstance(exc.body, dict) else None
+            kind = (error.get("type") if isinstance(error, dict) else None) or "error"
             return AssistantError(f"the Anthropic API stopped the answer ({kind}); try again in a moment", status=503, retry_after=20)
         return AssistantError(f"the Anthropic API answered {exc.status_code}", status=502 if exc.status_code >= 500 else 500)
     if isinstance(exc, anthropic.APITimeoutError):
         return AssistantError("the Anthropic API did not answer in time", status=504)
     if isinstance(exc, anthropic.APIConnectionError):
         return AssistantError("the Anthropic API could not be reached from this server", status=502)
+    if isinstance(exc, anthropic.CredentialsError):         # a profile or federation setting that cannot yield a token
+        return AssistantError(f"the server's Anthropic credential could not be loaded: {' '.join(str(exc).split())[:200]}", status=503)
     if isinstance(exc, anthropic.AnthropicError):
         return AssistantError(f"the request to the Anthropic API failed ({type(exc).__name__})", status=502)
     if transport is not None and isinstance(exc, transport.TimeoutException):

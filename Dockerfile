@@ -1,6 +1,6 @@
 # The team server (and the controller, which is the same image started with another command).
 #
-#   docker build -t ghcr.io/<you>/recurser:0.2.0 .
+#   docker build -t ghcr.io/<you>/recurser:0.3.0 .
 #
 # The decks under data/ are copied into the image: build from the checkout that holds the decks this
 # deployment may serve, and push the image to a registry as private as those decks.

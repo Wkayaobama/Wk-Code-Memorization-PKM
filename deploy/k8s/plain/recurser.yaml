@@ -52,7 +52,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: recurser
-        image: ghcr.io/OWNER/recurser:0.2.0
+        image: ghcr.io/OWNER/recurser:0.3.0
         imagePullPolicy: IfNotPresent
         args:
         - serve
