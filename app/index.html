@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!--HEAD-->
+<title>Recurser</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+<!--/HEAD-->
+</head>
+<body>
+<!--BODY-->
+<div class="app" id="app">
+  <header class="topbar">
+    <div class="wrap topbar-in">
+      <a class="brand" href="#today" aria-label="Recurser, today">
+        <span class="brand-mark" aria-hidden="true">R</span>
+        <span class="brand-name">Recurser</span>
+      </a>
+      <nav class="nav" id="nav" aria-label="Sections"></nav>
+      <span class="sync" id="sync-chip" title="Where your review history is kept"></span>
+    </div>
+  </header>
+  <main class="main" id="main" tabindex="-1">
+    <div class="wrap" id="view">
+      <p class="boot">Loading your decks.</p>
+    </div>
+  </main>
+  <nav class="tabbar" id="tabbar" aria-label="Sections"></nav>
+  <div class="notice" id="notice" role="status" aria-live="polite" hidden></div>
+</div>
+<script src="data/bundle.js"></script>
+<script src="js/srs.js"></script>
+<script src="js/fuzzy.js"></script>
+<script src="js/model.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/session.js"></script>
+<script src="js/views.js"></script>
+<script src="js/main.js"></script>
+<!--/BODY-->
+</body>
+</html>

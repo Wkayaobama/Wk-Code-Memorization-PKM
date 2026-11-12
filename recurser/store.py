@@ -1,0 +1,509 @@
+"""Data tiers on disk, ingestion of analysis output, and the in-memory edition.
+
+Layout::
+
+    data/<tier>/projects.json    manifest: slug, repo, code, visibility, branch, aliases...
+    data/<tier>/inventory.json   every repository of that tier with its last-push time
+    data/<tier>/maps/<slug>.json one knowledge map per project
+    data/<tier>/cards/<slug>.json the cards of that project
+
+    data/private/unredacted/<slug>.json   full wording of a public deck that named a private project
+
+Two tiers exist: ``public`` (derived from public repositories only; safe to
+commit anywhere) and ``private`` (everything derived from private
+repositories; git-ignored in the public repository).  An *edition* is the
+merge of the tiers that are present.  A public deck may not name a private
+repository: ingest redacts such mentions in the public tier and keeps the full
+wording in the private tier, which the private edition prefers.
+"""
+from __future__ import annotations
+
+import json
+import os
+from datetime import date, datetime, timezone
+
+try:  # package import or plain-script import
+    from . import address, inventory, schema
+except ImportError:  # pragma: no cover
+    import address, inventory, schema  # type: ignore
+
+TIERS = ("public", "private")
+
+
+def head_commit(directory: str) -> str:
+    """Commit currently checked out in a directory ('' when it is not a git checkout)."""
+    import subprocess
+
+    try:
+        out = subprocess.run(["git", "-C", directory, "rev-parse", "HEAD"], capture_output=True, text=True, timeout=20)
+        return out.stdout.strip() if out.returncode == 0 else ""
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def _read(path: str, default=None):
+    if not os.path.exists(path):
+        return default
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def _write(path: str, data) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(data, fh, indent=1, ensure_ascii=False)
+        fh.write("\n")
+
+
+def tier_dir(root: str, tier: str) -> str:
+    return os.path.join(root, "data", tier)
+
+
+def present_tiers(root: str) -> list[str]:
+    return [t for t in TIERS if os.path.exists(os.path.join(tier_dir(root, t), "projects.json"))]
+
+
+# --------------------------------------------------------------------------
+# Privacy gate: nothing about a private repository may enter the public tier
+# --------------------------------------------------------------------------
+VERBATIM_FIELDS = {"evidence_quote", "code_snippet", "expected_output", "source", "source_refs", "path", "evidence"}
+REDACTED = "[private project]"   # a bracketed placeholder reads correctly after any article or adjective
+UNREDACTED = "unredacted"  # data/private/unredacted/<slug>.json: full wording of a public deck that was redacted
+
+
+def _name_pattern(names):
+    import re
+
+    parts = []
+    for name in sorted({n for n in names if n and len(n) >= 4}, key=len, reverse=True):
+        tokens = [re.escape(t) for t in re.split(r"[-_ ]+", name) if t]
+        parts.append(r"[-_ ]?".join(tokens))
+    return re.compile(r"(?<![A-Za-z0-9])(?:" + "|".join(parts) + r")(?![A-Za-z0-9])", re.I) if parts else None
+
+
+def _norm_name(text: str) -> str:
+    return "".join(ch for ch in text.lower() if ch not in "-_ ")
+
+
+SKIP_DIRS = {".git", "node_modules", "dist", "build", "__pycache__", ".venv", "venv", "target", ".next", ".cache"}
+
+
+def public_vocabulary(private_names, repo_dirs, max_bytes: int = 2_000_000) -> set[str]:
+    """Private names that a PUBLIC checkout already spells out itself, in a path or in a text file.
+
+    Such a name is already public through that repository, so its own deck may keep using it
+    (a public fork that carries a directory named like a later private project, for instance).
+    """
+    pattern = _name_pattern(private_names)
+    seen: set[str] = set()
+    if pattern is None:
+        return seen
+    for base in repo_dirs:
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+            seen.update(_norm_name(m.group(0)) for m in pattern.finditer(os.path.relpath(dirpath, base)))
+            for name in filenames:
+                seen.update(_norm_name(m.group(0)) for m in pattern.finditer(name))
+                path = os.path.join(dirpath, name)
+                try:
+                    if os.path.islink(path) or os.path.getsize(path) > max_bytes:
+                        continue
+                    with open(path, "rb") as fh:
+                        raw = fh.read()
+                except OSError:
+                    continue
+                if b"\0" in raw[:4096]:
+                    continue
+                seen.update(_norm_name(m.group(0)) for m in pattern.finditer(raw.decode("utf-8", "replace")))
+    return {n for n in private_names if _norm_name(n) in seen}
+
+
+def privacy_gate(obj, private_names, keep=()):
+    """Return (clean copy, findings).  Relations to private projects are dropped; any other mention of a
+    private repository name is replaced, unless the name is in ``keep`` (names the public repository
+    already spells out itself).  Verbatim source fields are left alone: they quote public code."""
+    relation_pattern = _name_pattern(private_names)
+    kept = {_norm_name(k) for k in keep}
+    plain = _name_pattern([n for n in private_names if _norm_name(n) not in kept])
+    findings: list[str] = []
+    if relation_pattern is None:
+        return obj, findings
+    text_pattern = plain
+
+    def walk(node, key=""):
+        if isinstance(node, dict):
+            out = {}
+            for k, v in node.items():
+                if k == "relations" and isinstance(v, list):
+                    kept_rel = [r for r in v if not (isinstance(r, dict) and relation_pattern.search(str(r.get("project", ""))))]
+                    if len(kept_rel) != len(v):
+                        findings.append(f"dropped {len(v) - len(kept_rel)} relation(s) to private projects")
+                    out[k] = walk(kept_rel, k)
+                elif k == "see_also" and isinstance(v, list):   # a link into a private deck leads nowhere in public
+                    kept_links = [x for x in v if not (isinstance(x, str) and relation_pattern.search(x.split(":")[0]))]
+                    if len(kept_links) != len(v):
+                        findings.append(f"dropped {len(v) - len(kept_links)} link(s) to cards of private projects")
+                    if kept_links:
+                        out[k] = kept_links
+                else:
+                    out[k] = walk(v, k)
+            return out
+        if isinstance(node, list):
+            return [walk(v, key) for v in node]
+        if isinstance(node, str) and text_pattern is not None and key not in VERBATIM_FIELDS and text_pattern.search(node):
+            findings.append(f"redacted a private repository name in '{key}'")
+            return text_pattern.sub(REDACTED, node)
+        return node
+
+    return walk(obj), findings
+
+
+SCRUBBED = "[id]"
+CITATION_FIELDS = {"evidence_quote", "source", "source_refs", "path", "evidence"}   # checked against the code: never rewritten
+
+
+def scrub_terms(obj, terms, placeholder: str = SCRUBBED):
+    """Return (clean copy, count).  Exact identifier strings (a portal number, a cloud project id...) are
+    replaced everywhere except in the citation fields, which must keep matching the code.  The list is
+    supplied by whoever runs the ingest: an account identifier has no rehearsal value and should not
+    travel with the cards."""
+    import re
+
+    terms = sorted({str(t) for t in (terms or []) if str(t).strip()}, key=len, reverse=True)
+    if not terms:
+        return obj, 0
+    # A number is bounded by non-digits (it also hides inside names such as "p<portal>_object");
+    # a word is bounded by non-alphanumerics.
+    numbers = [re.escape(t) for t in terms if t.isdigit()]
+    words = [re.escape(t) for t in terms if not t.isdigit()]
+    parts = ([r"(?<![0-9])(?:" + "|".join(numbers) + r")(?![0-9])"] if numbers else []) + \
+            ([r"(?<![A-Za-z0-9])(?:" + "|".join(words) + r")(?![A-Za-z0-9])"] if words else [])
+    pattern = re.compile("|".join(parts))
+    count = 0
+
+    def walk(node, key=""):
+        nonlocal count
+        if isinstance(node, dict):
+            return {k: walk(v, k) for k, v in node.items()}
+        if isinstance(node, list):
+            if key == "aliases":   # a nickname built on an identifier is dropped, not rewritten
+                kept = [v for v in node if not (isinstance(v, str) and pattern.search(v))]
+                count += len(node) - len(kept)
+                return kept
+            return [walk(v, key) for v in node]
+        if isinstance(node, str) and key not in CITATION_FIELDS:
+            new, n = pattern.subn(placeholder, node)
+            count += n
+            return new
+        return node
+
+    return walk(obj), count
+
+
+def promote_bracket_paths(pmap: dict, repo_dirs: list[str]) -> int:
+    """Maps written while dot-directories could not be cited carry the true location in brackets at the
+    start of a text field and '.' as the path.  Move the location back into the path field."""
+    import re
+
+    lead = re.compile(r"^\[([^\]\s]+)\]\s*")
+    moved = 0
+    for kind, text_keys in (("architecture", ("responsibility",)), ("key_functions", ("does", "signature")), ("entry_points", ("what",)),
+                            ("infra", ("detail",)), ("gotchas", ("issue", "consequence", "fix_or_guard"))):
+        for item in pmap.get(kind) or []:
+            if item.get("path") not in (".", "./", "", None):
+                continue
+            for tk in text_keys:
+                m = lead.match(str(item.get(tk) or ""))
+                if m and schema.resolve_source(m.group(1), repo_dirs)[0]:
+                    item["path"] = m.group(1)
+                    item[tk] = item[tk][m.end():]
+                    moved += 1
+                    break
+    return moved
+
+
+# --------------------------------------------------------------------------
+# Ingest: analysis output -> tiers
+# --------------------------------------------------------------------------
+def _resolve_refs(card: dict, dirs: list[tuple[str, str, str]]) -> list[dict]:
+    """Attach the branch and commit that actually hold each cited path."""
+    refs = []
+    for ref in card.get("source", []):
+        parts = schema.split_source(ref)
+        if not parts:
+            continue
+        rel, a, b = parts
+        branch, commit = (dirs[0][1], dirs[0][2]) if dirs else ("", "")
+        for d, br, sha in dirs:
+            if os.path.exists(os.path.join(d, rel)):
+                branch, commit = br, sha
+                break
+        item = {"path": rel, "branch": branch}
+        if commit:
+            item["commit"] = commit
+        if a is not None:
+            item["line"] = a
+            if b and b != a:
+                item["end"] = b
+        refs.append(item)
+    return refs
+
+
+def ingest(
+    root: str,
+    *,
+    manifest_path: str,
+    maps_dir: str,
+    cards_dir: str,
+    codes: dict[str, str],
+    snapshot_path: str | None = None,
+    aliases: dict[str, list[str]] | None = None,
+    as_of: str | None = None,
+    owner: str = "",
+    scrub: dict | None = None,
+    log=print,
+) -> dict:
+    """Validate analysis output against the checkouts and file it into the tiers.
+
+    A project is filed only when its map AND its cards pass every check
+    (shape, grounding against the checkout, safety).  Returns a report.
+    """
+    manifest = _read(manifest_path)
+    projects = manifest["projects"] if isinstance(manifest, dict) else manifest
+    snapshot = inventory.load_snapshot(snapshot_path) if snapshot_path else []
+    aliases = aliases or {}
+    private = [p for p in projects if p.get("visibility") == "private"]
+    # Repository names, slugs, and any product name the manifest marks as private ("private_terms").
+    # Nicknames are left out on purpose: they are generic words ("the loader") that a public deck may use.
+    private_names = sorted({r["name"] for r in snapshot if r.get("visibility") == "private"}
+                           | {p["repo"] for p in private} | {p["slug"] for p in private}
+                           | {t for p in private for t in (p.get("private_terms") or [])})
+    as_of = as_of or (manifest.get("as_of") if isinstance(manifest, dict) else None) or date.today().isoformat()
+    owner = owner or (manifest.get("owner") if isinstance(manifest, dict) else "") or ""
+    tiers: dict[str, list[dict]] = {t: [] for t in TIERS}
+    report = {"filed": [], "skipped": []}
+
+    for p in projects:
+        slug = p["slug"]
+        map_path = os.path.join(maps_dir, f"{slug}.json")
+        cards_path = os.path.join(cards_dir, f"{slug}.json")
+        if not (os.path.exists(map_path) and os.path.exists(cards_path)):
+            report["skipped"].append({"slug": slug, "why": "map or cards file missing"})
+            continue
+        if slug not in codes:
+            report["skipped"].append({"slug": slug, "why": "no project code assigned"})
+            continue
+        dirs = [(p["dir"], p.get("branch", ""), head_commit(p["dir"]))]
+        dirs += [(a["dir"], a.get("branch", ""), head_commit(a["dir"])) for a in p.get("alts", [])]
+        repo_dirs = [d for d, _, _ in dirs if os.path.isdir(d)]
+        pmap, pcards = _read(map_path), _read(cards_path)
+        promote_bracket_paths(pmap, repo_dirs)
+        m_rep = schema.validate_map(pmap, repo_dirs)
+        c_rep = schema.validate_cards(pcards, repo_dirs)
+        if not (m_rep.ok and c_rep.ok):
+            report["skipped"].append({"slug": slug, "why": "validation failed", "errors": (m_rep.errors + c_rep.errors)[:8]})
+            continue
+        tier = "private" if p.get("visibility") == "private" else "public"
+        for card in pcards["cards"]:
+            card["source_refs"] = _resolve_refs(card, dirs)
+        redactions: list[str] = []
+        pmap["slug"] = slug
+        pcards["slug"] = slug
+        merged_aliases = list(dict.fromkeys([*(aliases.get(slug) or []), *(pmap.get("aliases") or [])]))
+        scrubbed = 0
+        if scrub and scrub.get("all"):     # identifiers that travel nowhere, private tier included
+            pmap, n_m = scrub_terms(pmap, scrub["all"])
+            pcards, n_c = scrub_terms(pcards, scrub["all"])
+            wrapped, n_a = scrub_terms({"aliases": merged_aliases}, scrub["all"])
+            merged_aliases, scrubbed = wrapped["aliases"], n_m + n_c + n_a
+        if tier == "public":
+            full = {"map": pmap, "cards": pcards, "aliases": merged_aliases}
+            if scrub and scrub.get("public"):   # identifiers the owner may keep but a public deck may not repeat
+                pmap, n_m = scrub_terms(pmap, scrub["public"])
+                pcards, n_c = scrub_terms(pcards, scrub["public"])
+                wrapped, n_a = scrub_terms({"aliases": merged_aliases}, scrub["public"])
+                merged_aliases = wrapped["aliases"]
+                if n_m + n_c + n_a:
+                    redactions.append(f"scrubbed {n_m + n_c + n_a} identifier(s)")
+            own = public_vocabulary(private_names, repo_dirs)   # names this public repository already spells out
+            pmap, found_m = privacy_gate(pmap, private_names, own)
+            pcards, found_c = privacy_gate(pcards, private_names, own)
+            merged_aliases, found_a = privacy_gate(merged_aliases, private_names, own)
+            redactions += found_m + found_c + found_a
+            # The owner's private edition keeps the full wording; the public tier never sees it.
+            overlay = os.path.join(tier_dir(root, "private"), UNREDACTED, f"{slug}.json")
+            if redactions:
+                _write(overlay, full)
+            elif os.path.exists(overlay):
+                os.remove(overlay)
+        _write(os.path.join(tier_dir(root, tier), "maps", f"{slug}.json"), pmap)
+        _write(os.path.join(tier_dir(root, tier), "cards", f"{slug}.json"), pcards)
+        tiers[tier].append(
+            {
+                "slug": slug,
+                "repo": p["repo"],
+                "code": codes[slug],
+                "visibility": p.get("visibility", "public"),
+                "fork": bool(p.get("fork")),
+                "pushed_at": p.get("pushed_at", ""),
+                "branch": p.get("branch", ""),
+                "commit": dirs[0][2],
+                "alts": [{"branch": a.get("branch", ""), "note": a.get("note", ""), "commit": sha}
+                         for a, (_, _, sha) in zip(p.get("alts", []), dirs[1:])],
+                "aliases": merged_aliases,
+                "analyzed_at": as_of,
+            }
+        )
+        report["filed"].append({"slug": slug, "tier": tier, "cards": len(pcards["cards"]), "warnings": len(c_rep.warnings),
+                                "redactions": len(redactions), "scrubbed": scrubbed})
+        log(f"filed {slug:<32} -> {tier:<7} {len(pcards['cards'])} cards" + (f"  ({len(redactions)} private mentions removed)" if redactions else "")
+            + (f"  ({scrubbed} identifiers scrubbed)" if scrubbed else ""))
+
+    address.check_registry([e for t in TIERS for e in tiers[t]])
+    for tier in TIERS:
+        if tiers[tier]:
+            tiers[tier].sort(key=lambda e: e["code"])
+            _write(os.path.join(tier_dir(root, tier), "projects.json"), {"as_of": as_of, "owner": owner, "projects": tiers[tier]})
+
+    if snapshot_path:
+        repos = snapshot
+        for tier in TIERS:
+            subset = [r for r in repos if (r["visibility"] == "private") == (tier == "private")]
+            if subset:
+                _write(os.path.join(tier_dir(root, tier), "inventory.json"), {"as_of": as_of, "owner": owner, "repos": subset})
+    return report
+
+
+# --------------------------------------------------------------------------
+# Edition: tiers -> one in-memory structure
+# --------------------------------------------------------------------------
+def load_edition(root: str, tiers: list[str] | None = None, today: date | None = None) -> dict:
+    """Merge the requested tiers into one validated structure used by every exporter."""
+    tiers = tiers or present_tiers(root)
+    today = today or datetime.now(timezone.utc).date()
+    projects, cards, repos = [], [], []
+    owner, as_of = "", ""
+    for tier in tiers:
+        base = tier_dir(root, tier)
+        manifest = _read(os.path.join(base, "projects.json"), {"projects": []})
+        owner = owner or manifest.get("owner", "")
+        as_of = max(as_of, manifest.get("as_of", ""))
+        inv = _read(os.path.join(base, "inventory.json"), {"repos": []})
+        repos.extend(inv.get("repos", []))
+        stale = _read(os.path.join(base, "stale.json"), {})
+        for entry in manifest.get("projects", []):
+            slug = entry["slug"]
+            pmap = _read(os.path.join(base, "maps", f"{slug}.json"))
+            pcards = _read(os.path.join(base, "cards", f"{slug}.json"))
+            if pmap is None or pcards is None:
+                raise FileNotFoundError(f"tier {tier}: map or cards missing for {slug}")
+            full = _read(os.path.join(tier_dir(root, "private"), UNREDACTED, f"{slug}.json")) if tier == "public" and "private" in tiers else None
+            if full:
+                pmap, pcards, entry = full["map"], full["cards"], {**entry, "aliases": full.get("aliases") or entry.get("aliases")}
+            m_rep, c_rep = schema.validate_map(pmap), schema.validate_cards(pcards)
+            if not (m_rep.ok and c_rep.ok):
+                raise ValueError(f"tier {tier}: {slug} is invalid — " + "; ".join((m_rep.errors + c_rep.errors)[:4]))
+            project = {**pmap, **entry, "tier": tier, "aliases": entry.get("aliases") or pmap.get("aliases") or []}
+            project["card_count"] = len(pcards["cards"])
+            projects.append(project)
+            for c in pcards["cards"]:
+                cards.append(
+                    {
+                        **c,
+                        "id": address.card_id(slug, c["category"], c["rank"]),
+                        "code": address.card_code(entry["code"], c["category"], c["rank"]),
+                        "slug": slug,
+                        **({"stale": True} if schema.card_key(c) in (stale.get(slug) or []) else {}),
+                    }
+                )
+    address.check_registry(projects)
+    projects.sort(key=lambda p: p["code"])
+    cards.sort(key=lambda c: c["code"])
+    known = {c["id"] for c in cards}
+    for c in cards:   # a cross-link only survives when its target is part of this edition
+        if "see_also" in c:
+            links = [x for x in c["see_also"] if x in known and x != c["id"]]
+            if links:
+                c["see_also"] = links
+            else:
+                del c["see_also"]
+
+    by_repo = {p["repo"].lower(): p for p in projects}
+    names = {r["name"].lower() for r in repos}
+    for p in projects:  # a project whose repository is missing from the snapshot still belongs in the inventory
+        if p["repo"].lower() not in names:
+            repos.append({"name": p["repo"], "pushed_at": p.get("pushed_at", ""), "visibility": p.get("visibility", "public"), "fork": p.get("fork", False)})
+    analyzed = inventory.analyze(repos, today)
+    for r in analyzed:
+        p = by_repo.get(r["name"].lower())
+        r["slug"] = p["slug"] if p else None
+        r["code"] = p["code"] if p else None
+    return {
+        "owner": owner,
+        "as_of": as_of or today.isoformat(),
+        "today": today.isoformat(),
+        "tiers": tiers,
+        "edition": "private" if "private" in tiers else "public",
+        "projects": projects,
+        "cards": cards,
+        "inventory": analyzed,
+    }
+
+
+def find_stale(root: str, sources_root: str, tiers: list[str] | None = None) -> dict:
+    """Re-check every card against a fresh checkout: a moved path or a vanished quote makes the card stale.
+
+    ``sources_root/<slug>`` is the checkout of a project (``<slug>@<anything>`` siblings are alternate
+    lines of work).  A project without a checkout is reported as unchecked, never as stale.
+    """
+    report = {"stale": {}, "confirmed": 0, "unchecked": []}
+    for tier in tiers or present_tiers(root):
+        base = tier_dir(root, tier)
+        manifest = _read(os.path.join(base, "projects.json"), {"projects": []})
+        for entry in manifest.get("projects", []):
+            slug = entry["slug"]
+            primary = os.path.join(sources_root, slug)
+            if not os.path.isdir(primary):
+                report["unchecked"].append(slug)
+                continue
+            dirs = [primary] + sorted(
+                os.path.join(sources_root, d) for d in os.listdir(sources_root)
+                if d.startswith(slug + "@") and os.path.isdir(os.path.join(sources_root, d))
+            )
+            pcards = _read(os.path.join(base, "cards", f"{slug}.json"), {"cards": []})
+            for card in pcards.get("cards", []):
+                files, missing = [], False
+                for ref in card.get("source", []):
+                    full, _why = schema.resolve_source(ref, dirs)
+                    if full:
+                        files.append(full)
+                    else:
+                        missing = True
+                if missing or not schema.quote_found(card.get("evidence_quote", ""), files):
+                    report["stale"].setdefault(slug, []).append(schema.card_key(card))
+                else:
+                    report["confirmed"] += 1
+    return report
+
+
+def write_stale(root: str, report: dict, tiers: list[str] | None = None) -> None:
+    """Record the stale addresses per tier; the next build marks those cards."""
+    for tier in tiers or present_tiers(root):
+        base = tier_dir(root, tier)
+        manifest = _read(os.path.join(base, "projects.json"), {"projects": []})
+        slugs = {e["slug"] for e in manifest.get("projects", [])}
+        _write(os.path.join(base, "stale.json"), {slug: keys for slug, keys in sorted(report["stale"].items()) if slug in slugs})
+
+
+def edition_stats(edition: dict) -> dict:
+    cards = edition["cards"]
+    by = lambda key: {k: sum(1 for c in cards if c[key] == k) for k in sorted({c[key] for c in cards})}  # noqa: E731
+    return {
+        "projects": len(edition["projects"]),
+        "cards": len(cards),
+        "repositories": len(edition["inventory"]),
+        "by_type": by("type"),
+        "by_level": by("level"),
+        "by_category": by("category"),
+        "private_projects": sum(1 for p in edition["projects"] if p.get("visibility") == "private"),
+    }

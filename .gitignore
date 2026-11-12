@@ -1,0 +1,12 @@
+# Private decks never belong in this repository: keep them in a private one.
+data/private/
+# Generated
+app/data/bundle.js
+dist/
+tests/out/
+tests/fixtures/demo/
+*.sqlite
+~$*.xlsx
+__pycache__/
+*.pyc
+node_modules/
