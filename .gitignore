@@ -10,3 +10,5 @@ tests/fixtures/demo/
 __pycache__/
 *.pyc
 node_modules/
+# Sign-in tokens of a team server
+users.json

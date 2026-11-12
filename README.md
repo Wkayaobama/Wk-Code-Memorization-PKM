@@ -36,6 +36,37 @@ Review history is kept in the browser. Served from `recurser serve` it is also s
 `~/.recurser/progress.json`, so every browser that opens that address shares one history.
 Sync → *Save history* and *Merge a saved history file* move it anywhere else.
 
+## Share it with a team
+
+```bash
+python3 -m recurser users add sam --projects tide-loader,harbor-notes    # prints sam's personal link
+python3 -m recurser users add wk --all
+python3 -m recurser serve --host 0.0.0.0 --users users.json
+```
+
+With a users file the server serves a team. Each person signs in with a personal link, sees
+only the projects listed for them, and keeps a review history of their own. A page for
+chosen projects can also be built as a file: `python3 -m recurser build --only a,b
+--single-file dist/team.html`. In both cases the names of the other private repositories
+are removed from what remains.
+
+`deploy/README.md` runs the same server on Kubernetes: the container on port 8000, the
+settings in a ConfigMap, the credential in a Secret, a Service, and one `RecurserApp` object
+from which a small controller generates the rest.
+
+## Ask your decks
+
+```bash
+pip install anthropic            # and ANTHROPIC_API_KEY in the environment
+python3 -m recurser ask "Why does the loader merge on a key instead of appending?"
+```
+
+The question is matched against every card and every project note, and the best passages
+are handed to Claude through the Anthropic SDK as search results. The answer comes back
+with the passages it rests on. A server that holds a credential offers the same thing in
+the app, under **Ask your decks**, and checks typed answers against the reference card.
+A person only ever searches the projects they may open. `--no-llm` shows the passages alone.
+
 ## How it works
 
 ```
@@ -131,8 +162,11 @@ What ingest does before anything reaches `data/public/`:
 ```text
 python3 -m recurser inventory [--recent --days 180]     last-push table: days, tier, unrehearsed estimate
 python3 -m recurser match "tide load"                   fuzzy-find a project by any name you use for it
-python3 -m recurser build [--single-file F] [--fragment F]
-python3 -m recurser serve [--host H --port P --progress FILE]
+python3 -m recurser build [--only a,b] [--single-file F] [--fragment F]
+python3 -m recurser serve [--host H --port P --progress FILE] [--users users.json --config config.yaml]
+python3 -m recurser users add|list|remove NAME [--projects a,b | --all] [--file users.json]
+python3 -m recurser ask "question" [--project P] [--no-llm]
+python3 -m recurser k8s crd|controller|example|plain|write
 python3 -m recurser xlsx out.xlsx [--progress history.json] [--keep-from old.xlsx]
 python3 -m recurser anki out_dir [--progress history.json --only-learned] [--no-apkg]
 python3 -m recurser kb out_dir [--progress history.json]
@@ -142,8 +176,9 @@ python3 -m recurser validate map|cards FILE [--repo DIR]
 python3 -m recurser ingest --manifest … --maps … --cards … --codes … [--scrub scrub.json]
 ```
 
-`xlsx` needs `pip install openpyxl`; the `.apkg` needs `pip install genanki`. Everything
-else is the standard library.
+`xlsx` needs `pip install openpyxl`; the `.apkg` needs `pip install genanki`; answers need
+`pip install anthropic`; a YAML settings file needs `pip install pyyaml`; the controller
+needs `pip install kubernetes`. Everything else is the standard library.
 
 ### The workbook
 
@@ -194,6 +229,10 @@ node tests/test_js_ports.js                    # the JavaScript scheduler and ma
 python3 tests/make_vectors.py                  # regenerate the shared vectors after changing either of them
 node tests/browser_check.js http://127.0.0.1:8765/ tests/out    # optional end-to-end run, needs playwright
 node tests/artifact_sim.js fragment.html       # optional: the hosted-page build against a simulated host
+python3 tests/team_demo_server.py 8770 &       # optional: a team server on the demo decks, no credential needed
+node tests/team_browser_check.js http://127.0.0.1:8770 tests/out
+node tests/sync_browser_check.js http://127.0.0.1:8765/        # optional: two tabs, erase, restore, on an empty history
+python3 tests/check_manifests.py               # optional: the Kubernetes files against the official client's models
 ```
 
 Every name in the tests and in the demo edition (`tests/make_demo.py`) is fictional.
@@ -203,6 +242,8 @@ Every name in the tests and in the demo edition (`tests/make_demo.py`) is fictio
 ```
 recurser/     schema.py (contract + validators) · fuzzy.py · inventory.py · address.py · store.py
               bundle.py · db.py · srs.py · server.py · xlsx.py · anki.py · kb.py · cli.py
+              retrieval.py · assistant.py (Anthropic SDK) · config.py · k8s.py · operator.py (controller)
+deploy/       README.md · k8s/ (namespace, definition, controller, settings, example, plain manifests)
 app/          index.html · styles.css · js/ (srs, fuzzy, model, store, session, views, main)
 data/         public/ (committed) · private/ (git-ignored)
 docs/         index.html (public edition, one file) · CARD_PATTERN_SPEC.md · briefs/

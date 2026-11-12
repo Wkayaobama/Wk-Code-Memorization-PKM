@@ -51,6 +51,18 @@ def _edition(args) -> dict:
     edition = store.load_edition(_data(args), tiers, _today(args))
     for warning in edition.get("warnings") or []:
         print("note:", warning, file=sys.stderr)
+    only = getattr(args, "only", None)
+    if only:
+        try:
+            slugs = store.resolve_projects(edition, [n for n in only.split(",") if n.strip()])
+        except KeyError as exc:
+            unknown = str(exc.args[0]).split(", ")
+            hints = []
+            for name in unknown:
+                near = fuzzy.rank(name, edition["projects"], limit=2)
+                hints.append(f"{name!r}" + (" (did you mean " + " or ".join(h["item"]["slug"] for h in near) + "?)" if near else ""))
+            sys.exit("--only: unknown project " + ", ".join(hints) + ". Use slugs, repository names or two-digit codes.")
+        edition = store.restrict(edition, slugs)
     return edition
 
 
@@ -268,28 +280,243 @@ def cmd_register(args) -> int:
     return 0
 
 
+def _settings(args):
+    from . import config as config_mod
+
+    try:
+        return config_mod.load(getattr(args, "config", None))
+    except config_mod.ConfigError as exc:
+        sys.exit(str(exc))
+
+
+def _configured(args) -> bool:
+    """True when a settings file is in play (a flag, the environment, or the ConfigMap mount)."""
+    from . import config as config_mod
+
+    return bool(getattr(args, "config", None) or os.environ.get("RECURSER_CONFIG") or os.path.exists(config_mod.DEFAULT_PATH))
+
+
+def _deployment_edition(args, settings) -> dict:
+    """The edition this server holds: --only wins, else access.only from the settings."""
+    edition = _edition(args)
+    only = settings["access"]["only"]
+    if only and not getattr(args, "only", None):
+        try:
+            edition = store.restrict(edition, store.resolve_projects(edition, only))
+        except KeyError as exc:
+            sys.exit(f"access.only: unknown project {exc.args[0]}")
+    return edition
+
+
+def _client(settings):
+    """An Anthropic client when the feature can run here, else None with the reason."""
+    from . import assistant
+
+    if not settings["llm"]["enabled"]:
+        return None, "turned off in the settings (llm.enabled)"
+    try:
+        return assistant.make_client(timeout=float(settings["llm"]["timeout_seconds"])), ""
+    except assistant.AssistantUnavailable as exc:
+        return None, str(exc)
+
+
 def cmd_serve(args) -> int:
     from . import server
 
-    edition = _edition(args)
-    data = bundle_mod.build_bundle(edition)
-    bundle_mod.write_bundle(args.root, data)
-    info = {"edition": data["edition"], "cards": len(data["cards"]), "projects": len(data["projects"])}
-    httpd, token = server.create_server(os.path.join(args.root, "app"), host=args.host, port=args.port,
-                                        progress_path=args.progress, token=args.token, info=info)
-    shown = "127.0.0.1" if args.host in ("0.0.0.0", "::") else args.host
-    url = f"http://{shown}:{httpd.server_address[1]}/" + (f"?token={token}" if token else "")
-    print(f"Recurser — {info['cards']} cards on {info['projects']} projects ({info['edition']} edition)")
-    print(f"open  {url}")
-    if token:
-        print("on another device use this computer's network address with the same ?token=... (the link signs that browser in)")
-    print("stop  Ctrl+C")
+    settings = _settings(args)
+    configured = _configured(args)
+    edition = _deployment_edition(args, settings)
+    host = args.host or (settings["server"]["host"] if configured else "127.0.0.1")
+    port = args.port if args.port is not None else (settings["server"]["port"] if configured else 8765)
+    users_path = args.users or settings["access"]["users_file"]
+    client, why_not = _client(settings)
+    try:
+        if users_path:
+            site = server.Site(edition, users=server.load_users(users_path), token=None, settings=settings, client=client,
+                               user_header=args.user_header or settings["access"]["trust_user_header"],
+                               progress_dir=args.progress_dir or (settings["server"]["progress_dir"] if configured
+                                                                  else os.path.join(os.path.expanduser("~"), ".recurser", "team")))
+        else:
+            token = args.token
+            if not server.is_loopback(host) and not token:
+                import secrets
+
+                token = secrets.token_urlsafe(18)
+            site = server.Site(edition, progress_path=args.progress, token=token if not server.is_loopback(host) or token else None,
+                               settings=settings, client=client)
+    except (OSError, ValueError) as exc:
+        sys.exit(f"cannot start: {exc}")
+    httpd, token = server.create_server(os.path.join(args.root, "app"), host=host, port=port, site=site)
+    shown = "127.0.0.1" if host in ("0.0.0.0", "::") else host
+    base = f"http://{shown}:{httpd.server_address[1]}/"
+    print(f"Recurser: {len(edition['cards'])} cards on {len(edition['projects'])} projects ({edition['edition']} edition)")
+    print("assistant  " + (f"on, {settings['llm']['model']} through the Anthropic SDK" if client else f"off: {why_not}"))
+    if site.team:
+        print(f"team       {len(site.users)} people, each with a personal link {base}?token=<their token> and a history of their own")
+        for user in site.users:
+            shown_projects = "every project" if user.get("projects") == "*" else f"{len(user['_slugs'])} projects"
+            print(f"           {user['name']}: {shown_projects}")
+    else:
+        print(f"open       {base}" + (f"?token={token}" if token else ""))
+        if token:
+            print("           on another device use this computer's network address with the same ?token=... (the link signs that browser in)")
+    print("stop       Ctrl+C", flush=True)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
         print("\nstopped")
     finally:
         httpd.server_close()
+    return 0
+
+
+def cmd_ask(args) -> int:
+    """Retrieve the passages for a question and, when a credential is present, answer from them."""
+    from . import assistant, retrieval
+
+    settings = _settings(args)
+    edition = _deployment_edition(args, settings)
+    slugs = None
+    if args.project:
+        try:
+            slugs = store.resolve_projects(edition, [args.project])
+        except KeyError as exc:
+            sys.exit(f"unknown project {exc.args[0]}")
+    found = retrieval.Index(edition).search(args.question, k=settings["retrieval"]["top_k"], slugs=slugs,
+                                            per_project=settings["retrieval"]["per_project"])
+    if not found:
+        print("No passage matches this question.")
+        return 1
+    print(_table([{"score": p["score"], "passage": p["title"][:92], "where": p["path"][:44]} for p in found], ["score", "passage", "where"]))
+    if args.no_llm:
+        return 0
+    client, why_not = _client(settings)
+    if client is None:
+        print(f"\n(no answer: {why_not})", file=sys.stderr)
+        return 0
+    try:
+        result = assistant.ask(args.question, found, client=client, model=settings["llm"]["model"], effort=settings["llm"]["effort"],
+                               max_tokens=settings["llm"]["max_tokens"], fallbacks=settings["llm"]["fallbacks"])
+    except assistant.AssistantError as exc:
+        sys.exit(f"the assistant failed: {exc}")
+    titles = {p["id"]: p["title"] for p in found}
+    print("\n" + result["text"].strip())
+    if result["sources"]:
+        print("\nRests on:")
+        for pid in result["sources"]:
+            print("  - " + titles.get(pid, pid))
+    return 0
+
+
+def cmd_users(args) -> int:
+    """Manage the users file of a team server: who may open the page and which projects each person sees."""
+    import secrets
+
+    path = args.file
+    data = {"users": []}
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        if not isinstance(data, dict) or not isinstance(data.get("users"), list):
+            sys.exit(f"{path} is not a users file")
+    users = data["users"]
+    if args.action == "list":
+        print(_table([{"name": u["name"], "projects": "every project" if u.get("projects") == "*" else ", ".join(u.get("projects") or []) or "(none)"}
+                      for u in users], ["name", "projects"]) if users else "(no users yet)")
+        return 0
+    from . import server
+
+    if not args.name or not server.USER_NAME.match(args.name):
+        sys.exit("give a name of lower-case letters, digits, '.', '_' or '-'")
+    existing = [u for u in users if u["name"] == args.name]
+    if args.action == "remove":
+        if not existing:
+            sys.exit(f"no user named {args.name}")
+        data["users"] = [u for u in users if u["name"] != args.name]
+    else:
+        if args.all == bool(args.projects):
+            sys.exit("say which projects: --projects a,b or --all")
+        projects = "*" if args.all else [n.strip() for n in args.projects.split(",") if n.strip()]
+        if projects != "*":
+            try:
+                projects = store.resolve_projects(_edition(args), projects)
+            except KeyError as exc:
+                sys.exit(f"unknown project {exc.args[0]}")
+        if existing:                                   # same person, new project list: the link keeps working
+            existing[0]["projects"] = projects
+            token = existing[0]["token"]
+        else:
+            token = secrets.token_urlsafe(24)
+            users.append({"name": args.name, "token": token, "projects": projects})
+    tmp = path + ".tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)      # the file holds sign-in tokens
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        json.dump(data, fh, indent=1)
+        fh.write("\n")
+    os.replace(tmp, path)
+    if args.action == "remove":
+        print(f"removed {args.name}; restart the server for it to take effect")
+    else:
+        print(f"{args.name}: " + ("every project" if projects == "*" else f"{len(projects)} projects"))
+        print(f"personal link: <address of the server>/?token={token}")
+        print("send it over a private channel; restart the server for the change to take effect")
+    return 0
+
+
+def k8s_files(namespace: str = "recurser", name: str = "team", image: str = "ghcr.io/OWNER/recurser:0.2.0") -> dict[str, str]:
+    """The files under deploy/k8s/, as text.  ``recurser k8s write`` saves them; a test keeps them current."""
+    import yaml
+
+    from . import k8s
+
+    ex = k8s.example(name, namespace, image)
+    config_map = dict(ex["config"], data={k8s.CONFIG_KEY: yaml.safe_dump(ex["config"]["data"][k8s.CONFIG_KEY], sort_keys=False)})
+    plain = k8s.render(name, namespace, ex["app"]["spec"])
+    header = "# Generated by `python3 -m recurser k8s write`. Edit recurser/k8s.py, not this file.\n"
+    secrets = f"""# Create the two Secrets with kubectl, so that no credential is ever written to a file in git:
+#
+#   kubectl -n {namespace} create secret generic {name}-anthropic --from-literal={k8s.API_KEY_ENV}=<your key>
+#   python3 -m recurser users add <name> --projects <a,b> --file users.json     # once per person
+#   kubectl -n {namespace} create secret generic {name}-users --from-file={k8s.USERS_KEY}=users.json
+#
+# The pod reads the first one as an environment variable (secretKeyRef) and the second as a file
+# ({k8s.SECRETS_DIR}/{k8s.USERS_KEY}).  Shown here for reference only, with placeholders:
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {name}-anthropic
+  namespace: {namespace}
+type: Opaque
+stringData:
+  {k8s.API_KEY_ENV}: "<set with kubectl, never commit a real key>"
+"""
+    return {
+        "00-namespace.yaml": header + k8s.to_yaml([ex["namespace"]]),
+        "01-crd.yaml": header + k8s.to_yaml([k8s.crd()]),
+        "02-controller.yaml": header + k8s.to_yaml(k8s.controller_manifests(namespace, image)),
+        "03-config.yaml": header + "# Layer 2: the settings, mounted in the pod at " + f"{k8s.CONFIG_DIR}/{k8s.CONFIG_KEY}.\n" + k8s.to_yaml([config_map]),
+        "04-secrets.example.yaml": secrets,
+        "05-recurserapp.yaml": header + "# Layer 5: the one object you declare. The controller generates the Deployment and the Service from it.\n" + k8s.to_yaml([ex["app"]]),
+        "plain/recurser.yaml": header + "# The same Deployment, Service, volume claim and NetworkPolicy without the controller:\n"
+                               "# apply 00, 03 and the two Secrets, then this file.\n" + k8s.to_yaml(plain),
+    }
+
+
+def cmd_k8s(args) -> int:
+    from . import k8s
+
+    files = k8s_files(args.namespace, args.name, args.image)
+    if args.what == "write":
+        for rel, text in files.items():
+            path = os.path.join(args.out, rel)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8", newline="\n") as fh:
+                fh.write(text)
+            print("wrote", path)
+        return 0
+    wanted = {"crd": ["01-crd.yaml"], "controller": ["02-controller.yaml"], "example": ["03-config.yaml", "04-secrets.example.yaml", "05-recurserapp.yaml"],
+              "plain": ["plain/recurser.yaml"]}[args.what]
+    print("---\n".join(files[rel] for rel in wanted), end="")
     return 0
 
 
@@ -303,6 +530,8 @@ def build_parser() -> argparse.ArgumentParser:
     def common(sp, tiers=True):
         if tiers:
             sp.add_argument("--tiers", help="comma list of tiers to use (default: every tier present): public,private")
+            sp.add_argument("--only", help="comma list of projects (slug, repository name or two-digit code): build for these only, "
+                                           "with the names of the other private repositories removed")
         sp.add_argument("--today", help="pretend today is YYYY-MM-DD (reproducible reports)")
 
     sp = sub.add_parser("inventory", help="last-accessed table")
@@ -388,13 +617,42 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("shelf", type=int, choices=range(10))
     sp.set_defaults(fn=cmd_register)
 
-    sp = sub.add_parser("serve", help="serve the app on localhost")
+    sp = sub.add_parser("serve", help="serve the app: on localhost for you, or to a team")
     common(sp)
-    sp.add_argument("--host", default="127.0.0.1")
-    sp.add_argument("--port", type=int, default=8765)
-    sp.add_argument("--progress", help="history file (default ~/.recurser/progress.json)")
+    sp.add_argument("--host", help="default 127.0.0.1, or server.host from the settings file")
+    sp.add_argument("--port", type=int, help="default 8765, or server.port from the settings file")
+    sp.add_argument("--progress", help="history file when serving one person (default ~/.recurser/progress.json)")
     sp.add_argument("--token", help="access token when listening beyond loopback (default: generated)")
+    sp.add_argument("--config", help="settings file (YAML or JSON); default $RECURSER_CONFIG or /app/config/config.yaml when present")
+    sp.add_argument("--users", help="users file: serve a team, each person with a personal link, a project list and a history")
+    sp.add_argument("--progress-dir", dest="progress_dir", help="folder for the team's history files")
+    sp.add_argument("--user-header", dest="user_header", help="trust this header for the person's name (only behind an authenticating proxy)")
     sp.set_defaults(fn=cmd_serve)
+
+    sp = sub.add_parser("ask", help="ask the decks a question: the passages found and, with a credential, an answer")
+    common(sp)
+    sp.add_argument("question")
+    sp.add_argument("--project", help="limit the search to one project")
+    sp.add_argument("--no-llm", dest="no_llm", action="store_true", help="show the passages only")
+    sp.add_argument("--config", help="settings file (YAML or JSON)")
+    sp.set_defaults(fn=cmd_ask)
+
+    sp = sub.add_parser("k8s", help="print or write the Kubernetes files: crd, controller, example, plain, write")
+    sp.add_argument("what", choices=["crd", "controller", "example", "plain", "write"])
+    sp.add_argument("--namespace", default="recurser")
+    sp.add_argument("--name", default="team", help="name of the RecurserApp and of its Service")
+    sp.add_argument("--image", default="ghcr.io/OWNER/recurser:0.2.0")
+    sp.add_argument("--out", default=os.path.join(ROOT, "deploy", "k8s"), help="folder for `write`")
+    sp.set_defaults(fn=cmd_k8s)
+
+    sp = sub.add_parser("users", help="manage the users file of a team server")
+    common(sp)
+    sp.add_argument("action", choices=["add", "list", "remove"])
+    sp.add_argument("name", nargs="?")
+    sp.add_argument("--file", default="users.json", help="the users file (default ./users.json); keep it out of git")
+    sp.add_argument("--projects", help="comma list of projects this person may open")
+    sp.add_argument("--all", action="store_true", help="this person may open every project")
+    sp.set_defaults(fn=cmd_users)
     return p
 
 

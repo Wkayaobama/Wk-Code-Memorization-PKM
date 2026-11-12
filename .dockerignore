@@ -1,0 +1,13 @@
+.git
+.claude
+dist
+exports
+tests
+docs
+deploy
+work
+**/__pycache__
+*.pyc
+app/data/bundle.js
+users.json
+*.sqlite

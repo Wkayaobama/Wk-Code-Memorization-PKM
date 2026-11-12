@@ -541,6 +541,65 @@ def load_edition(root: str, tiers: list[str] | None = None, today: date | None =
     }
 
 
+IDENTITY_KEYS = ("slug", "repo", "code", "visibility", "fork", "pushed_at", "branch", "commit", "tier", "analyzed_at", "card_count", "id")
+
+
+def resolve_projects(edition: dict, names) -> list[str]:
+    """Slugs for a list of slugs, repository names or two-digit codes.  Exact matches only: a page for a
+    chosen audience must never include a project by a lucky guess.  Raises KeyError naming what is unknown."""
+    by_key: dict[str, str] = {}
+    for p in edition["projects"]:
+        for key in (p["slug"], p.get("repo") or "", p["code"]):
+            by_key[str(key).strip().lower()] = p["slug"]
+    slugs, unknown = [], []
+    for name in names:
+        slug = by_key.get(str(name).strip().lower())
+        if slug is None:
+            unknown.append(str(name))
+        elif slug not in slugs:
+            slugs.append(slug)
+    if unknown:
+        raise KeyError(", ".join(unknown))
+    return slugs
+
+
+def restrict(edition: dict, slugs) -> dict:
+    """The same edition for one audience: only the chosen projects.
+
+    The other projects disappear with their cards and their inventory rows, links to their cards are
+    dropped, and wherever the remaining text names a private repository that is not part of the
+    selection, the name is replaced.  Citations are left alone: they belong to the chosen projects' code.
+    """
+    wanted = set(slugs)
+    unknown = wanted - {p["slug"] for p in edition["projects"]}
+    if unknown:
+        raise KeyError(", ".join(sorted(unknown)))
+    hidden = sorted({name for p in edition["projects"] if p["slug"] not in wanted and not inventory.is_public(p.get("visibility"))
+                     for name in (p["slug"], p.get("repo") or "")}
+                    | {r["name"] for r in edition["inventory"] if r.get("slug") not in wanted and not inventory.is_public(r.get("visibility"))})
+
+    def gated(obj: dict) -> dict:
+        clean, _ = privacy_gate(obj, hidden)
+        clean.update({k: obj[k] for k in IDENTITY_KEYS if k in obj})     # never rewrite what identifies the item itself
+        return clean
+
+    projects = [gated(p) for p in edition["projects"] if p["slug"] in wanted]
+    for p, original in zip(projects, [p for p in edition["projects"] if p["slug"] in wanted]):
+        if original.get("alts"):
+            p["alts"] = [{**alt, "branch": src.get("branch", ""), "commit": src.get("commit", "")} for alt, src in zip(p.get("alts") or [], original["alts"])]
+    cards = [gated(c) for c in edition["cards"] if c["slug"] in wanted]
+    known = {c["id"] for c in cards}
+    for c in cards:
+        links = [x for x in c.get("see_also") or [] if x in known and x != c["id"]]
+        if links:
+            c["see_also"] = links
+        else:
+            c.pop("see_also", None)
+    return {**edition, "projects": projects, "cards": cards,
+            "inventory": [r for r in edition["inventory"] if r.get("slug") in wanted],
+            "audience": sorted(wanted)}
+
+
 def find_stale(root: str, sources_root: str, tiers: list[str] | None = None) -> dict:
     """Re-check every card against a fresh checkout: a moved path or a vanished quote makes the card stale.
 

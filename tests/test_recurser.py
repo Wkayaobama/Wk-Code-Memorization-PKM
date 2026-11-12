@@ -15,9 +15,15 @@ from datetime import date
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from recurser import address, anki, bundle, db, fuzzy, inventory, kb, schema, server, srs, store  # noqa: E402
+from recurser import address, anki, assistant, bundle, config, db, fuzzy, inventory, k8s, kb, operator, retrieval, schema, server, srs, store  # noqa: E402
+
+try:
+    import anthropic
+except ImportError:  # the assistant tests need the SDK
+    anthropic = None
 
 DEMO = os.path.join(ROOT, "tests", "fixtures", "demo")
+DEMO_LINK = "demo-" + "link-0123456789"      # a made-up sign-in value for the server tests
 TODAY = date(2026, 11, 12)
 
 
@@ -736,15 +742,16 @@ class ServerTests(unittest.TestCase):
     def serve(self, **kw):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        httpd, token = server.create_server(os.path.join(ROOT, "app"), port=0, progress_path=os.path.join(tmp.name, "p.json"), info={"edition": "public"}, **kw)
+        httpd, token = server.create_server(os.path.join(ROOT, "app"), port=0, progress_path=os.path.join(tmp.name, "p.json"), edition=demo_edition(), **kw)
         thread = threading.Thread(target=httpd.serve_forever, daemon=True)
         thread.start()
         self.addCleanup(httpd.server_close)
         self.addCleanup(httpd.shutdown)
         return f"http://127.0.0.1:{httpd.server_address[1]}", token
 
-    def call(self, url, data=None, headers=None):
-        req = urllib.request.Request(url, data=json.dumps(data).encode() if data is not None else None, method="PUT" if data is not None else "GET", headers=headers or {})
+    def call(self, url, data=None, headers=None, method=None):
+        req = urllib.request.Request(url, data=json.dumps(data).encode() if data is not None else None,
+                                     method=method or ("PUT" if data is not None else "GET"), headers=headers or {})
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
                 return resp.status, resp.read(), dict(resp.headers)
@@ -778,7 +785,7 @@ class ServerTests(unittest.TestCase):
     def test_token_is_required_beyond_loopback(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        handler = server.make_handler(os.path.join(ROOT, "app"), server.ProgressFile(os.path.join(tmp.name, "p.json")), "s3cret-token", {})
+        handler = server.make_handler(os.path.join(ROOT, "app"), server.Site(demo_edition(), progress_path=os.path.join(tmp.name, "p.json"), token=DEMO_LINK))
         httpd = server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
         self.addCleanup(httpd.server_close)
@@ -786,12 +793,397 @@ class ServerTests(unittest.TestCase):
         base = f"http://127.0.0.1:{httpd.server_address[1]}"
         self.assertEqual(self.call(base + "/")[0], 401)
         self.assertEqual(self.call(base + "/api/progress")[0], 401)
-        status, _, headers = self.call(base + "/?token=s3cret-token")
+        status, _, headers = self.call(base + "/?token=" + DEMO_LINK)
         self.assertEqual(status, 200)
         cookie = headers["Set-Cookie"].split(";")[0]
         self.assertEqual(self.call(base + "/api/health", headers={"Cookie": cookie})[0], 200)
         self.assertEqual(self.call(base + "/?token=wrong")[0], 401)
         self.assertFalse(server.is_loopback("0.0.0.0"))
+
+
+class AudienceTests(unittest.TestCase):
+    def test_an_edition_for_chosen_projects(self):
+        edition = demo_edition()
+        self.assertEqual(store.resolve_projects(edition, ["Tide-Loader", "60"]), ["tide-loader", "harbor-notes"])
+        with self.assertRaises(KeyError):
+            store.resolve_projects(edition, ["tide"])                       # no guessing: a near miss is refused
+        team = store.restrict(edition, ["tide-loader"])
+        self.assertEqual([p["slug"] for p in team["projects"]], ["tide-loader"])
+        self.assertEqual({c["slug"] for c in team["cards"]}, {"tide-loader"})
+        self.assertEqual({r["name"] for r in team["inventory"]}, {"tide-loader"})
+        self.assertTrue(all("see_also" not in c for c in team["cards"]))        # links into the other deck are gone
+        self.assertEqual(len(edition["projects"]), 2)                           # the full edition is untouched
+        with self.assertRaises(KeyError):
+            store.restrict(edition, ["nope"])
+
+    def test_names_of_private_projects_outside_the_selection_are_removed(self):
+        edition = demo_edition()
+        edition = {**edition, "projects": [dict(p, visibility="private" if p["slug"] == "harbor-notes" else "public") for p in edition["projects"]]}
+        team = store.restrict(edition, ["tide-loader"])
+        first = [c for c in team["cards"] if c["id"] == "tide-loader:00"][0]
+        self.assertNotIn("harbor-notes", first["confusables"])
+        self.assertIn("[private project]", first["confusables"])
+        self.assertEqual((first["id"], first["slug"]), ("tide-loader:00", "tide-loader"))
+
+
+class RetrievalTests(unittest.TestCase):
+    def test_a_question_finds_its_card_inside_the_audience_only(self):
+        edition = demo_edition()
+        index = retrieval.Index(edition)
+        hits = index.search("why does tide-loader merge on a key instead of appending?", k=5)
+        self.assertTrue(hits and all(h["slug"] == "tide-loader" for h in hits[:2]))
+        self.assertIn("card", {h["kind"] for h in hits})
+        self.assertTrue(all(h["blocks"] and h["source"].startswith("recurser://") for h in hits))
+        self.assertEqual({h["slug"] for h in index.search("markdown file per note index", k=6, slugs=["harbor-notes"])}, {"harbor-notes"})
+        self.assertEqual(index.search("the of and", k=5), [])                     # nothing but stop words
+        only_tide = retrieval.Index(store.restrict(edition, ["tide-loader"]))
+        self.assertTrue(all(h["slug"] == "tide-loader" for h in only_tide.search("markdown file per note index", k=8)))
+        self.assertEqual(retrieval.tokens("loadStation(BRE)"), ["loadstation", "load", "station", "bre"])
+
+    def test_settings_file(self):
+        merged = config.merge({"llm": {"effort": "high"}, "access": {"only": ["tide-loader"]}})
+        self.assertEqual((merged["llm"]["model"], merged["llm"]["effort"], merged["server"]["port"]), ("claude-opus-5-5", "high", 8000))
+        for bad in ({"llm": {"modle": "x"}}, {"llm": {"provider": "other"}}, {"server": {"port": "8000"}}, {"nope": {}}, {"llm": {"effort": "extreme"}}):
+            with self.assertRaises(config.ConfigError):
+                config.merge(bad)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "config.yaml")
+            with open(path, "w") as fh:
+                fh.write("llm:\n  effort: low\nretrieval:\n  top_k: 5\n")
+            loaded = config.load(path)
+            self.assertEqual((loaded["llm"]["effort"], loaded["retrieval"]["top_k"]), ("low", 5))
+
+
+@unittest.skipIf(anthropic is None, "the anthropic package is not installed")
+class AssistantTests(unittest.TestCase):
+    """The SDK calls, run against a local stand-in for the API that speaks its streaming protocol."""
+
+    def setUp(self):
+        from fake_anthropic import FakeAnthropic
+
+        self.api = FakeAnthropic()
+        self.addCleanup(self.api.close)
+        self.client = anthropic.Anthropic(api_key="test-key", base_url=self.api.url, max_retries=0)
+        self.passages = retrieval.Index(demo_edition()).search("what does tide-loader do?", k=3)
+
+    def test_ask_sends_search_results_and_reads_citations(self):
+        result = assistant.ask("What does tide-loader do?", self.passages, client=self.client)
+        sent = self.api.requests[-1]
+        body = sent["body"]
+        self.assertEqual(body["model"], "claude-opus-5-5")
+        self.assertEqual(body["thinking"], {"type": "adaptive"})
+        self.assertEqual(body["output_config"], {"effort": "medium"})
+        self.assertEqual(body["fallbacks"], "default")
+        self.assertIn("server-side-fallback-2026-07-01", sent["headers"]["anthropic-beta"])
+        self.assertTrue(body["stream"])
+        self.assertEqual(body["max_tokens"], 16000)
+        content = body["messages"][0]["content"]
+        self.assertEqual([b["type"] for b in content], ["search_result"] * 3 + ["text"])
+        self.assertTrue(all(b["citations"] == {"enabled": True} and b["content"] and b["source"].startswith("recurser://") for b in content[:3]))
+        self.assertEqual(content[-1]["text"], "What does tide-loader do?")
+        self.assertNotIn("temperature", body)
+        self.assertEqual(result["text"], "Grounded sentence. A closing remark.")
+        self.assertEqual(result["segments"], [{"text": "Grounded sentence.", "cites": [self.passages[0]["id"]]}, {"text": " A closing remark.", "cites": []}])
+        self.assertEqual(result["sources"], [self.passages[0]["id"]])
+        self.assertEqual((result["refused"], result["truncated"], result["usage"]["output_tokens"]), (False, False, 42))
+
+    def test_refusals_errors_and_empty_retrieval(self):
+        self.assertEqual(assistant.ask("anything", [], client=self.client)["sources"], [])
+        self.assertEqual(self.api.requests, [])                               # nothing retrieved: nothing is sent
+        self.api.mode = "refusal"
+        self.assertTrue(assistant.ask("q", self.passages, client=self.client)["refused"])
+        for mode, status in (("status:429", 429), ("status:401", 503), ("status:404", 503), ("status:500", 502)):
+            self.api.mode = mode
+            with self.assertRaises(assistant.AssistantError) as caught:
+                assistant.ask("q", self.passages, client=self.client)
+            self.assertEqual(caught.exception.status, status, mode)
+        self.assertEqual(caught.exception.retry_after, None)
+        self.api.mode = "status:429"
+        with self.assertRaises(assistant.AssistantError) as caught:
+            assistant.ask("q", self.passages, client=self.client)
+        self.assertEqual(caught.exception.retry_after, 7)
+        unreachable = anthropic.Anthropic(api_key="k", base_url="http://127.0.0.1:9", max_retries=0, timeout=2.0)
+        with self.assertRaises(assistant.AssistantError) as caught:           # nothing listens there: a network failure, not a crash
+            assistant.ask("q", self.passages, client=unreachable)
+        self.assertIn(caught.exception.status, (502, 504))
+
+    def test_critique_compares_with_the_reference(self):
+        edition = demo_edition()
+        card = [c for c in edition["cards"] if c["id"] == "tide-loader:00"][0]
+        project = [p for p in edition["projects"] if p["slug"] == "tide-loader"][0]
+        result = assistant.critique(card, project, "it loads tide files", client=self.client, fallbacks=False)
+        body = self.api.requests[-1]["body"]
+        text = body["messages"][0]["content"][0]["text"]
+        self.assertIn("REFERENCE ANSWER: " + card["answer"], text)
+        self.assertIn("it loads tide files", text)
+        self.assertEqual(body["output_config"], {"effort": "low"})
+        self.assertNotIn("fallbacks", body)
+        self.assertTrue(result["text"].startswith("partly."))
+
+
+class TeamServerTests(ServerTests):
+    USERS = [dict(name="owner", token="owner-" + "token-0123456789abcdef", projects="*"),          # demo values, not credentials
+             dict(name="sam", token="sam-" + "token-0123456789abcdefgh", projects=["tide-loader"])]
+
+    def team(self, client=None, settings=None, **kw):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        site = server.Site(demo_edition(), users=[dict(u) for u in self.USERS], progress_dir=tmp.name, client=client,
+                           settings=config.merge(settings), **kw)
+        httpd, _ = server.create_server(os.path.join(ROOT, "app"), port=0, site=site)
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        self.addCleanup(httpd.server_close)
+        self.addCleanup(httpd.shutdown)
+        return f"http://127.0.0.1:{httpd.server_address[1]}", tmp.name
+
+    def cookie(self, base, user):
+        status, _, headers = self.call(base + "/?token=" + user["token"])
+        self.assertEqual(status, 200)
+        return {"Cookie": headers["Set-Cookie"].split(";")[0]}
+
+    def test_each_person_signs_in_and_sees_only_their_projects(self):
+        base, folder = self.team()
+        self.assertEqual(self.call(base + "/")[0], 401)
+        self.assertEqual(self.call(base + "/data/bundle.js")[0], 401)
+        self.assertEqual(self.call(base + "/?token=" + "x" * 28)[0], 401)
+        self.assertEqual(self.call(base + "/healthz")[:2], (200, b"ok\n"))            # probes need no sign-in and get no data
+        owner, sam = self.cookie(base, self.USERS[0]), self.cookie(base, self.USERS[1])
+        info = json.loads(self.call(base + "/api/health", headers=sam)[1])
+        self.assertEqual((info["user"], info["projects"], info["team"], info["assistant"]), ("sam", 1, True, False))
+        self.assertEqual(json.loads(self.call(base + "/api/health", headers=owner)[1])["projects"], 2)
+        sam_bundle = self.call(base + "/data/bundle.js", headers=sam)[1].decode("utf-8")
+        self.assertIn('"id":"tide-loader:00"', sam_bundle)
+        self.assertNotIn('"id":"harbor-notes:', sam_bundle)
+        self.assertIn('"id":"harbor-notes:00"', self.call(base + "/data/bundle.js", headers=owner)[1].decode("utf-8"))
+        # histories are separate files
+        self.assertEqual(self.call(base + "/api/progress", {"updated": 5, "cards": {"tide-loader:00": {"last": 5, "reps": 1}}}, headers=sam)[0], 200)
+        self.assertEqual(json.loads(self.call(base + "/api/progress", headers=owner)[1])["cards"], {})
+        self.assertEqual(sorted(os.listdir(folder)), ["sam.json"])
+        self.assertEqual(self.call(base + "/api/ask", {"question": "x"}, headers=sam, method="POST")[0], 503)   # no credential, no assistant
+        self.assertEqual(json.loads(self.call(base + "/openapi.json", headers=sam)[1])["openapi"], "3.1.0")
+        self.assertIn(b"POST /api/ask", self.call(base + "/docs", headers=sam)[1])
+
+    def test_users_file_is_checked(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "users.json")
+            for bad in ({"users": []}, {"users": [{"name": "Sam", "token": "t" * 24}]}, {"users": [{"name": "sam", "token": "short"}]},
+                        {"users": [{"name": "a", "token": "t" * 24}, {"name": "b", "token": "t" * 24}]}):
+                _dump(bad, path)
+                with self.assertRaises(ValueError):
+                    server.load_users(path)
+            _dump({"users": self.USERS}, path)
+            self.assertEqual(len(server.load_users(path)), 2)
+        with self.assertRaises(ValueError):                                    # a typo in a project list stops the server
+            server.Site(demo_edition(), users=[{"name": "x", "token": "t" * 24, "projects": ["tide"]}])
+
+    def test_a_proxy_header_is_trusted_only_when_asked(self):
+        base, _ = self.team()
+        self.assertEqual(self.call(base + "/api/health", headers={"X-Forwarded-User": "sam"})[0], 401)
+        base, _ = self.team(user_header="X-Forwarded-User")
+        self.assertEqual(json.loads(self.call(base + "/api/health", headers={"X-Forwarded-User": "sam"})[1])["user"], "sam")
+        self.assertEqual(self.call(base + "/api/health", headers={"X-Forwarded-User": "nobody"})[0], 401)
+
+    @unittest.skipIf(anthropic is None, "the anthropic package is not installed")
+    def test_questions_stay_inside_what_the_person_may_see(self):
+        from fake_anthropic import FakeAnthropic
+
+        api = FakeAnthropic()
+        self.addCleanup(api.close)
+        client = anthropic.Anthropic(api_key="test-key", base_url=api.url, max_retries=0)
+        base, _ = self.team(client=client, settings={"server": {"ask_per_10_minutes": 3}})
+        sam = self.cookie(base, self.USERS[1])
+        status, body, _ = self.call(base + "/api/ask", {"question": "Where does harbor-notes keep one Markdown file per note?"}, headers=sam, method="POST")
+        answer = json.loads(body)
+        self.assertEqual(status, 200)
+        sources = [b["source"] for b in api.requests[-1]["body"]["messages"][0]["content"] if b["type"] == "search_result"]
+        self.assertTrue(sources and all("harbor-notes" not in src for src in sources))   # sam cannot reach the other deck, even by asking
+        self.assertEqual(answer["text"], "Grounded sentence. A closing remark.")
+        self.assertEqual(answer["sources"][0]["slug"], "tide-loader")
+        self.assertTrue(answer["sources"][0]["text"])
+        self.assertEqual(self.call(base + "/api/ask", {"question": "q", "slug": "harbor-notes"}, headers=sam, method="POST")[0], 404)
+        self.assertEqual(self.call(base + "/api/ask", {"question": "x" * 2001}, headers=sam, method="POST")[0], 400)
+        self.assertEqual(self.call(base + "/api/critique", {"id": "harbor-notes:00", "answer": "a"}, headers=sam, method="POST")[0], 404)
+        status, body, _ = self.call(base + "/api/critique", {"id": "tide-loader:00", "answer": "it loads tide files"}, headers=sam, method="POST")
+        self.assertEqual((status, json.loads(body)["text"][:7]), (200, "partly."))
+        status, body, headers = self.call(base + "/api/ask", {"question": "one more"}, headers=sam, method="POST")
+        self.assertEqual(status, 200)                                           # third allowed question
+        status, body, headers = self.call(base + "/api/ask", {"question": "and another"}, headers=sam, method="POST")
+        self.assertEqual(status, 429)
+        self.assertTrue(int(headers["Retry-After"]) > 0)
+        api.mode = "status:401"
+        owner = self.cookie(base, self.USERS[0])
+        self.assertEqual(self.call(base + "/api/ask", {"question": "what does tide-loader do"}, headers=owner, method="POST")[0], 503)
+
+
+class FakeCluster:
+    """The four calls the controller makes, on a dictionary."""
+
+    def __init__(self, objects=()):
+        self.objects = {(o["apiVersion"], o["kind"], o["metadata"]["namespace"], o["metadata"]["name"]): o for o in objects}
+        self.applied, self.statuses = [], []
+
+    def get(self, api_version, kind, namespace, name):
+        return self.objects.get((api_version, kind, namespace, name))
+
+    def apply(self, obj):
+        self.applied.append(obj)
+        key = (obj["apiVersion"], obj["kind"], obj["metadata"]["namespace"], obj["metadata"]["name"])
+        kept = {"status": self.objects[key]["status"]} if "status" in self.objects.get(key, {}) else {}   # an apply never touches the status
+        self.objects[key] = {**obj, **kept}
+
+    def set_status(self, app, status):
+        self.statuses.append(status)
+        app["status"] = status
+
+    def list_apps(self, namespace):
+        return [o for (_, kind, ns, _), o in self.objects.items() if kind == k8s.KIND and ns == namespace]
+
+    def watch_apps(self, namespace, timeout):
+        return iter(())
+
+
+class KubernetesTests(unittest.TestCase):
+    OWNER = {"apiVersion": k8s.API_VERSION, "kind": k8s.KIND, "name": "team", "uid": "uid-1", "controller": True, "blockOwnerDeletion": True}
+
+    def by_kind(self, spec, **kw):
+        return {o["kind"]: o for o in k8s.render("team", "recurser", spec, **kw)}
+
+    def test_the_five_layers(self):
+        spec = k8s.example()["app"]["spec"]
+        self.assertEqual(k8s.validate_spec(spec), [])
+        objs = self.by_kind(spec, owner=self.OWNER, checksums={"config": "7"})
+        self.assertEqual(sorted(objs), ["Deployment", "NetworkPolicy", "PersistentVolumeClaim", "Service"])
+        pod = objs["Deployment"]["spec"]["template"]["spec"]
+        box = pod["containers"][0]
+        # 1. the container: an API service on port 8000
+        self.assertEqual(box["ports"], [{"name": "http", "containerPort": 8000, "protocol": "TCP"}])
+        self.assertEqual(box["args"], ["serve", "--config", "/app/config/config.yaml", "--users", "/app/secrets/users.json"])
+        # 2. the ConfigMap, mounted at /app/config/config.yaml
+        self.assertIn({"name": "config", "mountPath": "/app/config", "readOnly": True}, box["volumeMounts"])
+        self.assertEqual(pod["volumes"][0], {"name": "config", "configMap": {"name": "team-config", "items": [{"key": "config.yaml", "path": "config.yaml"}]}})
+        # 3. the credential: a reference to a Secret, never a value
+        self.assertEqual(box["env"], [{"name": "ANTHROPIC_API_KEY", "valueFrom": {"secretKeyRef": {"name": "team-anthropic", "key": "ANTHROPIC_API_KEY"}}}])
+        self.assertNotIn("sk-", json.dumps(objs))
+        # 4. the Service: 80 inside the cluster, the container's port behind it
+        self.assertEqual(objs["Service"]["spec"]["ports"], [{"name": "http", "port": 80, "targetPort": "http", "protocol": "TCP"}])
+        self.assertEqual(objs["Service"]["spec"]["selector"], objs["Deployment"]["spec"]["selector"]["matchLabels"])
+        self.assertTrue(set(objs["Service"]["spec"]["selector"].items()) <= set(objs["Deployment"]["spec"]["template"]["metadata"]["labels"].items()))
+        # every generated object belongs to the RecurserApp, and a change of settings rolls the pod
+        self.assertTrue(all(o["metadata"]["ownerReferences"] == [self.OWNER] for o in objs.values()))
+        other = self.by_kind(spec, owner=self.OWNER, checksums={"config": "8"})
+        self.assertNotEqual(objs["Deployment"]["spec"]["template"]["metadata"]["annotations"], other["Deployment"]["spec"]["template"]["metadata"]["annotations"])
+        # hardening and the network
+        self.assertEqual(box["securityContext"], {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True, "runAsNonRoot": True, "capabilities": {"drop": ["ALL"]}})
+        self.assertFalse(pod["automountServiceAccountToken"])
+        self.assertEqual(objs["Deployment"]["spec"]["replicas"], 1)
+        policy = objs["NetworkPolicy"]["spec"]
+        self.assertEqual(policy["policyTypes"], ["Ingress", "Egress"])
+        self.assertEqual(policy["ingress"][0]["ports"], [{"protocol": "TCP", "port": 8000}])
+        https = policy["egress"][1]
+        self.assertEqual(https["ports"], [{"protocol": "TCP", "port": 443}])
+        self.assertTrue({"10.0.0.0/8", "169.254.0.0/16"} <= set(https["to"][0]["ipBlock"]["except"]))
+
+    def test_optional_parts_and_bad_specs(self):
+        bare = self.by_kind({"image": "x:1", "configRef": {"name": "c"}})
+        box = bare["Deployment"]["spec"]["template"]["spec"]["containers"][0]
+        self.assertEqual((box["env"], box["args"]), ([], ["serve", "--config", "/app/config/config.yaml"]))      # no Secret: no key, no users file
+        full = self.by_kind({"image": "x:1", "configRef": {"name": "c"}, "storage": {"existingClaim": "kept"}, "networkPolicy": {"enabled": False},
+                             "ingress": {"host": "recurser.example.internal", "className": "nginx", "tlsSecretName": "tls"}})
+        self.assertEqual(sorted(full), ["Deployment", "Ingress", "Service"])
+        self.assertEqual(full["Deployment"]["spec"]["template"]["spec"]["volumes"][1]["persistentVolumeClaim"], {"claimName": "kept"})
+        self.assertEqual(full["Ingress"]["spec"]["tls"], [{"hosts": ["recurser.example.internal"], "secretName": "tls"}])
+        with_ingress = self.by_kind({"image": "x:1", "configRef": {"name": "c"}, "ingress": {"host": "h.example.internal"}})
+        sources = with_ingress["NetworkPolicy"]["spec"]["ingress"][0]["from"]
+        self.assertIn({"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "ingress-nginx"}}}, sources)
+        for bad in ({"image": "", "configRef": {"name": "c"}}, {"image": "x"}, {"image": "x", "configRef": {"name": "c"}, "nope": 1},
+                    {"image": "x", "configRef": {"name": "c"}, "storage": {"size": "lots"}},
+                    {"image": "x", "configRef": {"name": "c"}, "ingress": {"tlsSecretName": "t"}}, "not a mapping"):
+            self.assertTrue(k8s.validate_spec(bad), bad)
+
+    def test_the_files_on_disk_are_what_the_generator_writes(self):
+        try:
+            import yaml  # noqa: F401
+        except ImportError:
+            self.skipTest("PyYAML is not installed")
+        from recurser import cli
+
+        for rel, text in cli.k8s_files().items():
+            self.assertEqual(_text(os.path.join(ROOT, "deploy", "k8s", rel)), text, rel + " is stale: run python3 -m recurser k8s write")
+        crd = k8s.crd()
+        self.assertEqual(crd["metadata"]["name"], f"{k8s.PLURAL}.{k8s.GROUP}")
+        self.assertEqual(crd["spec"]["versions"][0]["subresources"], {"status": {}})
+
+    def app(self, spec=None, **status):
+        app = {"apiVersion": k8s.API_VERSION, "kind": k8s.KIND, "metadata": {"name": "team", "namespace": "recurser", "uid": "uid-1", "generation": 1},
+               "spec": spec if spec is not None else k8s.example()["app"]["spec"]}
+        if status:
+            app["status"] = status
+        return app
+
+    def cluster(self, config_text="llm:\n  effort: low\n", secret_keys=("ANTHROPIC_API_KEY",), users_keys=("users.json",), skip=()):
+        objects = [
+            {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"namespace": "recurser", "name": "team-config", "resourceVersion": "11"}, "data": {"config.yaml": config_text}},
+            {"apiVersion": "v1", "kind": "Secret", "metadata": {"namespace": "recurser", "name": "team-anthropic", "resourceVersion": "12"}, "data": {k: "eA==" for k in secret_keys}},
+            {"apiVersion": "v1", "kind": "Secret", "metadata": {"namespace": "recurser", "name": "team-users", "resourceVersion": "13"}, "data": {k: "eA==" for k in users_keys}},
+        ]
+        return FakeCluster([o for o in objects if o["metadata"]["name"] not in skip])
+
+    def test_the_controller_generates_the_deployment_and_the_service(self):
+        cluster, app = self.cluster(), self.app()
+        status = operator.reconcile(cluster, app)
+        self.assertEqual([o["kind"] for o in cluster.applied], ["PersistentVolumeClaim", "Deployment", "Service", "NetworkPolicy"])
+        self.assertTrue(all(o["metadata"]["ownerReferences"][0]["uid"] == "uid-1" for o in cluster.applied))
+        cond = status["conditions"][0]
+        self.assertEqual((cond["status"], cond["reason"], status["observedGeneration"], status["url"]), ("False", "Progressing", 1, "http://team.recurser.svc"))
+        # once the pod is ready, the status says so; an unchanged state is not written again
+        cluster.objects[("apps/v1", "Deployment", "recurser", "team")]["status"] = {"availableReplicas": 1}
+        self.assertEqual(operator.reconcile(cluster, app)["conditions"][0]["reason"], "Available")
+        writes = len(cluster.statuses)
+        operator.reconcile(cluster, app)
+        self.assertEqual(len(cluster.statuses), writes)
+        # editing the settings rolls the pod: the template annotation follows the ConfigMap's version
+        before = cluster.objects[("apps/v1", "Deployment", "recurser", "team")]["spec"]["template"]["metadata"]["annotations"]
+        cluster.objects[("v1", "ConfigMap", "recurser", "team-config")]["metadata"]["resourceVersion"] = "99"
+        operator.reconcile(cluster, app)
+        self.assertNotEqual(cluster.applied[-3]["spec"]["template"]["metadata"]["annotations"], before)
+
+    def test_the_controller_says_what_is_missing_and_creates_nothing(self):
+        cases = [
+            (self.cluster(skip=("team-config",)), None, "ConfigMissing"),
+            (self.cluster(config_text="llm:\n  modle: x\n"), None, "ConfigInvalid"),
+            (self.cluster(config_text="llm: [unclosed"), None, "ConfigInvalid"),
+            (self.cluster(skip=("team-anthropic",)), None, "SecretMissing"),
+            (self.cluster(secret_keys=("OTHER",)), None, "SecretKeyMissing"),
+            (self.cluster(skip=("team-users",)), None, "UsersMissing"),
+            (self.cluster(users_keys=()), None, "UsersKeyMissing"),
+            (self.cluster(), {"image": "", "configRef": {"name": "team-config"}}, "InvalidSpec"),
+        ]
+        for cluster, spec, reason in cases:
+            status = operator.reconcile(cluster, self.app(spec))
+            self.assertEqual((status["conditions"][0]["status"], status["conditions"][0]["reason"]), ("False", reason))
+            self.assertEqual(cluster.applied, [], reason)
+            self.assertEqual(len(cluster.statuses), 1, reason)
+        # a ConfigMap whose key holds no data at all
+        empty = self.cluster()
+        empty.objects[("v1", "ConfigMap", "recurser", "team-config")]["data"] = {}
+        self.assertEqual(operator.reconcile(empty, self.app())["conditions"][0]["reason"], "ConfigKeyMissing")
+
+    def test_the_loop_survives_a_bad_object(self):
+        cluster = self.cluster()
+        good, broken = self.app(), self.app()
+        broken["metadata"] = {"name": "broken", "namespace": "recurser"}          # no uid: owner reference cannot be built
+        cluster.objects[(k8s.API_VERSION, k8s.KIND, "recurser", "broken")] = broken
+        cluster.objects[(k8s.API_VERSION, k8s.KIND, "recurser", "team")] = good
+        stop, lines = threading.Event(), []
+
+        def log(line):
+            lines.append(line)
+            if len(lines) >= 2:
+                stop.set()
+
+        operator.run(cluster, "recurser", resync=1, stop=stop, log=log)
+        self.assertTrue(any("reconcile failed" in line for line in lines))
+        self.assertTrue(any("team: Ready=" in line for line in lines))
 
 
 if __name__ == "__main__":

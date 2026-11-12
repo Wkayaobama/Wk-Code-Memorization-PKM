@@ -5,7 +5,8 @@
   var ui = R.ui, h = ui.h, model = R.model, srs = R.srs, store = R.store, session = R.session, fuzzy = R.fuzzy;
 
   var memo = { projects: { q: '', sort: 'risk' }, matrix: { slug: '', category: '', type: '', level: '', state: '', q: '', open: null },
-               inventory: { q: '', tier: '', decks: false, forks: true }, project: { selected: {} }, confirmReset: false, importMsg: '' };
+               inventory: { q: '', tier: '', decks: false, forks: true }, project: { selected: {} }, confirmReset: false, importMsg: '',
+               ask: { q: '', slug: '', busy: false, result: null, error: '' } };
 
   function planOpts(extra) {
     return Object.assign({ sessionSize: store.pref('sessionSize'), newPerDay: store.pref('newPerDay'), order: store.pref('order') }, extra || {});
@@ -48,7 +49,8 @@
       totals.due && nextProject && introduced < limit ? h('button', { class: 'btn', on: { click: function () { go('learn', ctx); } } }, 'Learn a new block') : null,
       h('button', { class: 'btn', on: { click: function () { go('quick', ctx); } } }, 'On the go', quickDue ? h('span', { class: 'count', text: quickDue }) : null),
       outputs ? h('button', { class: 'btn', on: { click: function () { go('outputs', ctx); } } }, 'Predict the output') : null,
-      h('button', { class: 'btn', on: { click: function () { go('recap', ctx); } } }, 'Evening recap'));
+      h('button', { class: 'btn', on: { click: function () { go('recap', ctx); } } }, 'Evening recap'),
+      store.caps().assistant ? h('a', { class: 'btn', href: '#ask' }, 'Ask your decks') : null);
 
     var head = h('section', { class: 'stack' },
       h('h1', { class: 'view-title', text: pulse }),
@@ -238,7 +240,7 @@
     var block = h('div', { class: 'answer-block' });
     if (s.typed && s.typed.trim()) {
       block.appendChild(h('div', { class: 'kv' }, h('div', { class: 'label', text: 'You wrote' }), h('p', { class: 'mine', text: s.typed })));
-      if (store.caps().sample) {
+      if (store.caps().sample || store.caps().assistant) {
         var out = h('div', { class: 'critique', hidden: true });
         var btn = h('button', { class: 'btn btn-sm', on: { click: function () { critique(c, p, s.typed, out, btn); } } }, 'Check it with Claude');
         block.appendChild(h('div', { class: 'stack' }, h('div', null, btn), out));
@@ -295,8 +297,28 @@
 
   var COPY = { rate_limited: 'Claude is busy or your usage limit is reached. Try again later.', session_expired: 'Sign in to Claude again, then retry.',
                refused: 'Claude declined to check this one.', cancelled: '' };
+  /* POST JSON to this page's own server; a refusal comes back as an Error with a sentence to show. */
+  function postJSON(path, body) {
+    return root.fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (data) {
+          if (r.ok) return data;
+          var wait = data.retry_after || r.headers.get('Retry-After');
+          if (r.status === 429) throw new Error('Too many questions for now. Try again in ' + (wait ? Math.ceil(wait / 60) + ' min.' : 'a few minutes.'));
+          if (r.status === 401) throw new Error('You are signed out. Open your personal link again.');
+          throw new Error(data.error ? 'The assistant could not answer: ' + data.error + '.' : 'The assistant could not answer just now.');
+        });
+      }, function () { throw new Error('The server could not be reached.'); });
+  }
   function critique(c, p, typed, out, btn) {
     var sample = store.caps().sample;
+    if (!sample && store.caps().assistant) {              /* served by a Recurser server: it asks through the Anthropic SDK */
+      btn.disabled = true; out.hidden = false; out.textContent = 'Thinking\u2026';
+      postJSON('api/critique', { id: c.id, answer: String(typed).slice(0, 4000) })
+        .then(function (res) { out.textContent = res.text; }, function (e) { out.textContent = e.message; })
+        .then(function () { btn.disabled = false; });
+      return;
+    }
     if (!sample) return;
     var prompt = 'You are checking a developer’s recall of their own project. Be brief and concrete.\n\n' +
       'PROJECT: ' + (p.title || c.slug) + (p.one_liner ? ' — ' + p.one_liner : '') + '\n' +
@@ -407,7 +429,8 @@
         h('button', { class: 'btn', title: 'Every card in address order, attempt before each reveal, pass or fail', on: { click: function () { go('sit', ctx, { slug: p.slug }); } } }, 'Sit'),
         h('button', { class: 'btn', title: 'Every card in address order, practice only', on: { click: function () { go('walk', ctx, { slug: p.slug }); } } }, 'Walk through'),
         h('button', { class: 'btn', on: { click: function () { go('random', ctx, { slug: p.slug }); } } }, 'Random draw'),
-        hasOutputs ? h('button', { class: 'btn', on: { click: function () { go('outputs', ctx, { slug: p.slug }); } } }, 'Predict the output') : null),
+        hasOutputs ? h('button', { class: 'btn', on: { click: function () { go('outputs', ctx, { slug: p.slug }); } } }, 'Predict the output') : null,
+        store.caps().assistant ? h('a', { class: 'btn', href: '#ask', on: { click: function () { memo.ask.slug = p.slug; } } }, 'Ask about it') : null),
       (p.gotchas || []).length ? h('div', { class: 'traps' },
         h('div', { class: 'label', text: 'Known traps: read before you drill, so a defect is not memorised as design' }),
         h('ul', null, p.gotchas.slice(0, 3).map(function (g) { return h('li', { rich: g.issue }); }))) : null));
@@ -712,5 +735,61 @@
           h('p', { class: 'prose', text: 'In memory is an estimate, not a measurement: unseen cards fade from the day you last pushed to the project (half gone every ' + ctx.ix.tuning.base_half_life_days + ' days), reviewed cards fade from their last review, more slowly the longer their interval.' })))));
   }
 
-  R.views = { today: today, review: review, projects: projects, project: project, matrix: matrix, inventory: inventory, sync: sync, keys: keys, ankiText: ankiText };
+  /* ------------------------------------------------------------------ ask */
+  function ask(el, ctx) {
+    var st = memo.ask, able = store.caps().assistant;
+    var box = h('textarea', { class: 'input', id: 'ask-question', rows: '3', maxlength: '2000', placeholder: 'Which function, which file, why this way\u2026',
+      on: { input: function () { st.q = box.value; } } });
+    box.value = st.q;
+    var pick = h('select', { class: 'input', id: 'ask-project', 'aria-label': 'Project', on: { change: function () { st.slug = pick.value; } } },
+      [h('option', { value: '', text: 'All my projects' })].concat(ctx.bundle.projects.map(function (p) {
+        return h('option', { value: p.slug, text: p.code + '  ' + (p.repo || p.slug) });
+      })));
+    pick.value = st.slug;
+    function send() {
+      var q = st.q.trim();
+      if (!q || st.busy) return;
+      st.busy = true; st.error = ''; st.result = null; ctx.render();
+      postJSON('api/ask', st.slug ? { question: q, slug: st.slug } : { question: q })
+        .then(function (res) { st.result = res; }, function (e) { st.error = e.message; })
+        .then(function () { st.busy = false; ctx.render(); });
+    }
+    var out = h('section', { class: 'stack', 'aria-live': 'polite' });
+    if (st.busy) out.appendChild(h('p', { class: 'muted', text: 'Searching the decks and writing an answer\u2026' }));
+    if (st.error) out.appendChild(h('p', { class: 'empty', text: st.error }));
+    if (st.result) {
+      var res = st.result, number = {};
+      (res.sources || []).forEach(function (s, i) { number[s.id] = i + 1; });
+      var flow = h('div', { class: 'ask-flow' });               /* one inline run: sentences, each followed by its markers */
+      if ((res.segments || []).length) {
+        res.segments.forEach(function (seg) {
+          flow.appendChild(ui.rich(h('span'), seg.text));
+          (seg.cites || []).forEach(function (id) { if (number[id]) flow.appendChild(h('sup', { class: 'cite', text: '[' + number[id] + ']' })); });
+        });
+      } else flow.appendChild(h('span', { text: res.text || '' }));
+      out.appendChild(h('div', { class: 'card ask-answer' }, flow));
+      if (res.truncated) out.appendChild(h('p', { class: 'muted small', text: 'The answer was cut short. Ask a narrower question.' }));
+      if ((res.sources || []).length) {
+        out.appendChild(h('h2', { class: 'section-title', text: 'Rests on' }));
+        out.appendChild(h('div', { class: 'stack' }, res.sources.map(function (s, i) {
+          var project = ctx.ix.projectBySlug[s.slug];
+          return h('details', { class: 'also' },
+            h('summary', null, h('span', { class: 'code', text: '[' + (i + 1) + ']' }), h('span', { text: s.title }),
+              s.path ? h('span', { class: 'muted small', text: s.path }) : null),
+            h('p', { class: 'ask-source', text: s.text }),
+            project ? h('p', null, h('a', { class: 'small', href: '#' + model.hashName(s.slug), text: 'Open ' + (project.repo || s.slug) })) : null);
+        })));
+      } else if (!res.refused) out.appendChild(h('p', { class: 'muted small', text: 'No passage was cited for this answer: treat it with care.' }));
+      if (res.model) out.appendChild(h('p', { class: 'muted small', text: 'Answered by ' + res.model + ' from ' + (res.retrieved || 0) + ' retrieved passages.' }));
+    }
+    el.appendChild(h('section', { class: 'stack' },
+      h('h1', { class: 'view-title', text: 'Ask your decks' }),
+      h('p', { class: 'view-sub', text: 'Answers come from the cards and project notes you can open, with the passages they rest on.' }),
+      able ? null : h('p', { class: 'empty', text: 'Questions are answered when this page is served by a Recurser server that holds an Anthropic credential.' }),
+      h('div', { class: 'ask-form' }, pick, box,
+        h('div', null, h('button', { class: 'btn btn-primary', id: 'ask-send', disabled: !able || st.busy, on: { click: send } }, st.busy ? 'Asking\u2026' : 'Ask')))));
+    el.appendChild(out);
+  }
+
+  R.views = { today: today, review: review, projects: projects, project: project, matrix: matrix, inventory: inventory, sync: sync, ask: ask, keys: keys, ankiText: ankiText };
 })(window);

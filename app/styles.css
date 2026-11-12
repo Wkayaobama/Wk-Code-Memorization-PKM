@@ -287,6 +287,11 @@ details.also { border: 1px solid var(--rule); border-radius: 8px; padding: 0 12p
 details.also > summary { cursor: pointer; padding: 9px 0; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; font-weight: 500; }
 details.also > p, details.also > ol { margin: 0 0 10px; }
 details.also .also-q { color: var(--ink-2); }
+.ask-form { display: grid; gap: 10px; max-width: 44rem; }
+.ask-answer { padding: 16px 18px; font-size: 16px; line-height: 1.55; }
+.ask-flow { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ask-source { white-space: pre-wrap; color: var(--ink-2); font-size: 14px; overflow-wrap: anywhere; }
+sup.cite { font: 500 11px/1 var(--font-mono); color: var(--accent); margin-left: 2px; }
 details.fold { border-bottom: 1px solid var(--rule); }
 details.fold > summary { cursor: pointer; padding: 12px 0; font-weight: 600; display: flex; gap: 10px; align-items: baseline; list-style: none; }
 details.fold > summary::-webkit-details-marker { display: none; }

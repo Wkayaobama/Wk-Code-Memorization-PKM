@@ -8,6 +8,12 @@
     ui.clear(view).appendChild(h('p', { class: 'empty', text: 'No deck data was found. Build it with: python -m recurser build' }));
     return;
   }
+  /* The sign-in token arrives in the address once; the cookie carries it from then on, so it leaves the address bar. */
+  try {
+    if (/[?&]token=/.test(root.location.search) && root.history && root.history.replaceState) {
+      root.history.replaceState(null, '', root.location.pathname + root.location.hash);
+    }
+  } catch (e) { /* some hosts do not allow it */ }
   var ix = model.index(bundle);
   var TABS = [['today', 'Today'], ['projects', 'Projects'], ['matrix', 'Matrix'], ['inventory', 'Inventory'], ['sync', 'Sync']];
   var ctx = { ix: ix, bundle: bundle, render: render };
@@ -26,10 +32,10 @@
   function drawSync() {
     var s = store.status(), parts = [];
     if (s.local === 'on') parts.push('browser');
-    if (s.server === 'on') parts.push('localhost');
+    if (s.server === 'on') parts.push(s.team ? 'team server' : 'localhost');
     if (s.claude === 'on') parts.push('Claude');
     if (s.claude === 'connecting') parts.push('connecting\u2026');
-    document.getElementById('sync-chip').textContent = parts.length ? 'saved \u00b7 ' + parts.join(' + ') : 'history not saved';
+    document.getElementById('sync-chip').textContent = (s.user ? s.user + ' \u00b7 ' : '') + (parts.length ? 'saved \u00b7 ' + parts.join(' + ') : 'history not saved');
   }
 
   function render() {
@@ -40,6 +46,7 @@
     if (name === 'review') views.review(view, ctx);
     else if (name.indexOf('p-') === 0 && ix.projectByHash[name]) views.project(view, ctx, ix.projectByHash[name]);
     else if (TABS.some(function (t) { return t[0] === name; })) views[name](view, ctx);
+    else if (name === 'ask') views.ask(view, ctx);
     else { root.location.hash = '#today'; return; }
     drawNav(name);
     drawSync();

@@ -14,7 +14,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-from recurser import fuzzy, srs  # noqa: E402
+from recurser import fuzzy, server, srs  # noqa: E402
 
 PORTFOLIO = [
     {"name": "Bhead-Sonar", "title": "Sonar scout: scrape, extract, score", "keywords": ["fastapi", "extraction"]},
@@ -66,12 +66,48 @@ def fuzzy_vectors() -> dict:
     return {"items": PORTFOLIO, "queries": queries, "tokens": [{"text": t, "tokens": fuzzy.tokens(t)} for t in TOKEN_TEXTS]}
 
 
+def _history(rng: random.Random, base: int) -> dict:
+    """A plausible review history: some cards, a log, flags in both the old and the new shape, notes, day counters."""
+    ids = [f"p{rng.randrange(3)}:{rng.randrange(10)}{rng.randrange(4)}" for _ in range(rng.randrange(0, 9))]
+    out: dict = {"updated": base + rng.randrange(0, 5000)}
+    out["cards"] = {i: {"ease": rng.choice([1.3, 2.5, 2.6]), "interval": rng.choice([0, 1, 3, 7.5]), "reps": rng.randrange(0, 5),
+                        "lapses": rng.randrange(0, 2), "due": base + rng.randrange(0, 9000), "last": base + rng.randrange(0, 5000),
+                        **({"learned": 1} if rng.random() < 0.3 else {})} for i in ids}
+    out["log"] = [{"id": rng.choice(ids), "t": base + rng.randrange(0, 5000), "r": rng.randrange(0, 4), **({"h": 1} if rng.random() < 0.2 else {})}
+                  for _ in range(rng.randrange(0, 7))] if ids else []
+    out["flags"] = {i: rng.choice(["suspended", {"v": "suspended", "t": base + rng.randrange(0, 5000)}, {"v": None, "t": base + rng.randrange(0, 5000)}])
+                    for i in ids[:rng.randrange(0, 3)]}
+    out["gaps"] = {i: {"t": base + rng.randrange(0, 5000), "text": rng.choice(["forgot the key", ""])} for i in ids[:rng.randrange(0, 3)]}
+    out["days"] = {f"2026-11-{rng.randrange(10, 13)}": {"n": rng.randrange(1, 9), "ok": rng.randrange(0, 5), "fresh": rng.randrange(0, 4),
+                                                         **({"t": base + rng.randrange(0, 5000)} if rng.random() < 0.7 else {})}
+                   for _ in range(rng.randrange(0, 3))}
+    out["touch"] = {f"p{rng.randrange(3)}": base + rng.randrange(0, 5000) for _ in range(rng.randrange(0, 3))}
+    out["prefs"] = rng.choice([{}, {"newPerDay": rng.choice([5, 10, 20])}, {"order": "risk", "typeFirst": True}])
+    if rng.random() < 0.35:
+        out["resetAt"] = base + rng.randrange(0, 5000)
+    if rng.random() < 0.2:
+        out["restoredAt"] = base + rng.randrange(0, 5000)
+    return out
+
+
+def merge_vectors(seed: int = 20261113, pairs: int = 80) -> list[dict]:
+    """Pairs of histories and what merging them must give.  The browser runs the same rules (app/js/store.js)."""
+    rng = random.Random(seed)
+    out = []
+    for _ in range(pairs):
+        base = 1_800_000_000_000
+        a, b = _history(rng, base), _history(rng, base)
+        out.append({"a": a, "b": b, "expect": server.merge_progress(a, b)})
+    out.append({"a": None, "b": {"cards": "broken", "log": [1, {"id": "", "t": 1}], "updated": "x"}, "expect": server.merge_progress(None, {"cards": "broken", "log": [1, {"id": "", "t": 1}], "updated": "x"})})
+    return out
+
+
 if __name__ == "__main__":
-    data = {"srs": srs_vectors(), "fuzzy": fuzzy_vectors()}
+    data = {"srs": srs_vectors(), "fuzzy": fuzzy_vectors(), "merge": merge_vectors()}
     path = os.path.join(ROOT, "tests", "srs_vectors.json")
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(data, fh, separators=(",", ":"))
         fh.write("\n")
-    print(f"{path}: {len(data['srs'])} scheduling vectors, {len(data['fuzzy']['queries'])} fuzzy queries")
+    print(f"{path}: {len(data['srs'])} scheduling vectors, {len(data['fuzzy']['queries'])} fuzzy queries, {len(data['merge'])} history merges")
     for q in data["fuzzy"]["queries"]:
         print(f"  {q['query']:<22} -> " + ", ".join(f"{t['name']} {t['score']}" for t in q["top"]))
