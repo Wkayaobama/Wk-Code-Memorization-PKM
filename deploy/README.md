@@ -135,6 +135,7 @@ answer comes back with the passage each sentence rests on.
 | `llm.enabled` | `true` | `false` turns the assistant off |
 | `retrieval.top_k` | `8` | passages sent with a question |
 | `server.ask_per_10_minutes` | `30` | questions per person |
+| `server.max_concurrent_answers` | `4` | answers in flight at once. An answer given up at its deadline counts until the API has stopped writing it |
 
 Without a `secretRef` the page works and the assistant is off.
 

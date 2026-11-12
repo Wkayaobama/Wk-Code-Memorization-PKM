@@ -12,6 +12,7 @@ It is not a cluster: no admission, no validation of the objects, no controllers,
 from __future__ import annotations
 
 import json
+import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -51,6 +52,7 @@ class FakeKubeApi:
         self.refuse: dict[tuple, tuple] = {}       # (method, plural) -> (code, reason, message): answered instead
         self.plain_refusals = False                # refuse in plain text with a header that differs every time (a proxy, load shedding)
         self.mute: dict[str, float] = {}           # part of a path -> seconds: the request is taken and never answered
+        self.throttle: dict[tuple, int] = {}       # (method, plural) -> how many times to answer 429 with Retry-After: 1
         self._lock = threading.Lock()
         self._version = 100
         self._events: list[tuple] = []             # (group/version, plural, type, object), in order
@@ -119,6 +121,17 @@ class FakeKubeApi:
                 name = rest[3] if len(rest) > 3 else None
                 sub = rest[4] if len(rest) > 4 else None
                 kind = fake.kinds[gv][plural]
+                if fake.throttle.get((method, plural), 0) > 0:
+                    fake.throttle[(method, plural)] -= 1
+                    data = json.dumps({"kind": "Status", "apiVersion": "v1", "metadata": {}, "status": "Failure", "reason": "TooManyRequests",
+                                       "message": "Too many requests, please try again later.", "code": 429}).encode("utf-8")
+                    self.send_response(429)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Retry-After", "1")
+                    self.send_header("Content-Length", str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
                 if (method, plural) in fake.refuse:
                     code, reason, message = fake.refuse[(method, plural)]
                     if not fake.plain_refusals:
@@ -223,8 +236,14 @@ class FakeKubeApi:
             def do_DELETE(self):
                 self._handle("DELETE")
 
-        self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        self.httpd.daemon_threads = True
+        class Server(ThreadingHTTPServer):
+            daemon_threads = True
+
+            def handle_error(self, request, client_address):     # a client that hangs up is part of these tests
+                if not isinstance(sys.exc_info()[1], ConnectionError):
+                    super().handle_error(request, client_address)
+
+        self.httpd = Server(("127.0.0.1", 0), Handler)
         self.url = f"http://127.0.0.1:{self.httpd.server_address[1]}"
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
 

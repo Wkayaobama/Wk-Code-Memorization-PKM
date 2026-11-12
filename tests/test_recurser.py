@@ -918,6 +918,7 @@ class AssistantTests(unittest.TestCase):
         self.api = FakeAnthropic()
         self.addCleanup(self.api.close)
         self.client = anthropic.Anthropic(api_key="test-key", base_url=self.api.url, max_retries=0)
+        self.addCleanup(self.client.close)               # its connections stay open between questions, as with the real API
         self.passages = retrieval.Index(demo_edition()).search("what does tide-loader do?", k=3)
 
     def test_ask_sends_search_results_and_reads_citations(self):
@@ -925,7 +926,7 @@ class AssistantTests(unittest.TestCase):
         sent = self.api.requests[-1]
         body = sent["body"]
         self.assertEqual(body["model"], "claude-opus-5-5")
-        self.assertEqual(body["thinking"], {"type": "adaptive"})
+        self.assertEqual(body["thinking"], {"type": "adaptive", "display": "summarized"})       # so that thinking carries events
         self.assertEqual(body["output_config"], {"effort": "medium"})
         self.assertEqual(body["fallbacks"], "default")
         self.assertIn("server-side-fallback-2026-07-01", sent["headers"]["anthropic-beta"])
@@ -957,6 +958,7 @@ class AssistantTests(unittest.TestCase):
             assistant.ask("q", self.passages, client=self.client)
         self.assertEqual(caught.exception.retry_after, 7)
         unreachable = anthropic.Anthropic(api_key="k", base_url="http://127.0.0.1:9", max_retries=0, timeout=2.0)
+        self.addCleanup(unreachable.close)
         with self.assertRaises(assistant.AssistantError) as caught:           # nothing listens there: a network failure, not a crash
             assistant.ask("q", self.passages, client=unreachable)
         self.assertIn(caught.exception.status, (502, 504))
@@ -1049,6 +1051,30 @@ class AssistantTests(unittest.TestCase):
         self.settle()
         self.assertEqual(api.url.startswith("https"), bool(pair))
 
+    def test_an_answer_nobody_waits_for_keeps_its_place_until_it_ends(self):
+        import time
+
+        given_back = []
+        slot = assistant.Slot(lambda: given_back.append(time.monotonic()))
+        begun = time.monotonic()
+        with self.assertRaises(assistant.AssistantError) as caught:
+            assistant.ask("Which key? [[id=A; ping:12:0.1; end]]", self.passages, client=self.client, answer_seconds=0.3, slot=slot)
+        slot.caller_done()                               # what the server does when the call has returned
+        self.assertEqual(caught.exception.status, 504)
+        self.assertEqual(given_back, [])                 # the API is still writing: the place is still taken
+        self.settle()
+        self.assertEqual(len(given_back), 1)             # given back once, when the stream had ended
+        self.assertGreater(given_back[0] - begun, 1.0)
+        # an answer that ends in time gives its place back once; so does a call that never reaches the API
+        for question, passages in (("Which key? [[id=B; text:2:0.01; end]]", self.passages), ("anything at all", [])):
+            given_back.clear()
+            slot = assistant.Slot(lambda: given_back.append(1))
+            assistant.ask(question, passages, client=self.client, slot=slot)
+            slot.caller_done()
+            self.settle()
+            slot.caller_done()                           # asking twice changes nothing
+            self.assertEqual(given_back, [1], question)
+
     def test_odd_failures_are_answers_too(self):
         question = "Which key does the loader merge on?"
         self.api.mode = "error_text"                     # an error event whose "error" is a sentence, not an object
@@ -1106,6 +1132,7 @@ class TeamServerTests(ServerTests):
         self.addCleanup(tmp.cleanup)
         site = server.Site(demo_edition(), users=[dict(u) for u in self.USERS], progress_dir=tmp.name, client=client,
                            settings=config.merge(settings), **kw)
+        self.site = site
         httpd, _ = server.create_server(os.path.join(ROOT, "app"), port=0, site=site)
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
         self.addCleanup(httpd.server_close)
@@ -1237,12 +1264,43 @@ class TeamServerTests(ServerTests):
         self.assertEqual(self.call(base + "/api/health", headers=sam)[0], 200)               # the server is still there
 
     @unittest.skipIf(anthropic is None, "the anthropic package is not installed")
+    def test_the_limit_on_answers_counts_the_ones_nobody_waits_for(self):
+        import time
+
+        from fake_anthropic import FakeAnthropic
+
+        api = FakeAnthropic()
+        self.addCleanup(api.close)
+        client = anthropic.Anthropic(api_key="test-key", base_url=api.url, max_retries=0)
+        self.addCleanup(client.close)
+        base, _ = self.team(client=client, settings={"server": {"max_concurrent_answers": 1}})
+        sam = self.cookie(base, self.USERS[1])
+        site = self.site
+        site.settings["llm"]["answer_seconds"] = 0.4     # shorter than the settings file accepts, for the test
+        begun = time.monotonic()
+        status, body, _ = self.call(base + "/api/critique", {"id": "tide-loader:00", "answer": "slow one [[id=A; ping:15:0.1; end]]"}, headers=sam, method="POST")
+        self.assertEqual((status, json.loads(body)["error"]), (504, "the answer took too long and was abandoned"))
+        self.assertLess(time.monotonic() - begun, 1.2)
+        self.assertFalse(site.slots.acquire(blocking=False), "the place of an answer the API is still writing was given away")
+        # the next person waits for the place instead of adding a second answer in flight
+        site.settings["llm"]["answer_seconds"] = 20
+        status, body, _ = self.call(base + "/api/critique", {"id": "tide-loader:00", "answer": "quick one [[id=B; text:2:0.01; end]]"}, headers=sam, method="POST")
+        self.assertEqual((status, json.loads(body)["text"]), (200, "B-0 B-1"))
+        self.assertGreater(time.monotonic() - begun, 1.5)                  # it began when the first stream had ended
+        for thread in threading.enumerate():
+            if thread.name == "recurser-answer":
+                thread.join(10)
+        self.assertTrue(site.slots.acquire(blocking=False))                # and the place is free again
+        site.slots.release()
+
+    @unittest.skipIf(anthropic is None, "the anthropic package is not installed")
     def test_questions_stay_inside_what_the_person_may_see(self):
         from fake_anthropic import FakeAnthropic
 
         api = FakeAnthropic()
         self.addCleanup(api.close)
         client = anthropic.Anthropic(api_key="test-key", base_url=api.url, max_retries=0)
+        self.addCleanup(client.close)
         base, _ = self.team(client=client, settings={"server": {"ask_per_10_minutes": 3}})
         sam = self.cookie(base, self.USERS[1])
         status, body, _ = self.call(base + "/api/ask", {"question": "Where does harbor-notes keep one Markdown file per note?"}, headers=sam, method="POST")
@@ -1622,6 +1680,9 @@ class KubernetesTests(unittest.TestCase):
         self.assertEqual(plain, ["HTTP 429 Too Many Requests: Too many requests, please try again later."] * 2)       # no header in it, so no change
         self.assertEqual(operator._why(Refused(502, "Bad Gateway", "", {"Server": "a proxy"})), "HTTP 502 Bad Gateway")
         self.assertEqual(operator._why(RuntimeError("Read timed out.\n(read timeout=30)")), "Read timed out. (read timeout=30)")
+        lines = {operator._why(RuntimeError(f"Max retries exceeded (Caused by ConnectTimeoutError(<HTTPConnection(host='h', port=1) at 0x7ffa8c{n}6f10>, 'timed out'))"))
+                 for n in (1, 2, 3)}
+        self.assertEqual(lines, {"Max retries exceeded (Caused by ConnectTimeoutError(<HTTPConnection(host='h', port=1)>, 'timed out'))"})
 
     def test_a_secret_named_like_the_settings_does_not_hide_their_edits(self):
         spec = {**k8s.example()["app"]["spec"], "usersRef": {"name": "config"}, "configRef": {"name": "config"}}
@@ -1892,6 +1953,21 @@ class ControllerThroughTheClientTests(unittest.TestCase):
         asked = unanswered("/apis/networking.k8s.io/v1", lambda: other.get("networking.k8s.io/v1", "Ingress", "recurser", "team"))
         self.assertEqual(asked, ["/apis/networking.k8s.io/v1"])                   # the document that lists the kinds, asked once
 
+    def test_a_throttled_request_is_waited_out_and_a_refusal_keeps_the_words_of_the_api(self):
+        import time
+
+        self.cluster.get("v1", "ConfigMap", "recurser", "team-config")     # learn the kinds first, so that only the read below is counted
+        self.api.throttle[("GET", "configmaps")] = 1                       # 429 with Retry-After: 1, once
+        begun = time.monotonic()
+        self.assertIsNotNone(self.cluster.get("v1", "ConfigMap", "recurser", "team-config"))
+        self.assertGreater(time.monotonic() - begun, 0.9)                  # the second it asked for
+        self.assertEqual(operator.reconcile(self.cluster, self.app())["conditions"][0]["reason"], "Progressing")
+        self.api.throttle[("GET", "configmaps")] = 5                       # throttled again and again: said as the API says it
+        cond = operator.reconcile(self.cluster, self.app())["conditions"][0]
+        self.assertEqual((cond["reason"], cond["message"]), ("ReadFailed", "ConfigMap team-config could not be read: Too many requests, please try again later."))
+        self.api.throttle.clear()
+        self.assertEqual(operator.reconcile(self.cluster, self.app())["conditions"][0]["reason"], "Progressing")
+
     def test_a_connection_that_went_silent_does_not_stop_the_loop(self):
         import time
         from unittest import mock
@@ -2009,6 +2085,25 @@ class ContainerProcessTests(unittest.TestCase):
                 self.assertFalse(os.path.exists(os.path.join(tmp, "elsewhere")))
                 self.stop(proc, pid)
                 self.assertNotIn(DEMO_LINK, proc.stdout.read())        # no sign-in value in what the pod logs
+
+    def test_a_stop_request_ends_other_commands_with_a_failure_status(self):
+        """Also when one of their arguments happens to read "serve"."""
+        import signal
+        import time
+
+        demo_edition()
+        slow = "with recursive c(x) as (select 1 union all select x + 1 from c where x < 400000000) select count(*) from c"
+        with tempfile.TemporaryDirectory() as tmp:
+            os.symlink(DEMO, os.path.join(tmp, "serve"))
+            for data_root, cwd in ((DEMO, ROOT), ("serve", tmp)):
+                env = self.environment(PYTHONPATH=ROOT)
+                proc = subprocess.Popen([sys.executable, "-m", "recurser", "--root", ROOT, "--data-root", data_root, "sql", slow], cwd=cwd, env=env,
+                                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                self.addCleanup(lambda p=proc: (p.poll() is None and p.kill(), p.wait(), p.stdout.close()))
+                time.sleep(1.5)
+                self.assertIsNone(proc.poll(), "the query ended before the stop request: " + data_root)
+                proc.send_signal(signal.SIGTERM)
+                self.assertEqual(proc.wait(timeout=8), -signal.SIGTERM, data_root)       # ended by the request, at once, not with success
 
     @unittest.skipUnless(kubernetes, "needs the official client: pip install kubernetes")
     def test_the_controller_process_reconciles_shows_life_and_stops(self):

@@ -19,8 +19,10 @@ if __name__ == "__main__":        # a container's command: take the stop request
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(0))
 
 import argparse
+import inspect
 import json
 import math
+import re
 import os
 import threading
 import time
@@ -47,8 +49,8 @@ def _why(exc: Exception) -> str:
     """Why a call to the cluster failed, on one line and the same line every time: the API's own sentence when
     the error carries one, else the status and the first line of the answer.  Never the response headers:
     they differ with every request, and a status message that changes is a status that is written again."""
-    def one_line(text) -> str:
-        return " ".join(str(text).split())[:300]
+    def one_line(text) -> str:        # without memory addresses: they differ every time
+        return " ".join(re.sub(r" at 0x[0-9a-fA-F]+", "", str(text)).split())[:300]
 
     body = getattr(exc, "body", None)
     if isinstance(body, bytes):
@@ -181,9 +183,14 @@ class KubeCluster:
             except config.ConfigException:
                 config.load_kube_config()
             configuration = client.Configuration.get_default_copy()
-        # A read is tried once: the limit above is then the limit, not a quarter of the wait.  A connection
-        # that could not be opened is tried once more.
-        configuration.retries = urllib3.Retry(total=1, connect=1, read=False, status=0, other=0, redirect=0)
+        # A request that got no answer is not repeated: the limit above is then the limit, not a quarter of the
+        # wait.  A connection that could not be opened is tried once more, and so is a request the API throttled
+        # (429 or 503 with Retry-After), after the short wait it asked for; if it is throttled again the answer
+        # comes back as it is, so that its own sentence reaches the status.
+        policy = dict(total=1, connect=1, read=False, status=1, other=0, redirect=0, raise_on_status=False)
+        if "retry_after_max" in inspect.signature(urllib3.Retry.__init__).parameters:
+            policy["retry_after_max"] = 10      # never sleep longer than this on the API's say-so
+        configuration.retries = urllib3.Retry(**policy)
         limit = self.TIMEOUT
 
         class Limited(client.ApiClient):

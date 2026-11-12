@@ -656,9 +656,12 @@ def make_handler(app_dir: str, site: Site):
                 return self._json(HTTPStatus.TOO_MANY_REQUESTS, {"error": "too many questions for now", "retry_after": wait}, {"Retry-After": str(wait)})
             if not site.slots.acquire(timeout=30):
                 return self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "the assistant is busy, try again in a moment"}, {"Retry-After": "10"})
+            # The place is given back when the answer's stream has ended.  An answer given up at its deadline keeps
+            # it until the API has stopped writing: the limit is on answers in flight, not on people waiting.
+            slot = assistant.Slot(site.slots.release)
             try:
                 options = dict(client=site.client, model=llm["model"], max_tokens=llm["max_tokens"], fallbacks=llm["fallbacks"],
-                               answer_seconds=llm["answer_seconds"])
+                               answer_seconds=llm["answer_seconds"], slot=slot)
                 if path == "/api/ask":
                     found = view.index.search(question, k=site.settings["retrieval"]["top_k"], slugs=[slug] if slug else None,
                                               per_project=site.settings["retrieval"]["per_project"])
@@ -675,7 +678,7 @@ def make_handler(app_dir: str, site: Site):
             except Exception as exc:      # an answer must end in an answer, never in a dropped connection
                 return self._json(HTTPStatus.BAD_GATEWAY, {"error": f"the assistant failed ({type(exc).__name__})"})
             finally:
-                site.slots.release()
+                slot.caller_done()
             return self._json(200, result)
 
     return Handler

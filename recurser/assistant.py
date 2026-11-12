@@ -104,8 +104,39 @@ def search_result_blocks(passages: list[dict]) -> list:
     ]
 
 
+class Slot:
+    """A place in a limit on concurrent answers.  It is given back when the answer's stream has really ended,
+    which can be later than the moment the person asking stopped waiting: an answer given up at its deadline
+    still counts until the API has stopped writing it."""
+
+    def __init__(self, release):
+        self._release, self._lock, self._reader, self._done = release, threading.Lock(), False, False
+
+    def reader_starts(self) -> None:
+        with self._lock:
+            self._reader = True
+
+    def reader_ended(self) -> None:
+        self._give_back()
+
+    def caller_done(self) -> None:
+        """For whoever took the place, when the call has returned or raised: gives it back unless a reading
+        thread still holds it."""
+        with self._lock:
+            if self._reader:
+                return
+        self._give_back()
+
+    def _give_back(self) -> None:
+        with self._lock:
+            if self._done:
+                return
+            self._done = True
+        self._release()
+
+
 def _send(client, *, system: str, content: list, model: str, effort: str, max_tokens: int, fallbacks: bool,
-          answer_seconds: float = DEFAULT_ANSWER_SECONDS):
+          answer_seconds: float = DEFAULT_ANSWER_SECONDS, slot: Slot | None = None):
     """One streamed request; returns the final message.  Every failure becomes an AssistantError, including
     the ones that arrive after the stream has opened.
 
@@ -114,10 +145,14 @@ def _send(client, *, system: str, content: list, model: str, effort: str, max_to
     keep-alives, or writing.
 
     The answer is read on a thread of its own, and the caller waits for that thread with the deadline.  When
-    the deadline passes, the caller leaves and the thread is told that nobody is waiting: at its next event,
-    or when the client's timeout ends a silence, it closes its own stream.  Nothing ever reaches into a
-    connection from another thread.  (Closing or shutting down a stream that another thread is reading frees
-    or disturbs a descriptor that thread still uses; over TLS it then reads somebody else's answer.)"""
+    the deadline passes, the caller leaves and the thread is told that nobody is waiting: at the next event of
+    the stream, or when the client's timeout ends a silence, it closes its own stream.  Nothing ever reaches
+    into a connection from another thread.  (Closing or shutting down a stream that another thread is reading
+    frees or disturbs a descriptor that thread still uses; over TLS it then reads somebody else's answer.)
+
+    Keep-alives are not events: the SDK does not hand them over.  The request therefore asks for summarized
+    thinking, so that the thinking phase carries events too, and ``slot`` is given back only when the thread
+    has ended, so that an answer nobody waits for still counts against the limit on concurrent answers."""
     if effort not in EFFORTS:
         raise AssistantError(f"effort must be one of {', '.join(EFFORTS)}", status=500)
     too_long = "the answer took too long and was abandoned"
@@ -127,7 +162,7 @@ def _send(client, *, system: str, content: list, model: str, effort: str, max_to
         model=model,
         max_tokens=max_tokens,
         system=system,
-        thinking={"type": "adaptive"},
+        thinking={"type": "adaptive", "display": "summarized"},
         output_config={"effort": effort},
         messages=[{"role": "user", "content": content}],
     )
@@ -145,8 +180,18 @@ def _send(client, *, system: str, content: list, model: str, effort: str, max_to
                 outcome.put((stream.get_final_message(), None))
         except Exception as exc:
             outcome.put((None, exc))
+        finally:
+            if slot is not None:
+                slot.reader_ended()
 
-    threading.Thread(target=read, name="recurser-answer", daemon=True).start()
+    if slot is not None:
+        slot.reader_starts()
+    try:
+        threading.Thread(target=read, name="recurser-answer", daemon=True).start()
+    except RuntimeError as exc:             # no thread could be started: nothing holds the place
+        if slot is not None:
+            slot.reader_ended()
+        raise AssistantError("the server is too busy to start an answer", status=503, retry_after=20) from exc
     try:
         message, failed = outcome.get(timeout=answer_seconds)
     except queue.Empty:
@@ -219,7 +264,8 @@ def _usage(message) -> dict:
 
 
 def ask(question: str, passages: list[dict], *, client, model: str = DEFAULT_MODEL, effort: str = DEFAULT_EFFORT,
-        max_tokens: int = DEFAULT_MAX_TOKENS, fallbacks: bool = True, answer_seconds: float = DEFAULT_ANSWER_SECONDS) -> dict:
+        max_tokens: int = DEFAULT_MAX_TOKENS, fallbacks: bool = True, answer_seconds: float = DEFAULT_ANSWER_SECONDS,
+        slot: Slot | None = None) -> dict:
     """Answer a question from retrieved passages.
 
     Returns ``{"text", "segments": [{"text", "cites": [passage ids]}], "sources": [passage ids in order of
@@ -233,7 +279,7 @@ def ask(question: str, passages: list[dict], *, client, model: str = DEFAULT_MOD
 
     content = search_result_blocks(passages) + [TextBlockParam(type="text", text=question)]
     message = _send(client, system=ASK_SYSTEM, content=content, model=model, effort=effort, max_tokens=max_tokens, fallbacks=fallbacks,
-                    answer_seconds=answer_seconds)
+                    answer_seconds=answer_seconds, slot=slot)
     if message.stop_reason == "refusal":      # always checked before the content is read
         return {"text": "Claude declined to answer this question.", "segments": [], "sources": [], "refused": True,
                 "truncated": False, "model": message.model, "usage": _usage(message)}
@@ -277,13 +323,14 @@ def critique_prompt(card: dict, project: dict, typed: str) -> str:
 
 
 def critique(card: dict, project: dict, typed: str, *, client, model: str = DEFAULT_MODEL, effort: str = "low",
-             max_tokens: int = DEFAULT_MAX_TOKENS, fallbacks: bool = True, answer_seconds: float = DEFAULT_ANSWER_SECONDS) -> dict:
+             max_tokens: int = DEFAULT_MAX_TOKENS, fallbacks: bool = True, answer_seconds: float = DEFAULT_ANSWER_SECONDS,
+             slot: Slot | None = None) -> dict:
     """Compare a typed answer with the card's reference.  Returns ``{"text", "refused", "truncated", "model", "usage"}``."""
     from anthropic.types import TextBlockParam
 
     content = [TextBlockParam(type="text", text=critique_prompt(card, project, typed))]
     message = _send(client, system=CRITIQUE_SYSTEM, content=content, model=model, effort=effort, max_tokens=max_tokens, fallbacks=fallbacks,
-                    answer_seconds=answer_seconds)
+                    answer_seconds=answer_seconds, slot=slot)
     if message.stop_reason == "refusal":
         return {"text": "Claude declined to check this one.", "refused": True, "truncated": False, "model": message.model, "usage": _usage(message)}
     complete = _complete(message)

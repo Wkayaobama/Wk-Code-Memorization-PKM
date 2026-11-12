@@ -29,6 +29,7 @@ import re
 import shutil
 import ssl
 import subprocess
+import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -194,8 +195,14 @@ class FakeAnthropic:
                 self.end_headers()
                 self.wfile.write(data)
 
-        self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        self.httpd.daemon_threads = True
+        class Server(ThreadingHTTPServer):
+            daemon_threads = True
+
+            def handle_error(self, request, client_address):     # a client that hangs up is part of these tests
+                if not isinstance(sys.exc_info()[1], (ConnectionError, ssl.SSLError)):
+                    super().handle_error(request, client_address)
+
+        self.httpd = Server(("127.0.0.1", 0), Handler)
         if tls:
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
             context.load_cert_chain(*tls)

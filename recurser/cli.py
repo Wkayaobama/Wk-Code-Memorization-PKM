@@ -678,4 +678,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.command != "serve":           # only the server stays up: see __main__ for the handler taken away here
+        import signal
+
+        try:
+            if getattr(signal.getsignal(signal.SIGTERM), "__name__", "") == "_stopped_early":
+                signal.signal(signal.SIGTERM, signal.SIG_DFL)
+        except ValueError:                # not the main thread
+            pass
     return args.fn(args)
