@@ -309,8 +309,10 @@ def controller_manifests(namespace: str, image: str) -> list[dict]:
                                             "command": ["python", "-m", "recurser.operator"],
                                             "args": ["--namespace", namespace],
                                             "resources": {"requests": {"cpu": "20m", "memory": "96Mi"}, "limits": {"memory": "192Mi"}},
+                                            "volumeMounts": [{"name": "tmp", "mountPath": "/tmp"}],
                                             "securityContext": {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True,
-                                                                "capabilities": {"drop": ["ALL"]}}}]}}}},
+                                                                "capabilities": {"drop": ["ALL"]}}}],
+                                        "volumes": [{"name": "tmp", "emptyDir": {"sizeLimit": "16Mi"}}]}}}},
     ]
 
 

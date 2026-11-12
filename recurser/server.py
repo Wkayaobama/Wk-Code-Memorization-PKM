@@ -414,7 +414,8 @@ def make_handler(app_dir: str, site: Site):
 
         def _cookie(self, value: str) -> dict:
             secure = "; Secure" if self.headers.get("X-Forwarded-Proto", "").lower() == "https" else ""
-            return {"Set-Cookie": f"{COOKIE}={value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000{secure}"}
+            # Lax: the cookie comes along when the page is opened from a link elsewhere, and on nothing another page triggers
+            return {"Set-Cookie": f"{COOKIE}={value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000{secure}"}
 
         def _cookie_value(self) -> str:
             for part in (self.headers.get("Cookie") or "").split(";"):

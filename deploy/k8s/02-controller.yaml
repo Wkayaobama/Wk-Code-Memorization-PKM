@@ -123,9 +123,16 @@ spec:
             memory: 96Mi
           limits:
             memory: 192Mi
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
           capabilities:
             drop:
             - ALL
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: 16Mi
