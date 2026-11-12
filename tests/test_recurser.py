@@ -1316,6 +1316,19 @@ class KubernetesTests(unittest.TestCase):
         empty.objects[("v1", "ConfigMap", "recurser", "team-config")]["data"] = {}
         self.assertEqual(operator.reconcile(empty, self.app())["conditions"][0]["reason"], "ConfigKeyMissing")
 
+    def test_a_refused_object_is_reported_in_the_status(self):
+        cluster, app = self.cluster(), self.app()
+
+        def refuse(obj):
+            if obj["kind"] == "PersistentVolumeClaim":
+                raise RuntimeError("persistentvolumeclaims \"team-data\" is invalid: spec.resources.requests.storage: Forbidden: field can not be less than previous value")
+            FakeCluster.apply(cluster, obj)
+
+        cluster.apply = refuse
+        cond = operator.reconcile(cluster, app)["conditions"][0]
+        self.assertEqual((cond["status"], cond["reason"]), ("False", "ApplyFailed"))
+        self.assertIn("PersistentVolumeClaim team-data was refused", cond["message"])
+
     def test_the_loop_survives_a_bad_object(self):
         cluster = self.cluster()
         good, broken = self.app(), self.app()

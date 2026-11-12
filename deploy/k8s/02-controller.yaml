@@ -32,6 +32,12 @@ rules:
   - patch
   - update
 - apiGroups:
+  - recurser.wkayaobama.github.io
+  resources:
+  - recurserapps/finalizers
+  verbs:
+  - update
+- apiGroups:
   - ''
   resources:
   - configmaps

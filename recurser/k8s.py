@@ -291,6 +291,8 @@ def controller_manifests(namespace: str, image: str) -> list[dict]:
     rules = [
         {"apiGroups": [GROUP], "resources": [PLURAL], "verbs": ["get", "list", "watch"]},
         {"apiGroups": [GROUP], "resources": [f"{PLURAL}/status"], "verbs": ["get", "patch", "update"]},
+        # owner references that block deletion need this where the cluster enforces it
+        {"apiGroups": [GROUP], "resources": [f"{PLURAL}/finalizers"], "verbs": ["update"]},
         {"apiGroups": [""], "resources": ["configmaps", "secrets"], "verbs": ["get"]},
         {"apiGroups": [""], "resources": ["services", "persistentvolumeclaims"], "verbs": ["get", "create", "patch"]},
         {"apiGroups": ["apps"], "resources": ["deployments"], "verbs": ["get", "create", "patch"]},

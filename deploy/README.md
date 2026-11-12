@@ -114,6 +114,16 @@ answer comes back with the passage each sentence rests on.
 
 Without a `secretRef` the page works and the assistant is off.
 
+## If something is off
+
+- `kubectl -n recurser get recurserapps` shows `READY` and `REASON`: `ConfigMissing`,
+  `ConfigInvalid`, `SecretKeyMissing`, `UsersMissing`, `ApplyFailed` and the like name the
+  cause, and `kubectl describe` has the sentence.
+- `Progressing` for long: `kubectl -n recurser logs deploy/team`. The server says what stops
+  it, for example a project name in `users.json` that is not in the image.
+- History is not saved: the volume must be writable by user and group `10001`. Most
+  storage classes honour `fsGroup`; a class that does not needs its own fix.
+
 ## What was tested, and what was not
 
 Tested here: the server started with these exact arguments and this `config.yaml`; sign-in,

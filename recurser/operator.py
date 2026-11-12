@@ -82,7 +82,11 @@ def reconcile(cluster, app: dict) -> dict:
         checksums[ref["name"]] = secret["metadata"].get("resourceVersion")
 
     for obj in k8s.render(name, namespace, app["spec"], owner=k8s.owner_reference(app), checksums=checksums):
-        cluster.apply(obj)
+        try:
+            cluster.apply(obj)
+        except Exception as exc:      # e.g. a volume claim asked to shrink: say which object the cluster refused, and why
+            reason = " ".join(str(exc).split())[:300]
+            return finish(False, "ApplyFailed", f"{obj['kind']} {obj['metadata']['name']} was refused: {reason}")
 
     deployment = cluster.get("apps/v1", "Deployment", namespace, name) or {}
     if (deployment.get("status") or {}).get("availableReplicas", 0) >= 1:
