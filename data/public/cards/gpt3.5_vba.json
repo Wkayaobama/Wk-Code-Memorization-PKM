@@ -1,0 +1,668 @@
+{
+ "slug": "gpt3.5_vba",
+ "cards": [
+  {
+   "category": 0,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Fork plus skill library",
+   "question": "gpt3.5_vba: what did the owner build around the forked one-function Excel/VBA OpenAI caller?",
+   "answer": "An `apilogicserver-*` skill library to REPLACE it with a governed API Logic Server; the VBA stays as the before-picture.",
+   "explanation": "The owner's work is everything under `.claude/skills/`; `turbo3.5_excel_vba` is upstream code kept untouched as the specimen the campaign measures itself against. Why replace and not repair: see 60.",
+   "anchor": "A hand-crank telephone in a glass case at the door of a modern switchboard room: nobody repairs it, every visitor is shown it first.",
+   "confusables": "cf. [private project] [private project]-repair-campaign: the same skill-library archetype, down to the closing 'Provenance and maintenance' section, on a DIFFERENT subject domain.",
+   "tags": [
+    "skill-library"
+   ],
+   "source": [
+    ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:21",
+    ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:109",
+    "turbo3.5_excel_vba:1"
+   ],
+   "evidence_quote": "carry a legacy spreadsheet/VBA + GPT automation (the concrete instance: `turbo3.5_excel_vba` and `api_Key.xlsm` at this repo's root) to a governed, production-grade API Logic Server system",
+   "source_refs": [
+    {
+     "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 21
+    },
+    {
+     "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 109
+    },
+    {
+     "path": "turbo3.5_excel_vba",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 1
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 1,
+   "type": "recall",
+   "level": 1,
+   "concept": "Rule fires whoever calls",
+   "question": "Which one-sentence guarantee does gpt3.5_vba's modernization campaign exist to prove?",
+   "answer": "The rule fires regardless of WHO calls: a human, a bridge or an AI gets the same 400 / code 2001 refusal.",
+   "explanation": "P6's gate reuses P3's observable on purpose: an identical refusal through the new AI channel IS the governance proof. Boundary: it holds only for writes that go through the API/session, see 50. The refusal's exact shape: see 90.",
+   "example": "P3 probe: PATCH /api/Item/2/ quantity 100 -> 400 code 2001 / P6: the same violating write through MCP or the bridge -> the same 400 code 2001",
+   "tags": [
+    "governance"
+   ],
+   "source": [
+    ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:454-461",
+    ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:58"
+   ],
+   "evidence_quote": "(same observable as P3 — that identity IS the point: the rule fires regardless of who calls)",
+   "source_refs": [
+    {
+     "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 454,
+     "end": 461
+    },
+    {
+     "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 58
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Three ground-truth labels",
+   "question": "Which three ground-truth labels may a fact carry in gpt3.5_vba's skill library?",
+   "answer": "\"verified <date>, Genai-Logic <version>\" · \"per docs, not live-verified\" · \"candidate\" (designed, never executed).",
+   "explanation": "The label is the library's contract with its reader: executed evidence never blends with documentation claims. Breaks if undone: a docs number gets repeated as if it had been measured here.",
+   "confusables": "\"per docs\" vs \"candidate\" — per docs was read upstream and only not executed here; candidate was designed here and executed NOWHERE.",
+   "tags": [
+    "labeling"
+   ],
+   "source": [
+    ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:43",
+    ".claude/skills/apilogicserver-change-control/SKILL.md:291"
+   ],
+   "evidence_quote": "\"per docs, not live-verified\" means docs-derived; \"candidate\" means designed but never executed anywhere",
+   "source_refs": [
+    {
+     "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 43
+    },
+    {
+     "path": ".claude/skills/apilogicserver-change-control/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 291
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 0,
+   "type": "trace",
+   "level": 3,
+   "concept": "Campaign phases P0-P7",
+   "question": "gpt3.5_vba · modernization campaign: recite the 8 phases P0-P7 from legacy inventory to container, each with its gate.",
+   "answer": "inventory · environment · project · logic · security · validation · AI re-entry · container",
+   "steps": [
+    "P0 Inventory the legacy -> every defect mapped to the ALS mechanism that removes it",
+    "P1 Environment -> `als welcome` prints the version banner",
+    "P2 Target schema + project -> server banner up, authenticated GET returns rows",
+    "P3 Declarative logic -> violating PATCH refused with 400 code 2001, numbers predicted",
+    "P4 Security -> 401 without a token, role-filtered read demonstrated",
+    "P5 Validation -> Behave all green and the Behave Logic Report file exists",
+    "P6 Governed AI re-entry -> rule-violating write through the new channel REJECTED",
+    "P7 Containerize + operate -> same Behave suite green in the container (to-execute)"
+   ],
+   "explanation": "One phase at a time, in order: a phase begins only when the previous gate's output is captured in the migration record. P7 is the only gate never executed, see 99.",
+   "anchor": "A workbook goes through an airport: bags listed, ticket printed, seat assigned, rules read out, passport checked, test flight, the AI co-pilot scanned like everyone, plane crated.",
+   "tags": [
+    "campaign"
+   ],
+   "source": [
+    ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:50-59",
+    ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:520"
+   ],
+   "evidence_quote": "| P6 | Governed AI re-entry | A rule-violating write through the new channel is REJECTED 400/2001 |",
+   "source_refs": [
+    {
+     "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 50,
+     "end": 59
+    },
+    {
+     "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 520
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 1,
+   "type": "cloze",
+   "level": 1,
+   "concept": "SUMIF and VLOOKUP as rules",
+   "question": "gpt3.5_vba: complete the campaign's P3 translation of two spreadsheet functions into rule types.",
+   "cloze": "`SUMIF()` -> `Rule.sum` with {{c1::where=}} · `VLOOKUP` -> {{c2::Rule.copy}}",
+   "answer": "where= · Rule.copy",
+   "explanation": "The bridge insight of P3: a cell formula IS a derivation and a validation IS a constraint, so the migration recovers what the spreadsheet already declared. Plain `SUM()` is `Rule.sum` without `where=`; `=Qty*UnitPrice` is `Rule.formula`.",
+   "example": "Rule.sum(derive=Customer.balance, as_sum_of=Order.amount_total, where=lambda row: row.date_shipped is None) / Rule.copy(derive=Item.unit_price, from_parent=Product.unit_price)",
+   "confusables": "`Rule.formula` with a parent reference — it CASCADES when the parent value later changes; `Rule.copy` FREEZES the value taken at insert or FK change.",
+   "tags": [
+    "translation-table"
+   ],
+   "source": [
+    ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:226-232",
+    ".claude/skills/declarative-rules-reference/SKILL.md:153"
+   ],
+   "evidence_quote": "| `VLOOKUP` from a reference sheet | `=VLOOKUP(pid, Products!A:B, 2)` | `Rule.copy` |",
+   "source_refs": [
+    {
+     "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 226,
+     "end": 232
+    },
+    {
+     "path": ".claude/skills/declarative-rules-reference/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 153
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 0,
+   "type": "locate",
+   "level": 1,
+   "concept": "probe_health.sh three-step probe",
+   "question": "Which script in gpt3.5_vba checks a running ALS server in three steps: up, login, authorized read?",
+   "answer": "`probe_health.sh` in the debugging-playbook `scripts/` folder: exit 0 = healthy, exit N = step N failed.",
+   "explanation": "Step 1 GET `/api` expects 200; step 2 POST `/api/auth/login` expects an `access_token`; step 3 GET `/api/RESOURCE/?page[limit]=1` expects 200 with `\"data\"`. All inputs are env vars with defaults (`HOST`, `PORT`, `RESOURCE` ...).",
+   "example": "HOST=localhost PORT=5656 RESOURCE=Customer bash scripts/probe_health.sh  # three PASS lines, then: OK    all probes passed against http://localhost:5656",
+   "anchor": "A night nurse's three checks: pulse, 'say your name', one sip of water. The number of the check that fails is what goes on the chart.",
+   "confusables": "`list_discovered_logic.sh` — it is STATIC and needs no running server; the health probe only talks HTTP to a live one.",
+   "tags": [
+    "diagnostic-script"
+   ],
+   "source": [
+    ".claude/skills/apilogicserver-debugging-playbook/scripts/probe_health.sh:7-13",
+    ".claude/skills/apilogicserver-debugging-playbook/scripts/probe_health.sh:89-90",
+    ".claude/skills/apilogicserver-debugging-playbook/SKILL.md:236"
+   ],
+   "evidence_quote": "# Prints PASS/FAIL per step. Exit 0 = healthy; exit N = step N failed.",
+   "source_refs": [
+    {
+     "path": ".claude/skills/apilogicserver-debugging-playbook/scripts/probe_health.sh",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 7,
+     "end": 13
+    },
+    {
+     "path": ".claude/skills/apilogicserver-debugging-playbook/scripts/probe_health.sh",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 89,
+     "end": 90
+    },
+    {
+     "path": ".claude/skills/apilogicserver-debugging-playbook/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 236
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 1,
+   "type": "output",
+   "level": 3,
+   "concept": "scan() discovery verdicts",
+   "question": "gpt3.5_vba · `list_discovered_logic.sh` · `scan`: predict the verdict printed for each file in the folder described below, and the script's exit code.",
+   "code_snippet": "# logic/logic_discovery/ holds: __init__.py, check_credit.py (has `def declare_logic():`),\n#   exp_tax.pyZZ, notes.py (no declare_logic); required_fn='declare_logic', exclude_init=True\nif f == 'auto_discovery.py' or (exclude_init and f == '__init__.py'):\n    continue\nif not f.endswith('.py'):\n    if re.search(r'\\.py[A-Za-z_]+$', f):   # e.g. .pyZZ = deliberately disabled\n        skipped.append(rel)\n    continue\n# ...\nok = re.search(r'^\\s*def\\s+' + required_fn + r'\\s*\\(', src, re.M) is not None\n(loaded if ok else malformed).append(rel)\n# ... sys.exit(1 if bad else 0)",
+   "expected_output": "__init__.py -> not listed\ncheck_credit.py -> WILL LOAD\nexp_tax.pyZZ -> disabled\nnotes.py -> !! BAD SHAPE\nexit code 1",
+   "answer": "`check_credit.py` WILL LOAD, `exp_tax.pyZZ` disabled, `notes.py` !! BAD SHAPE, `__init__.py` silent; exit 1 — any `.py` in the folder is a candidate, and one lacking a top-level `def declare_logic(` fails the run.",
+   "explanation": "(1) `__init__.py` hits the first `continue`. (2) `check_credit.py` ends in `.py` and matches the `def declare_logic(` regex -> loaded. (3) `.pyZZ` does not end in `.py` but matches `\\.py[A-Za-z_]+$` -> skipped. (4) `notes.py` has no match -> malformed, so `bad` is 1 and the exit code is 1.",
+   "confusables": "`extract_logic_log.sh` — it reads what DID run from a server log; `scan` predicts what WILL load from the files alone.",
+   "tags": [
+    "grounded:logic",
+    "auto-discovery"
+   ],
+   "source": [
+    ".claude/skills/apilogicserver-debugging-playbook/scripts/list_discovered_logic.sh:28-49",
+    ".claude/skills/apilogicserver-debugging-playbook/scripts/list_discovered_logic.sh:58-68",
+    ".claude/skills/apilogicserver-debugging-playbook/scripts/list_discovered_logic.sh:77"
+   ],
+   "evidence_quote": "(loaded if ok else malformed).append(rel)",
+   "source_refs": [
+    {
+     "path": ".claude/skills/apilogicserver-debugging-playbook/scripts/list_discovered_logic.sh",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 28,
+     "end": 49
+    },
+    {
+     "path": ".claude/skills/apilogicserver-debugging-playbook/scripts/list_discovered_logic.sh",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 58,
+     "end": 68
+    },
+    {
+     "path": ".claude/skills/apilogicserver-debugging-playbook/scripts/list_discovered_logic.sh",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 77
+    }
+   ]
+  },
+  {
+   "category": 4,
+   "rank": 0,
+   "type": "locate",
+   "level": 1,
+   "concept": "Change-control chokepoint",
+   "question": "Which skill in gpt3.5_vba is the single chokepoint every campaign phase must land through?",
+   "answer": "`apilogicserver-change-control`: classify the change, pass gates G0-G5, then commit.",
+   "explanation": "No phase is exempt, including test-only and docs-only ones. Its gates are commands (clean git, clean boot, Behave green, report current, merges resolved, diffs isolated), so they work with zero reviewers.",
+   "anchor": "One customs desk at the end of every pier: whatever a phase unloads is classified, weighed and stamped there, or it stays on the dock.",
+   "confusables": "`apilogicserver-validation-and-qa` — it PRODUCES the Behave evidence; change-control is the gate that decides if a change may land.",
+   "tags": [
+    "gates"
+   ],
+   "source": [
+    ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:44",
+    ".claude/skills/apilogicserver-change-control/SKILL.md:243-250",
+    ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:521"
+   ],
+   "evidence_quote": "The final step of any phase that changes files is: classify the change, pass the gates, and commit per **apilogicserver-change-control**",
+   "source_refs": [
+    {
+     "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 44
+    },
+    {
+     "path": ".claude/skills/apilogicserver-change-control/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 243,
+     "end": 250
+    },
+    {
+     "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 521
+    }
+   ]
+  },
+  {
+   "category": 4,
+   "rank": 1,
+   "type": "compare",
+   "level": 2,
+   "concept": "apilogicserver-failure-archaeology",
+   "question": "gpt3.5_vba: `apilogicserver-failure-archaeology` vs `apilogicserver-debugging-playbook`: what is the ONE difference?",
+   "answer": "Archaeology tells you WHETHER a battle was already fought (the verdict ledger, entries A1-A10); the playbook tells you HOW to fight a live symptom step by step.",
+   "explanation": "The ledger holds verdict plus pointer only; mechanisms, runbooks and fixes live in sibling skills. Confusing them means either re-running a settled experiment or reading history when a server is down.",
+   "anchor": "A plaque on an old battlefield: 'fought here, settled'. The archaeologist reads it aloud to anyone reaching for a sword, and never draws one himself.",
+   "confusables": "`apilogicserver-debugging-playbook` — archaeology records the VERDICT of past battles; the playbook is the triage procedure for the one in front of you.",
+   "tags": [
+    "skill-routing"
+   ],
+   "source": [
+    ".claude/skills/apilogicserver-failure-archaeology/SKILL.md:41",
+    ".claude/skills/apilogicserver-failure-archaeology/SKILL.md:24",
+    ".claude/skills/apilogicserver-debugging-playbook/SKILL.md:36-41"
+   ],
+   "evidence_quote": "(this skill tells you whether the battle was already fought; that one tells you how to fight it)",
+   "source_refs": [
+    {
+     "path": ".claude/skills/apilogicserver-failure-archaeology/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 41
+    },
+    {
+     "path": ".claude/skills/apilogicserver-failure-archaeology/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 24
+    },
+    {
+     "path": ".claude/skills/apilogicserver-debugging-playbook/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 36,
+     "end": 41
+    }
+   ]
+  },
+  {
+   "category": 5,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "before_flush is the only hook",
+   "question": "In the ALS system that gpt3.5_vba's skills document, which SQLAlchemy session event is LogicBank's ONLY hook?",
+   "answer": "`before_flush` — no database triggers back the rules, so a write outside the session runs NO logic.",
+   "explanation": "One interception point enforces logic for every writer with nothing to call and nothing to forget. Breaks if bypassed: raw SQL or a DB browser leaves stored aggregates stale and admits invalid rows, with no error anywhere (non-negotiable NN-1).",
+   "anchor": "A toll booth bolted INSIDE the delivery truck, not at the warehouse door: a crate carried in on foot never pays.",
+   "confusables": "`after_flush` — side effects only (a message send); a row value changed there is NOT persisted in this transaction, whereas rules in `before_flush` still shape what is written.",
+   "tags": [
+    "per-docs",
+    "session-hook"
+   ],
+   "source": [
+    ".claude/skills/apilogicserver-architecture-contract/SKILL.md:157-159",
+    ".claude/skills/apilogicserver-change-control/SKILL.md:210-211",
+    ".claude/skills/declarative-rules-reference/SKILL.md:129"
+   ],
+   "evidence_quote": "LogicBank's ONLY hook is the SQLAlchemy session's `before_flush` event. There are no database triggers backing the rules.",
+   "source_refs": [
+    {
+     "path": ".claude/skills/apilogicserver-architecture-contract/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 157,
+     "end": 159
+    },
+    {
+     "path": ".claude/skills/apilogicserver-change-control/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 210,
+     "end": 211
+    },
+    {
+     "path": ".claude/skills/declarative-rules-reference/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 129
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 0,
+   "type": "why",
+   "level": 2,
+   "concept": "Replace, do not harden",
+   "question": "Why does gpt3.5_vba's library replace the `OpenAI()` VBA caller with a governed server rather than harden the macro in place?",
+   "answer": "The defect is the PATTERN, not the VBA: application-embedded glue with no contract, no gating and no evidence. Patching one failure mode leaves all three absences in place.",
+   "explanation": "Breaks if undone: effort goes into escaping JSON in a file that still ships its key in every workbook copy, has no tests or review and leaves no audit trail. Archaeology A9 status: SETTLED-BY-REPLACEMENT-PLAN, do not reopen.",
+   "anchor": "An Excel cell throws a paper plane out of the office window: a better-folded nose still leaves no flight plan, no control tower and no black box.",
+   "confusables": "Hardening `turbo3.5_excel_vba` in place — it fixes ONE failure mode (say, quote escaping); replacement removes the three absences that produce them all.",
+   "tags": [
+    "settled-battle"
+   ],
+   "source": [
+    ".claude/skills/apilogicserver-failure-archaeology/SKILL.md:304-308",
+    ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:107",
+    "turbo3.5_excel_vba:10-12"
+   ],
+   "evidence_quote": "Every failure mode above is a special case of those three absences. Resolution path: replace, don't patch",
+   "source_refs": [
+    {
+     "path": ".claude/skills/apilogicserver-failure-archaeology/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 304,
+     "end": 308
+    },
+    {
+     "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 107
+    },
+    {
+     "path": "turbo3.5_excel_vba",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 10,
+     "end": 12
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 1,
+   "type": "why",
+   "level": 2,
+   "concept": "Shipped-order control probe",
+   "question": "Why does gpt3.5_vba's P3 gate repeat the violating PATCH on a SHIPPED order's item rather than stop at the 400?",
+   "answer": "It is the CONTROL: it must return 200, otherwise you cannot tell 'the constraint works' from 'the constraint fires on everything'.",
+   "explanation": "`where=date_shipped is None` excludes shipped orders from the balance, so the same PATCH legitimately succeeds there. Breaks if undone: a rule that rejects every write would still pass the gate. The 400 itself: see 90.",
+   "anchor": "Testing a smoke alarm with two matches: one under the detector, one in the next room. If it screams for both, it is broken, not vigilant.",
+   "confusables": "Stopping at the 400 — it proves the rule CAN reject, not that it rejects ONLY what it should.",
+   "tags": [
+    "control-experiment"
+   ],
+   "source": [
+    ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:305-307",
+    ".claude/skills/declarative-rules-reference/SKILL.md:227"
+   ],
+   "evidence_quote": "If you skip the control you cannot distinguish \"constraint works\" from \"constraint fires on everything.\"",
+   "source_refs": [
+    {
+     "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 305,
+     "end": 307
+    },
+    {
+     "path": ".claude/skills/declarative-rules-reference/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 227
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 0,
+   "type": "recall",
+   "level": 2,
+   "concept": "JWT client, server-side key",
+   "question": "What makes gpt3.5_vba's governed design work without an OpenAI key inside the workbook?",
+   "answer": "The client holds ONLY a short-lived JWT obtained from `POST /api/auth/login`; any LLM key lives server-side in the env var `APILOGICSERVER_CHATGPT_APIKEY`.",
+   "explanation": "In the legacy file the key sits in a VBA variable and inside `api_Key.xlsm`, so it ships with every workbook copy and cannot be rotated or reviewed. DESIGN TARGET: the live-LLM leg was never executed in the authoring workspace.",
+   "anchor": "The spreadsheet wears a visitor badge that expires this afternoon; the master key never leaves the server room.",
+   "confusables": "Legacy `apiKey` variable in `turbo3.5_excel_vba` — the secret travels WITH the client; in the governed design only an expiring token does.",
+   "tags": [
+    "per-docs",
+    "secrets"
+   ],
+   "source": [
+    ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:398-406",
+    ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:103",
+    "turbo3.5_excel_vba:17"
+   ],
+   "evidence_quote": "Client holds only a JWT; any LLM key lives server-side (`APILOGICSERVER_CHATGPT_APIKEY`)",
+   "source_refs": [
+    {
+     "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 398,
+     "end": 406
+    },
+    {
+     "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 103
+    },
+    {
+     "path": "turbo3.5_excel_vba",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 17
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 0,
+   "type": "recall",
+   "level": 2,
+   "concept": "P3 gate passing sign",
+   "question": "gpt3.5_vba: which response proves a migrated rule fires in the campaign's P3 gate?",
+   "answer": "HTTP 400 with `errors[0].code` \"2001\" on the violating PATCH, its title carrying the numbers you wrote down BEFORE running it.",
+   "explanation": "A gate is a command whose output matches the quoted expectation or does not; 'it looks right in the admin app' is fenced as a wrong path. The gate has two more observables: the logic-log chain and the control probe (see 61).",
+   "example": "PATCH /api/Item/2/ {quantity: 100}  # 400, code 2001, title: Customer balance (9000.0000000000) exceeds credit limit (5000.0000000000)",
+   "anchor": "A doorman test: you send in a guest you KNOW is over the limit, his bill already written on your hand; you pass only if he is thrown out holding that exact bill.",
+   "confusables": "401 / 422 with a top-level `msg` — that is AUTH refusing the request; a rule refusal is 400 with `errors[0].code`.",
+   "tags": [
+    "gate",
+    "predict-numbers-first"
+   ],
+   "source": [
+    ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:307",
+    ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:41-42",
+    ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:287-292",
+    ".claude/skills/apilogicserver-debugging-playbook/SKILL.md:59"
+   ],
+   "evidence_quote": "(1) the 400 body matches the predicted numbers inside the verified shape (`code\": \"2001\"`)",
+   "source_refs": [
+    {
+     "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 307
+    },
+    {
+     "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 41,
+     "end": 42
+    },
+    {
+     "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 287,
+     "end": 292
+    },
+    {
+     "path": ".claude/skills/apilogicserver-debugging-playbook/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 59
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 1,
+   "type": "scenario",
+   "level": 3,
+   "concept": "Constraint did not fire",
+   "question": "gpt3.5_vba: on an ALS project, a PATCH you expected the credit-limit constraint to reject returns 200. What do you check first, and what is the usual cause?",
+   "answer": "Run `scripts/extract_logic_log.sh logs/als.log` and look for the parent adjustment row in that transaction. Usual cause: `where=` pruning — the sum's qualification is False before AND after, so the delta is 0 and the parent row and its constraint never run.",
+   "explanation": "Usually not a bug: the rule's qualification is doing its job (a shipped order is outside `Customer.balance`). Discriminate: no transaction block at all means the write bypassed the session; a block with no Customer row means pruning. The same effect used on purpose as a control: see 61.",
+   "confusables": "Stale sums after a raw SQL write — there the log shows NO transaction block; with pruning the block exists and merely lacks the parent row.",
+   "tags": [
+    "trap",
+    "per-docs",
+    "pruning"
+   ],
+   "source": [
+    ".claude/skills/apilogicserver-debugging-playbook/SKILL.md:48",
+    ".claude/skills/declarative-rules-reference/SKILL.md:187-194",
+    ".claude/skills/apilogicserver-debugging-playbook/scripts/extract_logic_log.sh:33-50"
+   ],
+   "evidence_quote": "Aggregate `where=` clause excludes the row's parent chain (pruning), so the watched value never changed",
+   "source_refs": [
+    {
+     "path": ".claude/skills/apilogicserver-debugging-playbook/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 48
+    },
+    {
+     "path": ".claude/skills/declarative-rules-reference/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 187,
+     "end": 194
+    },
+    {
+     "path": ".claude/skills/apilogicserver-debugging-playbook/scripts/extract_logic_log.sh",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 33,
+     "end": 50
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 9,
+   "type": "recall",
+   "level": 2,
+   "concept": "P7 gate still to-execute",
+   "question": "Which gpt3.5_vba campaign gate is still labeled to-execute, and what output closes it?",
+   "answer": "P7: build the project image, then the SAME Behave suite must run green against the container with the same counts as the host run. No container was built in the authoring workspace.",
+   "explanation": "Until that output is captured the campaign may not be called deployed. Also unproven: the live-LLM / MCP-client leg (per docs) and the Excel bridge `ALS_Get` (candidate, never executed).",
+   "example": "sh devops/docker-image/build_image.sh . / sh devops/docker-image/run_image.sh  # then re-run P2's gate and the P5 suite against the container",
+   "tags": [
+    "resume",
+    "to-execute"
+   ],
+   "source": [
+    ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:491",
+    ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:59",
+    ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:503"
+   ],
+   "evidence_quote": "labeled to-execute (not live-verified here; no container was built or run in this workspace)",
+   "source_refs": [
+    {
+     "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 491
+    },
+    {
+     "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 59
+    },
+    {
+     "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md",
+     "branch": "main",
+     "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+     "line": 503
+    }
+   ]
+  }
+ ]
+}

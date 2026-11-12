@@ -1,0 +1,437 @@
+{
+ "slug": "memory-systems-anki-decks",
+ "repo": "Wkayaobama/Memory_systems_-_Anki_decks",
+ "title": "Programming Millenium matrix + PAO starter kit (Anki decks fork)",
+ "one_liner": "Fork of a memory-systems/Anki repo where the owner added a 1000-concept programming peg matrix (CSV -> xlsx -> Anki), executed demo notebooks and a blank PAO spreadsheet kit.",
+ "purpose": "The upstream repository is someone else's collection of memory systems (a French Major-system 'Millenium' of 1000 number images, card systems, Anki decks). The owner's own work, on branch claude/programming-memory-system-mqtcef, re-uses that spreadsheet 'matrix method' for programming: 1000 concepts get fixed 3-digit addresses (hundreds = domain, tens = category, units = rank), each with a definition, an anchor image, an example and a confusable. A single CSV is the source of truth; build.py regenerates the Excel workbook and ten semicolon-separated Anki import files, and ten executed Jupyter notebooks add a predict-the-output 'procedural layer'. A second folder is a beginner kit for peg systems, the Major system and PAO, with a generated blank workbook and an F9 drill tab. It exists so the owner can memorise programming fundamentals with the same peg technique, with Anki as the last step only.",
+ "domain": "Memory techniques / spaced-repetition content generation",
+ "status": "paused",
+ "stack": [
+  "Python 3",
+  "openpyxl",
+  "csv (stdlib)",
+  "nbformat",
+  "nbclient",
+  "ipykernel",
+  "Jupyter notebooks",
+  "Excel workbook formulas",
+  "Anki import (CSV / tab-delimited txt)"
+ ],
+ "aliases": [
+  "Programming Millenium",
+  "the 1000 programming concepts matrix",
+  "the matrix method",
+  "PAO starter kit",
+  "the Anki decks fork",
+  "PAO multiple encoding"
+ ],
+ "entry_points": [
+  {
+   "command": "cd 00.Memory_systems/06.Programming_Millenium && python3 build.py",
+   "what": "Reads programming_millenium.csv (must be exactly 1000 rows) and rewrites Programming_Millenium.xlsx (tabs matrix / taxonomy / tuto) plus export_for_anki/000.csv ... 900.csv.",
+   "path": "00.Memory_systems/06.Programming_Millenium/build.py:160"
+  },
+  {
+   "command": "cd 00.Memory_systems/06.Programming_Millenium/notebooks && python3 make_notebooks.py [spec.json ...]",
+   "what": "Assembles each specs/*.json into a v4 notebook, executes it with nbclient and writes the executed .ipynb beside the script; exits 1 if a cell without the INTENDED ERROR marker raised.",
+   "path": "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py:53"
+  },
+  {
+   "command": "cd 00.Memory_systems/07.PAO_multiple_encoding && python3 make_template.py",
+   "what": "Rewrites PAO_starter_blank.xlsx with tabs instructions / digits_0-9 / pao_00-99 / drill.",
+   "path": "00.Memory_systems/07.PAO_multiple_encoding/make_template.py:113"
+  }
+ ],
+ "architecture": [
+  {
+   "component": "Source-of-truth CSV",
+   "path": "00.Memory_systems/06.Programming_Millenium/programming_millenium.csv",
+   "responsibility": "One row per code 000-999 with 11 columns: code, concept, definition, anchor, example, confusables, alternates, domain_name, category_name, mnemonic, learned. Everything else in the folder is generated from it.",
+   "talks_to": [
+    "build.py"
+   ]
+  },
+  {
+   "component": "Workbook + export builder",
+   "path": "00.Memory_systems/06.Programming_Millenium/build.py",
+   "responsibility": "Turns the CSV into the three-tab Excel curation matrix and into ten per-hundred Anki import files. Holds the column layout (HEADERS), the seeded backlog (BACKLOG) and the tuto steps (TUTO) as module constants.",
+   "talks_to": [
+    "Source-of-truth CSV",
+    "Programming_Millenium.xlsx",
+    "Anki exports"
+   ]
+  },
+  {
+   "component": "Generated curation workbook",
+   "path": "00.Memory_systems/06.Programming_Millenium/Programming_Millenium.xlsx",
+   "responsibility": "Tab matrix = the 1000 rows with Learned flag, collision and bench columns and a SUM progress cell; tab taxonomy = digit mnemonics and the 10x10 category grid; tab tuto = the Anki import steps. Generated, not hand-edited.",
+   "talks_to": [
+    "Anki (pathways 2 and 3)"
+   ]
+  },
+  {
+   "component": "Anki exports",
+   "path": "00.Memory_systems/06.Programming_Millenium/export_for_anki",
+   "responsibility": "Ten headerless, semicolon-separated files of 100 rows each, fields code;concept;anchor;definition;example;confusables, one file per hundred-block so each becomes an Anki subdeck.",
+   "talks_to": [
+    "Anki (pathway 1)"
+   ]
+  },
+  {
+   "component": "Notebook specs",
+   "path": "00.Memory_systems/06.Programming_Millenium/notebooks/specs",
+   "responsibility": "Ten JSON files {notebook, cells:[{type: md|code, source}]}; each holds ten 'engraver' demos, one per category of its hundred-block, written as markdown intro + code cells.",
+   "talks_to": [
+    "make_notebooks.py"
+   ]
+  },
+  {
+   "component": "Notebook builder/executor",
+   "path": "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py",
+   "responsibility": "Builds a notebook from a spec with nbformat, runs it top to bottom with nbclient (allow_errors=True), flags unexpected errors, and writes the executed notebook so outputs are committed.",
+   "talks_to": [
+    "Notebook specs",
+    "Executed notebooks"
+   ]
+  },
+  {
+   "component": "Executed notebooks (procedural layer)",
+   "path": "00.Memory_systems/06.Programming_Millenium/notebooks/500_concurrency.ipynb",
+   "responsibility": "Ten notebooks 000_fundamentals ... 900_quality_ops, 10 demos each, committed with outputs. Reviewed by read -> predict -> run -> compare; 13 code cells raise on purpose so the traceback is the lesson.",
+   "talks_to": []
+  },
+  {
+   "component": "PAO template generator",
+   "path": "00.Memory_systems/07.PAO_multiple_encoding/make_template.py",
+   "responsibility": "Generates the blank PAO starter workbook: a 9-step instructions tab, a digits tab (shape + rhyme images, Major consonants prefilled), a 100-row P/A/O matrix with Major-sound hints and a random 6-digit drill tab.",
+   "talks_to": [
+    "PAO_starter_blank.xlsx"
+   ]
+  },
+  {
+   "component": "Method documentation",
+   "path": "00.Memory_systems/06.Programming_Millenium/README.md",
+   "responsibility": "Decodes the original Millenium sheet column by column, maps each memory component to its programming equivalent, explains address/anchor fusion and documents the three Anki export pathways. The PAO README is the companion concept primer.",
+   "talks_to": []
+  }
+ ],
+ "data_flow": [
+  "1. Edit programming_millenium.csv, the source of truth: one row per code 000-999 (11 columns, learned starts at 0).",
+  "2. build.py read_rows() loads it with csv.DictReader and asserts exactly 1000 rows.",
+  "3. build_matrix_sheet() writes tab 'matrix': A Learned, B Code, C Concept, D Anchor, E Definition, F Example, G confusables, H alternates, J Domain, K Category; column I is left empty for the owner's rejects; N/O/P receive the seeded backlog.",
+  "4. It adds =SUM(A2:A1003) at A1004 (progress counter, same cell as the original sheet), freezes panes at C2 and sets an autofilter on A1:P1001.",
+  "5. build_taxonomy_sheet() derives the digit -> domain -> mnemonic table and the 10x10 category grid from the rows; build_tuto_sheet() writes the import steps.",
+  "6. The workbook is saved as Programming_Millenium.xlsx, then export_anki() writes export_for_anki/000.csv ... 900.csv (rows grouped by first digit of the code, semicolon delimiter, utf-8-sig, no header, 6 fields).",
+  "7. Anki comes last: File -> Import each export into a subdeck per hundred (pathway 1), or save the matrix tab as UTF-8 text (pathway 2), or build a multi-card note type with conditional templates and import tab-delimited text (pathway 3).",
+  "8. In parallel, make_notebooks.py turns notebooks/specs/*.json into executed notebooks: assemble cells, run with nbclient, report any error outside an INTENDED ERROR cell, write <notebook>.ipynb with outputs.",
+  "9. Review loop: predict each notebook cell's output before reading it; once a block is stable, set Learned to 1 so the SUM row tracks progress."
+ ],
+ "key_functions": [
+  {
+   "name": "read_rows",
+   "path": "00.Memory_systems/06.Programming_Millenium/build.py:71",
+   "signature": "def read_rows()",
+   "does": "Loads programming_millenium.csv as a list of dicts and asserts len(rows) == 1000; the guard that keeps the 000-999 address space complete.",
+   "input_example": "a CSV with 999 data rows",
+   "expected_output": "AssertionError: expected 1000 rows, got 999"
+  },
+  {
+   "name": "build_matrix_sheet",
+   "path": "00.Memory_systems/06.Programming_Millenium/build.py:78",
+   "signature": "def build_matrix_sheet(ws, rows)",
+   "does": "Writes the 'matrix' tab: styled headers, one row per code from row 2, the SUM progress formula at A1004 with label 'learned / 1000' at B1004, backlog in N/O/P, column widths, freeze panes C2, autofilter A1:P1001."
+  },
+  {
+   "name": "build_taxonomy_sheet",
+   "path": "00.Memory_systems/06.Programming_Millenium/build.py:108",
+   "signature": "def build_taxonomy_sheet(ws, rows)",
+   "does": "Derives domains from the first digit of each code and categories from the first two digits, then writes the digit/domain/mnemonic table (rows 5-14) and the 10x10 category grid (row = domain digit, column = tens digit, from row 18)."
+  },
+  {
+   "name": "build_tuto_sheet",
+   "path": "00.Memory_systems/06.Programming_Millenium/build.py:140",
+   "signature": "def build_tuto_sheet(ws)",
+   "does": "Writes the TUTO constant (6 numbered steps, a tip, the five '3rd way' rows and the video reference) into columns A-C of the 'tuto' tab."
+  },
+  {
+   "name": "export_anki",
+   "path": "00.Memory_systems/06.Programming_Millenium/build.py:148",
+   "signature": "def export_anki(rows)",
+   "does": "For each hundred h in 0-9, writes export_for_anki/{h}00.csv with the rows whose code starts with that digit: semicolon-delimited, utf-8-sig, no header, field order code, concept, anchor, definition, example, confusables.",
+   "expected_output": "10 files of 100 lines each; 500.csv starts with the row for 500 'Concurrency vs parallelism'"
+  },
+  {
+   "name": "main (build.py)",
+   "path": "00.Memory_systems/06.Programming_Millenium/build.py:160",
+   "signature": "def main()",
+   "does": "Orchestrates the build: read rows, create workbook with tabs matrix / taxonomy / tuto, save the xlsx, write the Anki exports, print one summary line.",
+   "expected_output": "prints 'wrote <xlsx path> and <export dir>/*.csv from 1000 rows'"
+  },
+  {
+   "name": "build (make_notebooks.py)",
+   "path": "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py:26",
+   "signature": "def build(spec_path)",
+   "does": "Loads one spec, creates markdown/code cells, executes with NotebookClient(timeout=90, allow_errors=True, kernel_name='python3'), collects errors from code cells whose source lacks 'INTENDED ERROR', writes the notebook and returns (out_path, unexpected).",
+   "input_example": "specs/500_concurrency.json",
+   "expected_output": "writes notebooks/500_concurrency.ipynb; unexpected == [] when every error is intended"
+  },
+  {
+   "name": "main (make_notebooks.py)",
+   "path": "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py:53",
+   "signature": "def main()",
+   "does": "Builds the specs given on the command line, or all of specs/*.json sorted; prints '<name>.ipynb: OK' or 'UNEXPECTED ERRORS: [...]' and exits 1 if any notebook had an unexpected error."
+  },
+  {
+   "name": "sheet_pao",
+   "path": "00.Memory_systems/07.PAO_multiple_encoding/make_template.py:74",
+   "signature": "def sheet_pao(ws)",
+   "does": "Writes the 100-row PAO matrix: Learned=0, Number as two-digit text, empty Person/Action/Object/collision/bench columns, a grey Major-sound hint built from the first sound of each digit, SUM at A104.",
+   "input_example": "row for n = 25",
+   "expected_output": "Number '25', hint 'n + l'"
+  },
+  {
+   "name": "sheet_drill",
+   "path": "00.Memory_systems/07.PAO_multiple_encoding/make_template.py:94",
+   "signature": "def sheet_drill(ws)",
+   "does": "Builds the drill tab: B3 = random 6-digit text via RANDBETWEEN (new value on F9), then MID slices pairs 1-2, 3-4, 5-6 and VLOOKUPs return the Person of pair 1, the Action of pair 2 and the Object of pair 3 from the pao tab.",
+   "input_example": "pao tab still blank",
+   "expected_output": "column C shows '(fill pao tab)'"
+  },
+  {
+   "name": "sheet_digits",
+   "path": "00.Memory_systems/07.PAO_multiple_encoding/make_template.py:54",
+   "signature": "def sheet_digits(ws)",
+   "does": "Writes the digits 0-9 tab with empty shape-image and rhyme-image columns, the Major consonants prefilled from the MAJOR dict, a grey example hint and SUM at A14."
+  },
+  {
+   "name": "Engraver demo 253 Memoization",
+   "path": "00.Memory_systems/06.Programming_Millenium/notebooks/specs/200_algorithms.json:58",
+   "does": "Notebook cell comparing a naive recursive fib with an lru_cache version by counting real calls; typical of the predict-the-output demos.",
+   "input_example": "fib_naive(24) and fib_memo(24)",
+   "expected_output": "fib_naive(24) = 46368 in 150049 calls; fib_memo(24) = 46368 in 25 calls"
+  },
+  {
+   "name": "Engraver demo 046 Off-by-one (intended error)",
+   "path": "00.Memory_systems/06.Programming_Millenium/notebooks/specs/000_fundamentals.json:46",
+   "does": "Cell marked '# INTENDED ERROR' that loops range(len(rails) + 1) over a 3-element list; shows how intended failures are kept as output.",
+   "input_example": "rails = ['rail-0', 'rail-1', 'rail-2']",
+   "expected_output": "prints indexes 0, 1, 2 then IndexError: list index out of range"
+  },
+  {
+   "name": "Engraver demo 716 EXPLAIN query plan",
+   "path": "00.Memory_systems/06.Programming_Millenium/notebooks/specs/700_data_persistence.json:18",
+   "does": "SQLite demo printing the query plan before and after creating an index on events(city); the one demo chosen to teach all of query performance.",
+   "expected_output": "before index: SCAN events / after index: SEARCH events USING INDEX idx_events_city (city=?) / rows matched, total amount: (1250, 9371250)"
+  }
+ ],
+ "infra": [
+  {
+   "topic": "Runtime",
+   "detail": "Local scripts only: no server, no CI, no cloud resources and no environment variables. Each script resolves paths from its own directory (HERE), so it can be launched from anywhere.",
+   "path": "00.Memory_systems/06.Programming_Millenium/build.py:17"
+  },
+  {
+   "topic": "Dependencies",
+   "detail": "No requirements file. build.py and make_template.py need openpyxl; make_notebooks.py needs nbformat, nbclient and ipykernel (a 'python3' Jupyter kernel). The install commands are documented in the READMEs and docstrings only.",
+   "path": "00.Memory_systems/06.Programming_Millenium/README.md:106-108"
+  },
+  {
+   "topic": "Branch layout",
+   "detail": "master is the untouched upstream fork (last upstream commit dated 2024-09); all owner work (38 added files) sits on branch claude/programming-memory-system-mqtcef, not merged into master."
+  },
+  {
+   "topic": "Generated artefacts are committed",
+   "detail": "Programming_Millenium.xlsx, the ten export CSVs, the ten executed notebooks and PAO_starter_blank.xlsx are all checked in, so the material can be reviewed or imported without running anything.",
+   "path": "00.Memory_systems/06.Programming_Millenium/README.md:96-98"
+  },
+  {
+   "topic": "Git attributes",
+   "detail": ".gitattributes marks *.ipynb and *.html as linguist-detectable=false (inherited repository setting), so notebooks do not count in language statistics.",
+   "path": ".gitattributes"
+  }
+ ],
+ "decisions": [
+  {
+   "decision": "Encode addresses with a decimal taxonomy (hundreds = domain, tens = category, units = rank, 0 = most fundamental) instead of the phonetic Major code of the original Millenium",
+   "why": "The generative rule must let you derive the shelf from the digits; for concepts the meaningful derivation is domain -> category -> rank, each hundred carrying a digit mnemonic (5 = five dining philosophers, 9 = five nines).",
+   "alternative_rejected": "Phonetic digits -> consonant sounds -> word, as in the French Millenium",
+   "evidence": "00.Memory_systems/06.Programming_Millenium/README.md:29"
+  },
+  {
+   "decision": "The digits are decoded by the taxonomy, never by the anchor; the anchor encodes only the concept",
+   "why": "The two halves carry different information and mixing them is called the main source of confusion. Fusion happens afterwards by staging the anchor scene at the address or merging it with the existing French peg image for that number.",
+   "alternative_rejected": "An anchor image that tries to encode the number as well",
+   "evidence": "00.Memory_systems/06.Programming_Millenium/README.md:50-59"
+  },
+  {
+   "decision": "The CSV is the single source of truth; xlsx and Anki exports are generated",
+   "why": "Mirrors the original pipeline (notebook -> csv -> xlsx -> Anki): the spreadsheet is the curation matrix and Anki is only the drill, so content is edited in one place and everything else is rebuilt.",
+   "alternative_rejected": "Editing cards directly in Anki or hand-maintaining the workbook",
+   "evidence": "00.Memory_systems/06.Programming_Millenium/build.py:4-6"
+  },
+  {
+   "decision": "Anki comes last, only once a block is stable",
+   "why": "Drilling unstable pegs burns wrong images in; the matrix is the living source and progress is tracked there with the Learned flag and SUM row.",
+   "alternative_rejected": "Creating Anki cards first and curating inside Anki",
+   "evidence": "00.Memory_systems/07.PAO_multiple_encoding/README.md:125"
+  },
+  {
+   "decision": "Keep the original sheet's columns: collision registry (attention doublon), bench (non retenu mais convient), rejects, Learned flag + SUM, far-column backlog",
+   "why": "Each column has a memory-engineering reason: two addresses sharing an image merge in memory, so near-misses are logged; benched and rejected ideas are kept so they are never re-evaluated from scratch.",
+   "alternative_rejected": "A plain code/concept/definition list",
+   "evidence": "00.Memory_systems/07.PAO_multiple_encoding/README.md:79-86"
+  },
+  {
+   "decision": "Add a procedural layer of executed notebooks with ONE engraver concept per category (100 demos) rather than a demo for all 1000 codes",
+   "why": "Images and definitions are declarative memory; seeing the net effect of code is procedural memory. One carefully chosen demo per category burns in the larger idea, not the particulars.",
+   "alternative_rejected": "Flashcards only, or one demo per code",
+   "evidence": "00.Memory_systems/06.Programming_Millenium/README.md:82-87"
+  },
+  {
+   "decision": "Notebooks are built from JSON specs and committed with their outputs; errors are allowed only in cells marked INTENDED ERROR",
+   "why": "Review must work without running anything, and for those cells the real traceback is the lesson; any other error is treated as a build failure.",
+   "alternative_rejected": "Hand-edited notebooks without outputs, or stopping at the first error",
+   "evidence": "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py:4-10"
+  },
+  {
+   "decision": "Formalise a third Anki pathway: one note per row generating several cards through conditional templates {{#Field}}...{{/Field}}",
+   "why": "It yields Definition, Anchor and reverse Concept->Code cards from one note, and a blank field produces no card, removing the need to fill blanks with N/A. The video's '10 Question' note type is not shipped, so the steps recreate it by cloning Basic.",
+   "alternative_rejected": "Depending on the downloadable '10 Question' note type, or padding blanks with N/A",
+   "evidence": "00.Memory_systems/06.Programming_Millenium/README.md:119-130"
+  },
+  {
+   "decision": "PAO compression: Person of pair 1 + Action of pair 2 + Object of pair 3 = one scene for 6 digits",
+   "why": "One image per 6 digits instead of per 2 means three times fewer palace loci, and the unique combinations do not blur into each other.",
+   "alternative_rejected": "One image per 2-digit pair",
+   "evidence": "00.Memory_systems/07.PAO_multiple_encoding/README.md:45-54"
+  }
+ ],
+ "gotchas": [
+  {
+   "issue": "Field order differs between the CSV and the exports: the CSV has definition before anchor, the exports and the workbook have anchor before definition.",
+   "consequence": "Importing programming_millenium.csv straight into Anki, or mapping fields by the CSV header order, swaps Anchor and Definition.",
+   "fix_or_guard": "Import only export_for_anki/*.csv (or the matrix tab); the Anki fields must be Code, Concept, Anchor, Definition, Example, Confusables in that order.",
+   "path": "00.Memory_systems/06.Programming_Millenium/build.py:156-157"
+  },
+  {
+   "issue": "build.py always creates a fresh workbook and overwrites Programming_Millenium.xlsx.",
+   "consequence": "Anything typed into the workbook (Learned flags, column I rejects, backlog notes) is lost on the next build, although the README says progress lives in the matrix.",
+   "fix_or_guard": "Record progress in the 'learned' column of the CSV (read at build time) or work in a copy of the workbook.",
+   "path": "00.Memory_systems/06.Programming_Millenium/build.py:162-168"
+  },
+  {
+   "issue": "read_rows asserts exactly 1000 rows.",
+   "consequence": "Adding or deleting a concept aborts the build with an AssertionError; the address space is closed.",
+   "fix_or_guard": "Replace a concept in place instead of inserting; never renumber addresses.",
+   "path": "00.Memory_systems/06.Programming_Millenium/build.py:74"
+  },
+  {
+   "issue": "Exports are written as utf-8-sig (with a BOM) and without a header row.",
+   "consequence": "The first field of each file starts with a BOM character for tools that do not strip it, and nothing names the columns at import time.",
+   "fix_or_guard": "Set the separator to semicolon in Anki and map the six fields in order; treat the first row as data.",
+   "path": "00.Memory_systems/06.Programming_Millenium/build.py:153"
+  },
+  {
+   "issue": "make_notebooks.py writes the notebook even when unexpected errors were found, and only signals them through the printed status and exit code 1.",
+   "consequence": "A broken demo can be committed with its traceback if the exit status is ignored.",
+   "fix_or_guard": "Check for 'UNEXPECTED ERRORS' in the output; every deliberate failure must contain the literal text 'INTENDED ERROR' in the cell source.",
+   "path": "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py:45-50"
+  },
+  {
+   "issue": "The PAO drill matches text: Number is stored as two-digit text ('00'-'99') and the drill slices text with MID.",
+   "consequence": "If the Number column is retyped as real numbers the exact-match VLOOKUP fails and the drill shows '(fill pao tab)', the same fallback as an empty matrix.",
+   "fix_or_guard": "Never reorder, renumber or retype the Number column; regenerate with make_template.py if damaged.",
+   "path": "00.Memory_systems/07.PAO_multiple_encoding/make_template.py:83"
+  },
+  {
+   "issue": "The workbook's tuto tab (steps 5-6) describes simple Code-front and Concept-front templates, while the README recommends conditional templates in pathway 3.",
+   "consequence": "Two slightly different card designs are documented; decks built from each differ.",
+   "fix_or_guard": "Treat the README section 'Exporting to Anki - the three pathways' as the reference.",
+   "path": "00.Memory_systems/06.Programming_Millenium/build.py:57-58"
+  },
+  {
+   "issue": "Changing a peg after starting to learn it.",
+   "consequence": "Old and new images compete in memory.",
+   "fix_or_guard": "Resolve collisions before Learned=1; afterwards log them in the 'deja pris' column instead of improving the peg.",
+   "path": "00.Memory_systems/07.PAO_multiple_encoding/README.md:119-120"
+  }
+ ],
+ "glossary": [
+  {
+   "term": "Millenium",
+   "meaning": "The upstream French Major-system peg list: numbers 0-999, one vivid image each, kept in an Excel matrix. The original the owner's work refactors."
+  },
+  {
+   "term": "Programming Millenium",
+   "meaning": "The owner's variant: 1000 programming concepts at codes 000-999 (10 domains x 10 categories x 10 concepts). Code 000 = Value, code 999 = Blameless postmortem."
+  },
+  {
+   "term": "Matrix",
+   "meaning": "The curation spreadsheet with one row per fixed address; in the generated workbook it is the tab named 'matrix'."
+  },
+  {
+   "term": "Anchor",
+   "meaning": "One vivid mental scene that encodes the concept's mechanism or name (never the digits), e.g. 520 Mutex = a restroom key chained to your own belt loop."
+  },
+  {
+   "term": "Digit mnemonic",
+   "meaning": "The image tied to each hundreds digit: 0 origin/null, 1 single node, 2 binary split, 3 input-transform-output, 4 four pillars, 5 five dining philosophers, 6 hexagon, 7 seven normal forms, 8 port 80, 9 five nines."
+  },
+  {
+   "term": "Attention doublon / deja pris",
+   "meaning": "Collision registry column: the nearest confusable concept and the one discriminating difference, or a 'cf. XXX (deja pris)' cross-reference."
+  },
+  {
+   "term": "Non retenu mais convient",
+   "meaning": "The bench: valid alternate images that were not kept, stored so they are never re-evaluated from scratch (CSV column 'alternates')."
+  },
+  {
+   "term": "Learned flag + SUM",
+   "meaning": "Column A holds 0/1 per row; a SUM cell under the data is the progress bar (the original sheet stood at 809/1000, the programming one starts at 0/1000)."
+  },
+  {
+   "term": "Engraver concept",
+   "meaning": "The single demo chosen per category for the notebooks, whose input -> output burns in the larger idea (037 Nesting depth for branching, 716 EXPLAIN for query performance)."
+  },
+  {
+   "term": "Procedural layer",
+   "meaning": "The ten executed notebooks: read the code, predict the output, run, compare."
+  },
+  {
+   "term": "INTENDED ERROR",
+   "meaning": "Marker text in a code cell that is meant to raise; make_notebooks.py tolerates errors only in cells containing it."
+  },
+  {
+   "term": "Peg system",
+   "meaning": "A permanent vivid image for every slot of a fixed address space, learned once and reused to hang anything on."
+  },
+  {
+   "term": "Major system",
+   "meaning": "Phonetic encoding digits -> consonant sounds (0 s/z, 1 t/d, 2 n, 3 m, 4 r, 5 l, 6 j/ch/sh, 7 k/hard g, 8 f/v, 9 p/b); vowels are free filler."
+  },
+  {
+   "term": "PAO",
+   "meaning": "Person-Action-Object: each number 00-99 gets a person with a signature action and object; three pairs compress into one scene."
+  },
+  {
+   "term": "Multiple encoding",
+   "meaning": "Several independent retrieval routes for one address (shape, rhyme, Major, PAO, palace); each extra route is a backup path."
+  }
+ ],
+ "relations": [
+  {
+   "project": "Wk-Code-Memorization-PKM",
+   "relation": "The Recurser card schema states that its category digits 0-9 deliberately reuse the digit mnemonics of this Programming Millenium matrix, and its address module cites the same rule of learning addresses once."
+  }
+ ],
+ "directions": [
+  "Fuse each code with the French Millenium peg image for the same number: the only backlog item flagged '!!!!' in build.py, and the README's strongest two-way address <-> concept binding.",
+  "Add per-language variants (Python / JS / Go) as extra columns and a picture per anchor: both are seeded backlog rows in the matrix.",
+  "Persist progress properly: let build.py read Learned flags back from the workbook (or make the CSV the documented place to flip them), since rebuilding currently overwrites the xlsx.",
+  "Generate pathway 3 directly: emit a tab-delimited UTF-8 text file (or an .apkg with the conditional note type) from build.py so the manual Save As and note-type steps disappear.",
+  "Review the confusables column after a first learning pass (backlog row) and fill column I with rejected anchors.",
+  "Merge the branch into master or move the two folders to a dedicated repository: the work lives only on a claude/ branch of a fork."
+ ],
+ "confidence": "high",
+ "coverage_notes": "Read in full: both READMEs, build.py, make_notebooks.py, make_template.py, and the CSV structure (headers, 10 domains, 100 categories, sample rows). Sampled the notebook specs and the executed notebooks (titles of all 100 demos, outputs of 046, 063, 253, 716, first cells of 500). Not opened, as instructed: the .xlsx workbooks, .apkg/.zip binaries and the upstream decks; workbook contents are described from the generator code only. Upstream folders (01.Millenium etc.) were used as context through the owner's README, not analysed. The clone is shallow, so authorship of the 38 added files is inferred from the diff against master. Status 'paused' is a judgement: the content is complete, learned is 0/1000 and the last push was 2026-07."
+}

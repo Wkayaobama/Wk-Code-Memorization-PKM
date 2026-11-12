@@ -1,0 +1,1362 @@
+{
+ "slug": "bhead-claude",
+ "cards": [
+  {
+   "category": 0,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "What HR Scout is",
+   "question": "What is bhead-claude, and what does it do with a job board?",
+   "answer": "HR Scout: it scrapes job boards, has Claude extract structured postings, scores each one, and coaches interview prep.",
+   "explanation": "React 18 + Vite frontend, FastAPI + Motor backend, MongoDB 7, and the Anthropic API called directly with your own key. It began as an Understand Studio generated app; the `claude/standalone-app` line made it self-contained.",
+   "anchor": "A recruiting office conveyor belt: posters go in, a clerk types one index card per job, an examiner stamps a mark out of 100 on each card, a coach rehearses the candidate.",
+   "tags": [],
+   "source": [
+    "README.md:3-6",
+    "README.md:8-9"
+   ],
+   "evidence_quote": "it scrapes job boards you configure, extracts structured postings with Claude, scores each extraction with deterministic quality rules",
+   "source_refs": [
+    {
+     "path": "README.md",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 3,
+     "end": 6
+    },
+    {
+     "path": "README.md",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 8,
+     "end": 9
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 1,
+   "type": "recall",
+   "level": 1,
+   "concept": "The one-seam invariant",
+   "question": "Which invariant does bhead-claude exist to protect?",
+   "answer": "Every Claude call goes through ONE seam, `backend/app/llm.py`; nothing else imports `anthropic`.",
+   "explanation": "That makes swapping the model, adding a gateway `base_url`, caching or usage metering a one-file edit. Breaks if undone: an SDK call written inside a route escapes the refusal and truncation guards. The headless rail on `main` follows the same rule, see 61.",
+   "anchor": "A castle with a single drawbridge: every messenger to the oracle crosses it, so the guard there can change the toll or the road for all of them at once.",
+   "confusables": "`headless.py` on `main` — the seam of the other rail: the only place a `claude` SUBPROCESS is spawned, where `llm.py` is the only importer of `anthropic`.",
+   "tags": [
+    "ai-seam",
+    "line:claude/standalone-app"
+   ],
+   "source": [
+    "backend/app/llm.py:3-5",
+    "claude-template/template/backend/app/headless.py:15-16"
+   ],
+   "evidence_quote": "Every Claude call in the codebase goes through this module; nothing else imports `anthropic`.",
+   "source_refs": [
+    {
+     "path": "backend/app/llm.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 3,
+     "end": 5
+    },
+    {
+     "path": "claude-template/template/backend/app/headless.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 15,
+     "end": 16
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 2,
+   "type": "compare",
+   "level": 2,
+   "concept": "main vs claude/standalone-app",
+   "question": "bhead-claude: line `main` vs line `claude/standalone-app`: what is the ONE difference in how HR Scout reaches Claude?",
+   "answer": "`main` by default routes the SDK through Understand Studio's proxy with the per-app `UT_API_KEY`; `claude/standalone-app` calls `api.anthropic.com` DIRECTLY with your own `ANTHROPIC_API_KEY`.",
+   "explanation": "`main` goes direct only in its opt-in standalone mode, see 82. `claude/standalone-app` is the freshest line. It also removed the bundled `claude-template/` scaffold, so the headless rail lives only on `main` (see 61).",
+   "anchor": "Two food stalls with the same recipe: one must buy every ingredient through the market owner's till, the other pays the farmer directly.",
+   "confusables": "`main` — by default needs the builder's runtime on the other end of every call; the standalone line needs ONLY your own key.",
+   "tags": [
+    "line:main",
+    "line:claude/standalone-app",
+    "studio-scaffold"
+   ],
+   "source": [
+    "README.md:144-147",
+    "backend/app/claude_examples.py:16-28"
+   ],
+   "evidence_quote": "**AI calls** now go straight to `api.anthropic.com` with `ANTHROPIC_API_KEY`.",
+   "source_refs": [
+    {
+     "path": "README.md",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 144,
+     "end": 147
+    },
+    {
+     "path": "backend/app/claude_examples.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 16,
+     "end": 28
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Extraction result shape",
+   "question": "bhead-claude: what top-level JSON shape does Claude return for one scrape?",
+   "answer": "`{\"jobs\": [...]}` — one array of postings under `_JOB_EXTRACTION_SCHEMA`, shared by BOTH scrape paths.",
+   "explanation": "Each job requires all nine properties (title, company, location, description, url, salary_range, posted_at, category, tags). Structured output needs every property listed as required, so the prompt asks for an empty string where a value is missing.",
+   "tags": [
+    "structured-output"
+   ],
+   "source": [
+    "backend/app/routes/scraper.py:76",
+    "backend/app/routes/scraper.py:35-39",
+    "backend/app/routes/scraper.py:69-71"
+   ],
+   "evidence_quote": "\"required\": [\"jobs\"],",
+   "source_refs": [
+    {
+     "path": "backend/app/routes/scraper.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 76
+    },
+    {
+     "path": "backend/app/routes/scraper.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 35,
+     "end": 39
+    },
+    {
+     "path": "backend/app/routes/scraper.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 69,
+     "end": 71
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 0,
+   "type": "trace",
+   "level": 3,
+   "concept": "HTML scrape end to end",
+   "question": "bhead-claude · manual HTML scrape of one target: recite the 6 steps from `POST /api/scraper/run/{target_id}` to the completed target.",
+   "steps": [
+    "`trigger_scrape()` -> target `status` = `running`, `_do_scrape` queued in background",
+    "`_build_system_prompt()` -> base prompt + domain focus + the target's goal",
+    "`agent_sessions.insert_one()` -> a session record with status `running`",
+    "`httpx` GET -> `_html_to_text()` -> text cut to `scrape_page_chars`",
+    "`extract_structured()` with `_JOB_EXTRACTION_SCHEMA` -> `{jobs: [...]}`",
+    "`_persist_jobs()` -> new postings inserted, target `completed`, session counts set"
+   ],
+   "answer": "mark running · build prompt · open session · fetch, strip, cut · extract · persist",
+   "explanation": "Any exception inside the try block goes to `_mark_error()`: target and session end in `error` with the message. The trigger answers 409 when the target is already `running`. The cron path calls `_do_scrape()` directly with `triggered_by=\"cron\"`, see 50.",
+   "anchor": "A courier hangs a BUSY tag on a mailbox, writes his brief, opens a log page, pulls out the newspaper, trims it to envelope size, mails it to the oracle and files the cards that come back.",
+   "tags": [
+    "scrape-pipeline"
+   ],
+   "source": [
+    "backend/app/routes/scraper.py:391",
+    "backend/app/routes/scraper.py:372-392",
+    "backend/app/routes/scraper.py:218-238",
+    "backend/app/routes/scraper.py:254-258",
+    "backend/app/routes/scraper.py:260-279"
+   ],
+   "evidence_quote": "background_tasks.add_task(_do_scrape, db, target_id, \"manual\")",
+   "source_refs": [
+    {
+     "path": "backend/app/routes/scraper.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 391
+    },
+    {
+     "path": "backend/app/routes/scraper.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 372,
+     "end": 392
+    },
+    {
+     "path": "backend/app/routes/scraper.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 218,
+     "end": 238
+    },
+    {
+     "path": "backend/app/routes/scraper.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 254,
+     "end": 258
+    },
+    {
+     "path": "backend/app/routes/scraper.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 260,
+     "end": 279
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 1,
+   "type": "trace",
+   "level": 3,
+   "concept": "Headless workflow run",
+   "question": "bhead-claude · on the `main` line, one scheduled headless workflow: recite the 6 steps from the scheduler tick to the stored run record.",
+   "steps": [
+    "`scheduler_loop()` wakes every 30 s -> finds an enabled workflow that `_is_due()`",
+    "`start_run()` -> returns None when the workflow id is already in `_active`",
+    "`update_workflow()` -> stamps `last_run` with the START time of the run",
+    "`asyncio.create_task(_execute())` -> the run continues in the background",
+    "`run_headless()` -> spawns `claude -p <prompt> --output-format text` in the workdir",
+    "`_execute()` finally block -> appends the run record as one line to `data/runs.jsonl`"
+   ],
+   "answer": "tick · overlap gate · stamp last_run · background task · claude -p · append runs.jsonl",
+   "explanation": "`POST /api/workflows/{id}/run` enters at the overlap gate and answers 409 when `start_run()` returns None. `last_run` is stamped at the start so a long review does not drift the cadence. The run is `completed` on exit code 0, otherwise `failed`.",
+   "anchor": "A night watchman with a 30-second egg timer: he checks the roster, hangs an OCCUPIED tag on the door, writes the start time, sends the inspector in and staples the report into the ledger.",
+   "confusables": "standalone `scheduler.scheduler_loop(db)` — same name, but it fires scrapes that call the SDK seam; this one runs workflows through the `claude` CLI.",
+   "tags": [
+    "line:main",
+    "headless-rail"
+   ],
+   "source": [
+    "claude-template/template/backend/app/workflows.py:165",
+    "claude-template/template/backend/app/workflows.py:143-166",
+    "claude-template/template/backend/app/workflows.py:169-188",
+    "claude-template/template/backend/app/workflows.py:204-220",
+    "claude-template/template/backend/app/workflows.py:33",
+    "claude-template/template/backend/app/headless.py:110"
+   ],
+   "evidence_quote": "asyncio.create_task(_execute(workflow, run))",
+   "source_refs": [
+    {
+     "path": "claude-template/template/backend/app/workflows.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 165
+    },
+    {
+     "path": "claude-template/template/backend/app/workflows.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 143,
+     "end": 166
+    },
+    {
+     "path": "claude-template/template/backend/app/workflows.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 169,
+     "end": 188
+    },
+    {
+     "path": "claude-template/template/backend/app/workflows.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 204,
+     "end": 220
+    },
+    {
+     "path": "claude-template/template/backend/app/workflows.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 33
+    },
+    {
+     "path": "claude-template/template/backend/app/headless.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 110
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Local start command",
+   "question": "Which two-step command starts bhead-claude's standalone app on a fresh clone?",
+   "answer": "`cp .env.example .env` (then set `ANTHROPIC_API_KEY`), followed by `docker compose up --build`.",
+   "explanation": "Without the key the backend still starts; `/api/health` reports `llm.configured: false` and the first AI call fails with a clear message, see 32.",
+   "example": "docker compose up --build  # frontend on :5173, API on :8000, health at /api/health",
+   "tags": [
+    "line:claude/standalone-app"
+   ],
+   "source": [
+    "README.md:24-25",
+    "README.md:28-30"
+   ],
+   "evidence_quote": "cp .env.example .env # then set ANTHROPIC_API_KEY",
+   "source_refs": [
+    {
+     "path": "README.md",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 24,
+     "end": 25
+    },
+    {
+     "path": "README.md",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 28,
+     "end": 30
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 1,
+   "type": "output",
+   "level": 3,
+   "concept": "evaluate() HTML penalty",
+   "question": "bhead-claude · `evaluate` (standalone line): predict the score, the band and the flagged value for the call below (`CLEAN_JOB` alone scores 100).",
+   "code_snippet": "result = evaluate({**CLEAN_JOB, \"description\": \"<div>Great role</div> with a long enough text\"})\n# result.score ?  result.band ?  result.flagged ?",
+   "expected_output": "result.score == 80\nresult.band == \"review\"\nresult.flagged is False",
+   "answer": "80, `review`, NOT flagged — only `html_artifacts` fires (penalty 20); 80 is not below `FLAG_THRESHOLD` = 70, and 70-89 is the `review` band.",
+   "explanation": "A score starts at 100, loses the penalty of each fired rule and floors at 0; flagged means score < 70. The issue label names the first matching field: `HTML artefacts in description`.",
+   "confusables": "band `flagged` (0-69) — `review` (70-89) is a band, NOT a flag: `flagged` is True only when the score is below 70.",
+   "tags": [
+    "grounded:test",
+    "quality-engine",
+    "line:claude/standalone-app"
+   ],
+   "source": [
+    "backend/tests/test_quality_engine.py:120-126",
+    "backend/app/quality/registry.py:68-70",
+    "backend/app/quality/registry.py:46-51",
+    "backend/app/quality/engine.py:101-117"
+   ],
+   "evidence_quote": "assert result.score == 80",
+   "source_refs": [
+    {
+     "path": "backend/tests/test_quality_engine.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 120,
+     "end": 126
+    },
+    {
+     "path": "backend/app/quality/registry.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 68,
+     "end": 70
+    },
+    {
+     "path": "backend/app/quality/registry.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 46,
+     "end": 51
+    },
+    {
+     "path": "backend/app/quality/engine.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 101,
+     "end": 117
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 2,
+   "type": "output",
+   "level": 3,
+   "concept": "get_client() without credentials",
+   "question": "bhead-claude · `get_client` (standalone line): predict the result of the call below when neither `ANTHROPIC_API_KEY` nor `ANTHROPIC_AUTH_TOKEN` is set.",
+   "code_snippet": "assert llm.is_configured() is False\nllm.get_client()",
+   "expected_output": "LLMNotConfigured: No Anthropic credential: set ANTHROPIC_API_KEY (or ANTHROPIC_AUTH_TOKEN) in .env — see .env.example — and restart the backend.",
+   "answer": "It RAISES `LLMNotConfigured` — a missing key must be a clear message at the first AI call, never a connection error; the backend itself still starts.",
+   "explanation": "`/api/health` shows `llm.configured: false` meanwhile. In a scrape the exception is caught and routed to `_mark_error()`, so the session record carries this message.",
+   "tags": [
+    "intended-error",
+    "grounded:test",
+    "ai-seam",
+    "line:claude/standalone-app"
+   ],
+   "source": [
+    "backend/tests/test_llm.py:189-193",
+    "backend/app/llm.py:80-94"
+   ],
+   "evidence_quote": "with pytest.raises(llm.LLMNotConfigured, match=\"ANTHROPIC_API_KEY\"):",
+   "source_refs": [
+    {
+     "path": "backend/tests/test_llm.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 189,
+     "end": 193
+    },
+    {
+     "path": "backend/app/llm.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 80,
+     "end": 94
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 3,
+   "type": "output",
+   "level": 3,
+   "concept": "extract_fields() normalisation",
+   "question": "bhead-claude · `extract_fields` (standalone line): predict the exact return value of the call below.",
+   "code_snippet": "extract_fields({\"title\": None, \"company\": 42, \"description\": \"  padded  \"})",
+   "expected_output": "{'title': '', 'description': 'padded', 'company': '42', 'salary_range': ''}",
+   "answer": "All FOUR scored fields as stripped strings — `None` and the missing key become `''`, the integer becomes `'42'`.",
+   "explanation": "`SCORED_FIELDS` is (title, description, company, salary_range), in that order. Because every value is a stripped string, no rule regex ever sees a non-string. Dedup in `_persist_jobs()` reads title and company through the same function, see 70.",
+   "tags": [
+    "grounded:test",
+    "quality-engine",
+    "line:claude/standalone-app"
+   ],
+   "source": [
+    "backend/tests/test_quality_engine.py:170-172",
+    "backend/app/quality/extractor.py:10-23"
+   ],
+   "evidence_quote": "assert fields == {\"title\": \"\", \"description\": \"padded\", \"company\": \"42\", \"salary_range\": \"\"}",
+   "source_refs": [
+    {
+     "path": "backend/tests/test_quality_engine.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 170,
+     "end": 172
+    },
+    {
+     "path": "backend/app/quality/extractor.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 10,
+     "end": 23
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 4,
+   "type": "cloze",
+   "level": 1,
+   "concept": "The headless command",
+   "question": "bhead-claude · `main` line: complete the command that `run_headless()` builds for every headless run.",
+   "cloze": "claude {{c1::-p}} \"<prompt>\" {{c2::--output-format}} text",
+   "answer": "-p · --output-format",
+   "explanation": "`-p` is print mode: the CLI runs its whole agent loop without interaction, prints the final result and exits. `--model`, `--allowedTools` and the workflow's `extra_args` are appended only when set.",
+   "tags": [
+    "line:main",
+    "headless-rail"
+   ],
+   "source": [
+    "claude-template/template/backend/app/headless.py:110-115",
+    "claude-template/template/backend/app/headless.py:7"
+   ],
+   "evidence_quote": "cmd = [settings.claude_bin, \"-p\", prompt, \"--output-format\", output_format]",
+   "source_refs": [
+    {
+     "path": "claude-template/template/backend/app/headless.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 110,
+     "end": 115
+    },
+    {
+     "path": "claude-template/template/backend/app/headless.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 7
+    }
+   ]
+  },
+  {
+   "category": 4,
+   "rank": 0,
+   "type": "locate",
+   "level": 1,
+   "concept": "Quality registry",
+   "question": "Which module on bhead-claude's standalone line is the ONLY place a quality rule, band or flag threshold is defined?",
+   "answer": "`backend/app/quality/registry.py`: `RULES`, `BANDS`, `FLAG_THRESHOLD` as plain data; `engine.py` only interprets.",
+   "explanation": "Adding a check is adding a row. `validate_registry()` runs when the package is imported, and `GET /api/monitor/quality-config` serves the registry, so the UI never restates a threshold.",
+   "confusables": "`engine.py` — a pure INTERPRETER (no I/O, no clock); it holds no rule, only one branch per predicate kind.",
+   "tags": [
+    "quality-engine",
+    "line:claude/standalone-app"
+   ],
+   "source": [
+    "backend/app/quality/registry.py:3-6",
+    "backend/app/quality/__init__.py:15"
+   ],
+   "evidence_quote": "A `Rule` is interpreted by `engine.evaluate`; it never holds code.",
+   "source_refs": [
+    {
+     "path": "backend/app/quality/registry.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 3,
+     "end": 6
+    },
+    {
+     "path": "backend/app/quality/__init__.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 15
+    }
+   ]
+  },
+  {
+   "category": 4,
+   "rank": 1,
+   "type": "compare",
+   "level": 2,
+   "concept": "_do_scrape() vs _do_scrape_apify()",
+   "question": "bhead-claude: `_do_scrape()` vs `_do_scrape_apify()`: what is the ONE difference?",
+   "answer": "`_do_scrape()` FETCHES the page itself (`httpx`, then `_html_to_text()`); `_do_scrape_apify()` takes its text from the Apify jobup actor's items. Both end in the same `extract_structured()` call and schema.",
+   "explanation": "Caps follow the source: `scrape_page_chars` 12000 for the page, `apify_text_chars` 15000 for the actor items. The cron scheduler fires only `_do_scrape()`, so scheduled runs never spend Apify budget.",
+   "anchor": "One angler casts his own line from the pier; the other buys the catch from a trawler.",
+   "confusables": "`_do_scrape_apify()` — its text comes from the Apify ACTOR's leaf-page items, NOT from a page the app fetched itself.",
+   "tags": [
+    "scrape-pipeline"
+   ],
+   "source": [
+    "backend/app/routes/scraper.py:323",
+    "backend/app/routes/scraper.py:3-11",
+    "backend/app/routes/scraper.py:258",
+    "backend/app/config.py:49-50",
+    "backend/app/scheduler.py:61"
+   ],
+   "evidence_quote": "raw_items = await run_apify_scrape(url, apify_token, max_items=max_items)",
+   "source_refs": [
+    {
+     "path": "backend/app/routes/scraper.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 323
+    },
+    {
+     "path": "backend/app/routes/scraper.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 3,
+     "end": 11
+    },
+    {
+     "path": "backend/app/routes/scraper.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 258
+    },
+    {
+     "path": "backend/app/config.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 49,
+     "end": 50
+    },
+    {
+     "path": "backend/app/scheduler.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 61
+    }
+   ]
+  },
+  {
+   "category": 5,
+   "rank": 0,
+   "type": "locate",
+   "level": 1,
+   "concept": "Cron scheduler loop",
+   "question": "Which function lets bhead-claude scrape cron-enabled targets with no manual trigger?",
+   "answer": "`scheduler_loop(db)` in `backend/app/scheduler.py`: an asyncio task started in the FastAPI lifespan, ticking every 60 s.",
+   "explanation": "Each tick selects active, cron-enabled, non-running targets whose `cron_next_run` is past or missing, reserves each one (`status` running, next run = now + `cron_interval_minutes`, default 1440) and fires `_do_scrape()` with `asyncio.create_task`. The tick is `SCHEDULER_TICK_SECONDS`.",
+   "anchor": "A lighthouse beam sweeping once a minute: every boat whose departure time has passed gets a BUSY lantern and is pushed off the quay.",
+   "confusables": "`workflows.scheduler_loop()` on `main` — same name, but it polls FILE-backed headless workflows, not Mongo targets.",
+   "tags": [
+    "scheduler"
+   ],
+   "source": [
+    "backend/app/scheduler.py:61",
+    "backend/app/scheduler.py:16-37",
+    "backend/app/main.py:38-39",
+    "backend/app/config.py:67"
+   ],
+   "evidence_quote": "asyncio.create_task(_do_scrape(db, tid, triggered_by=\"cron\"))",
+   "source_refs": [
+    {
+     "path": "backend/app/scheduler.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 61
+    },
+    {
+     "path": "backend/app/scheduler.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 16,
+     "end": 37
+    },
+    {
+     "path": "backend/app/main.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 38,
+     "end": 39
+    },
+    {
+     "path": "backend/app/config.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 67
+    }
+   ]
+  },
+  {
+   "category": 5,
+   "rank": 1,
+   "type": "recall",
+   "level": 1,
+   "concept": "Cloud Run CPU flag",
+   "question": "bhead-claude · `main` template: which Cloud Run deploy flag keeps a headless run alive after the 202 response?",
+   "answer": "`--no-cpu-throttling` — the run continues AFTER the response; throttled CPU would freeze it mid-run.",
+   "explanation": "`start_run()` returns at once and the CLI subprocess keeps working in a background task, which Cloud Run would otherwise starve of CPU once the response is sent.",
+   "confusables": "`--min-instances 1` — keeps the in-process SCHEDULER alive between requests; it does nothing for the CPU of a run already triggered.",
+   "tags": [
+    "line:main",
+    "headless-rail",
+    "cloud-run"
+   ],
+   "source": [
+    "claude-template/template/deploy/cloudrun.sh:29-32",
+    "claude-template/template/deploy/cloudrun.sh:43-44"
+   ],
+   "evidence_quote": "--no-cpu-throttling headless runs continue AFTER the 202 response;",
+   "source_refs": [
+    {
+     "path": "claude-template/template/deploy/cloudrun.sh",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 29,
+     "end": 32
+    },
+    {
+     "path": "claude-template/template/deploy/cloudrun.sh",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 43,
+     "end": 44
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 0,
+   "type": "why",
+   "level": 2,
+   "concept": "Direct Anthropic API",
+   "question": "Why does bhead-claude's standalone line call `api.anthropic.com` directly rather than keep the generated app's Studio-proxy mode?",
+   "answer": "Outside Understand Studio the proxy host does not exist, so a proxy-mode call ends as a connection error; calling directly leaves ONE dependency, the owner's own `ANTHROPIC_API_KEY`.",
+   "explanation": "`get_client()` now raises `LLMNotConfigured` when no credential is present. Breaks if undone: the app again needs the builder's proxy and per-app key to answer one request, and reports every call to the usage metering. The parent's dual-mode client is on `main`, see 81.",
+   "anchor": "Letters keep going to a mail room in a demolished building and come back 'address unknown'; the cure is to write straight to the recipient.",
+   "confusables": "`claude_examples.get_client()` on `main` — picks proxy OR direct from the environment; the standalone `llm.get_client()` has ONLY the direct path.",
+   "tags": [
+    "inferred",
+    "ai-seam",
+    "studio-scaffold",
+    "line:claude/standalone-app"
+   ],
+   "source": [
+    "backend/app/llm.py:7-11",
+    "README.md:144-147",
+    "backend/app/llm.py:93"
+   ],
+   "evidence_quote": "connection error to a host that no longer exists",
+   "source_refs": [
+    {
+     "path": "backend/app/llm.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 7,
+     "end": 11
+    },
+    {
+     "path": "README.md",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 144,
+     "end": 147
+    },
+    {
+     "path": "backend/app/llm.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 93
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 1,
+   "type": "why",
+   "level": 4,
+   "concept": "Headless calls vs plain SDK",
+   "question": "bhead-claude · the owner's question: why headless-bun-claude leverage Anthropic headless calls rather than plain SDK?",
+   "answer": "It does NOT replace the SDK: on `main`, `claude-template` ADDS a headless rail beside it. (1) `run_headless()` spawns `claude -p \"<prompt>\"`: the CLI's own agent loop reads files, greps and runs git in the mounted repo and accepts slash commands such as `/review`, a CLI concept. (2) The rule: SDK when your code knows the steps, headless when the model must discover them by exploring a filesystem; chat and extraction stay on `llm.py`. (3) `claude/standalone-app` removed the scaffold, so that line is SDK only.",
+   "explanation": "Breaks if undone: a repository review through the SDK means hand-writing the loop (the template's `chat_with_tools()`) plus your own file, grep and git tools, and slash commands are unavailable. On the headless rail, varying the workload is just varying a prompt string. Both rails read the same `ANTHROPIC_API_KEY`.",
+   "anchor": "A librarian answering by phone must have every page read aloud to her; send the inspector INTO the library with a lamp and he finds the shelves himself.",
+   "confusables": "`chat_with_tools()` in the template's `llm.py` — an agent loop YOUR code drives over tools you write; `claude -p` runs the CLI's OWN loop with its built-in file tools.",
+   "tags": [
+    "owner-question",
+    "line:main",
+    "headless-rail"
+   ],
+   "source": [
+    "claude-template/template/docs/llm-modes.md:346-359",
+    "claude-template/template/backend/app/headless.py:3-13",
+    "claude-template/template/backend/app/headless.py:110",
+    "claude-template/template/backend/app/llm.py:119-123",
+    "README.md:151-154"
+   ],
+   "evidence_quote": "Mode 1 when your code knows the steps; Mode 2 when the model must discover them by exploring a filesystem.",
+   "source_refs": [
+    {
+     "path": "claude-template/template/docs/llm-modes.md",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 346,
+     "end": 359
+    },
+    {
+     "path": "claude-template/template/backend/app/headless.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 3,
+     "end": 13
+    },
+    {
+     "path": "claude-template/template/backend/app/headless.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 110
+    },
+    {
+     "path": "claude-template/template/backend/app/llm.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 119,
+     "end": 123
+    },
+    {
+     "path": "README.md",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 151,
+     "end": 154
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 2,
+   "type": "why",
+   "level": 2,
+   "concept": "Structured output format",
+   "question": "Why does bhead-claude's standalone `extract_structured()` use `output_config.format` with a JSON schema rather than a forced tool call?",
+   "answer": "The API then guarantees that the first text block is valid JSON for the schema, so nothing has to be stripped or repaired; and the code records that forced `tool_choice` is rejected by current models.",
+   "explanation": "The parent version on `main` forced a named tool. Breaks if undone: per that code comment the extraction request is rejected by current models. `_strict_schema()` adds `additionalProperties: false` to every object node that does not set it, because the format requires it, and a test asserts that no `tools` or `tool_choice` is sent.",
+   "anchor": "A vending machine with a moulded slot: only a coin of the exact shape drops through, so nobody downstream has to sort the change.",
+   "confusables": "`tool_choice` with a named tool, in `claude_examples.extract_structured()` on `main` — there the JSON arrives as a TOOL INPUT; here it is the reply TEXT, parsed with `json.loads`.",
+   "tags": [
+    "structured-output",
+    "ai-seam",
+    "line:claude/standalone-app"
+   ],
+   "source": [
+    "backend/app/llm.py:261-265",
+    "backend/app/llm.py:273-274",
+    "backend/tests/test_llm.py:94",
+    "backend/app/claude_examples.py:441"
+   ],
+   "evidence_quote": "(forced `tool_choice` is rejected by current models)",
+   "source_refs": [
+    {
+     "path": "backend/app/llm.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 261,
+     "end": 265
+    },
+    {
+     "path": "backend/app/llm.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 273,
+     "end": 274
+    },
+    {
+     "path": "backend/tests/test_llm.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 94
+    },
+    {
+     "path": "backend/app/claude_examples.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 441
+    }
+   ]
+  },
+  {
+   "category": 7,
+   "rank": 0,
+   "type": "recall",
+   "level": 2,
+   "concept": "Dedup on re-scrape",
+   "question": "bhead-claude: what stops a re-scrape of the same target from inserting a posting twice?",
+   "answer": "`_persist_jobs()` inserts ONLY when no posting of that target matches the title AND the company exactly, case-insensitively; a job with an empty title is skipped.",
+   "explanation": "State lives in MongoDB, collection `job_postings`. Title and company come from `extract_fields()` and are wrapped in `re.escape`, so a title such as `C++ Developer` cannot break the query. The check is per `target_id`: the same job found on two boards is stored twice.",
+   "anchor": "A doorman with one guest list per ballroom: same name and same company already inside this room and you stay out, however you capitalise it.",
+   "confusables": "the unique index on `scrape_targets.url` — it blocks a duplicate TARGET in the database itself; postings have NO unique index, only this query.",
+   "tags": [
+    "dedup",
+    "mongodb"
+   ],
+   "source": [
+    "backend/app/routes/scraper.py:149",
+    "backend/app/routes/scraper.py:141-163",
+    "backend/app/main.py:22"
+   ],
+   "evidence_quote": "\"title\": {\"$regex\": f\"^{re.escape(title)}$\", \"$options\": \"i\"},",
+   "source_refs": [
+    {
+     "path": "backend/app/routes/scraper.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 149
+    },
+    {
+     "path": "backend/app/routes/scraper.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 141,
+     "end": 163
+    },
+    {
+     "path": "backend/app/main.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 22
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 0,
+   "type": "recall",
+   "level": 2,
+   "concept": "Vite /api proxy",
+   "question": "What makes bhead-claude's React UI able to call the FastAPI backend with no CORS setup on the standalone line?",
+   "answer": "The Vite dev server proxies `/api` to `http://backend:8000`, so the browser only ever talks same-origin; CORS middleware is installed ONLY when `CORS_ORIGINS` is set.",
+   "explanation": "The stack is docker compose with three services: frontend on 5173, backend on 8000 and `mongo:7`, whose port is not published. When the API runs outside Docker the proxy target must become `localhost:8000`.",
+   "anchor": "A shop counter with a hatch: customers only ever speak to the counter, which passes each slip through the hatch to the workshop, so the workshop needs no street door.",
+   "confusables": "the generated version on `main` — it installed a CORS WILDCARD middleware; the standalone line installs none by default.",
+   "tags": [
+    "vite-proxy",
+    "line:claude/standalone-app"
+   ],
+   "source": [
+    "frontend/vite.config.ts:23-28",
+    "backend/app/main.py:64-69",
+    "docker-compose.yml:43-46",
+    "README.md:60-62"
+   ],
+   "evidence_quote": "The browser only ever talks to the dev server; /api is forwarded to",
+   "source_refs": [
+    {
+     "path": "frontend/vite.config.ts",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 23,
+     "end": 28
+    },
+    {
+     "path": "backend/app/main.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 64,
+     "end": 69
+    },
+    {
+     "path": "docker-compose.yml",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 43,
+     "end": 46
+    },
+    {
+     "path": "README.md",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 60,
+     "end": 62
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 1,
+   "type": "recall",
+   "level": 2,
+   "concept": "Studio LLM proxy and per-app key",
+   "question": "bhead-claude · `main` line (Understand Studio scaffold): how does the generated app's Anthropic SDK reach Claude in Studio mode?",
+   "answer": "`get_client()` builds `AsyncAnthropic(api_key=ut_key, base_url=base_url)`: the per-app `UT_API_KEY` is the bearer against Studio's Anthropic-compatible proxy at `UT_LLM_BASE_URL`.",
+   "explanation": "The proxy validates the per-app key, forwards to Anthropic with a server-side master key and bills the project, so the app never holds a provider key. Because the proxy is Anthropic-compatible, only the client constructor differs from a direct call (see 60). This deck is the home of that scaffold for the sibling generated apps.",
+   "confusables": "standalone mode of the same `get_client()` — `AsyncAnthropic(api_key=anthropic_key)` with NO `base_url`, so the SDK's public default endpoint is used.",
+   "tags": [
+    "line:main",
+    "studio-scaffold"
+   ],
+   "source": [
+    "backend/app/claude_examples.py:155",
+    "backend/app/claude_examples.py:137-155",
+    "backend/app/claude_examples.py:16-20"
+   ],
+   "evidence_quote": "_client = AsyncAnthropic(api_key=ut_key, base_url=base_url)",
+   "source_refs": [
+    {
+     "path": "backend/app/claude_examples.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 155
+    },
+    {
+     "path": "backend/app/claude_examples.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 137,
+     "end": 155
+    },
+    {
+     "path": "backend/app/claude_examples.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 16,
+     "end": 20
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 2,
+   "type": "scenario",
+   "level": 3,
+   "concept": "Studio vs standalone mode rule",
+   "question": "bhead-claude · `main` line: the backend's environment holds BOTH `ANTHROPIC_API_KEY` and a non-empty `UT_LLM_BASE_URL`. Which endpoint does `get_client()` call, and what do you check first?",
+   "answer": "Studio's proxy, not Anthropic: standalone mode is chosen ONLY when `ANTHROPIC_API_KEY` is set AND `UT_LLM_BASE_URL` is empty; in every other case the proxy wins. Check that the base URL is really empty in BOTH places `get_client()` reads it, `settings.ut_llm_base_url` and `os.environ`: one non-empty value is enough for the proxy.",
+   "explanation": "The rule exists so that a Studio-seeded workspace never bypasses the proxy by accident. With no `UT_API_KEY` either, `get_client()` raises `RuntimeError` naming both options. `ANTHROPIC_API_KEY` is read from `os.environ` only, never from `Settings`.",
+   "tags": [
+    "trap",
+    "line:main",
+    "studio-scaffold"
+   ],
+   "source": [
+    "backend/app/claude_examples.py:130",
+    "backend/app/claude_examples.py:107-111",
+    "backend/app/claude_examples.py:125-135"
+   ],
+   "evidence_quote": "if anthropic_key and not ut_llm_base:",
+   "source_refs": [
+    {
+     "path": "backend/app/claude_examples.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 130
+    },
+    {
+     "path": "backend/app/claude_examples.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 107,
+     "end": 111
+    },
+    {
+     "path": "backend/app/claude_examples.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 125,
+     "end": 135
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 3,
+   "type": "compare",
+   "level": 2,
+   "concept": "increment_prompt() usage callback",
+   "question": "bhead-claude · `main` line (Studio scaffold): `increment_prompt()` vs `report_to_studio_counter()`: what is the ONE difference?",
+   "answer": "`increment_prompt()` reports a Claude call to BOTH Understand Tech's prompt quota and Studio's per-project counter; `report_to_studio_counter()` bumps ONLY Studio's counter.",
+   "explanation": "`claude_examples.py` calls `increment_prompt()` after every successful Claude call. Both are fail-open: a billing error never breaks a chat. The standalone line deleted the module, so nothing is metered there.",
+   "anchor": "Two turnstile clickers at a fairground gate: one clicks the park's tally AND the ride owner's tally, the other clicks the park's tally only.",
+   "confusables": "`report_to_studio_counter()` — meant for UT API v3 chats, which UT already counts server-side; calling `increment_prompt()` there would DOUBLE-bill.",
+   "tags": [
+    "line:main",
+    "studio-scaffold",
+    "usage-metering"
+   ],
+   "source": [
+    "backend/app/ut_usage.py:210-216",
+    "backend/app/ut_usage.py:5-20",
+    "backend/app/claude_examples.py:49"
+   ],
+   "evidence_quote": "Report a CLAUDE call (routed through Studio's Anthropic proxy) to BOTH UT (for the prompt quota) and Studio (for the per-project UI tile).",
+   "source_refs": [
+    {
+     "path": "backend/app/ut_usage.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 210,
+     "end": 216
+    },
+    {
+     "path": "backend/app/ut_usage.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 5,
+     "end": 20
+    },
+    {
+     "path": "backend/app/claude_examples.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 49
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 4,
+   "type": "recall",
+   "level": 1,
+   "concept": "Whitelabel identity prelude",
+   "question": "bhead-claude · `main` line: what does `_with_identity()` do to every system prompt of the generated app?",
+   "answer": "It prepends `_IDENTITY_PRELUDE` FIRST: asked who made it, the model must say it is powered by Understand Tech.",
+   "explanation": "The directive hides the underlying model and wins over any persona because it comes first. The standalone line removed it: a test asserts that the `system` value sent equals the caller's prompt exactly.",
+   "confusables": "standalone `llm.py` — passes the caller's `system_prompt` through UNCHANGED; nothing is prepended.",
+   "tags": [
+    "line:main",
+    "studio-scaffold"
+   ],
+   "source": [
+    "backend/app/claude_examples.py:73-80",
+    "backend/app/claude_examples.py:53-58",
+    "backend/tests/test_llm.py:104-108",
+    "backend/app/llm.py:172-173"
+   ],
+   "evidence_quote": "The directive comes FIRST so it takes precedence over any persona the caller layered on top.",
+   "source_refs": [
+    {
+     "path": "backend/app/claude_examples.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 73,
+     "end": 80
+    },
+    {
+     "path": "backend/app/claude_examples.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 53,
+     "end": 58
+    },
+    {
+     "path": "backend/tests/test_llm.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 104,
+     "end": 108
+    },
+    {
+     "path": "backend/app/llm.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 172,
+     "end": 173
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 5,
+   "type": "scenario",
+   "level": 4,
+   "concept": "Cutting the Studio coupling",
+   "question": "bhead-claude: you must make another Understand Studio generated app (same scaffold as the `main` line) run standalone. Following the `claude/standalone-app` translation, which host couplings do you cut?",
+   "answer": "Three groups; no data migration is needed. (1) AI rail: the proxy URL and per-app key, the usage-metering callbacks and the whitelabel identity instruction, replaced by one seam calling `api.anthropic.com` with `ANTHROPIC_API_KEY`. (2) Host observability and branding: request analytics and error ring buffer with their `/api/__*` endpoints, the browser error reporter, badge and logo, the CORS wildcard. (3) Vault key: derive it from `SECRETS_ENCRYPTION_KEY`; set it to the old per-app key to keep stored secrets readable.",
+   "explanation": "An empty `SECRETS_ENCRYPTION_KEY` disables the vault with 503 rather than encrypting with a guessable constant. `MONGO_DB` still defaults to `app`. This card is the portfolio home of the Studio scaffold: details in 81 (proxy), 83 (usage callbacks) and 84 (identity prelude).",
+   "tags": [
+    "studio-scaffold",
+    "standalone-refactor"
+   ],
+   "source": [
+    "README.md:144-158",
+    "docs/SYSTEM_MAPS.md:64-71",
+    "backend/app/routes/secrets.py:5-11"
+   ],
+   "evidence_quote": "The proxy URL, per-app key, usage-metering callbacks and the whitelabel identity instruction are gone.",
+   "source_refs": [
+    {
+     "path": "README.md",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 144,
+     "end": 158
+    },
+    {
+     "path": "docs/SYSTEM_MAPS.md",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 64,
+     "end": 71
+    },
+    {
+     "path": "backend/app/routes/secrets.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 5,
+     "end": 11
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Proving it works",
+   "question": "bhead-claude: which command proves the standalone backend works without a key, a network or MongoDB?",
+   "answer": "`cd backend && pytest` — the suite runs on a fake Motor database and a fake Anthropic client.",
+   "explanation": "`asyncio_mode = auto` in `pytest.ini`; the `api` fixture skips the lifespan, so no scheduler starts. On a live stack, `GET /api/health` shows `mongo`, `llm.configured`, the quality threshold and the caps before you spend a scrape.",
+   "example": "cd backend && pip install -r requirements-dev.txt && pytest  # no network, no Mongo",
+   "tags": [
+    "line:claude/standalone-app"
+   ],
+   "source": [
+    "backend/tests/test_llm.py:1",
+    "backend/tests/conftest.py:1-6",
+    "README.md:53-57",
+    "backend/pytest.ini:4"
+   ],
+   "evidence_quote": "The LLM seam, exercised against a fake client — no network, no key.",
+   "source_refs": [
+    {
+     "path": "backend/tests/test_llm.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 1
+    },
+    {
+     "path": "backend/tests/conftest.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 1,
+     "end": 6
+    },
+    {
+     "path": "README.md",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 53,
+     "end": 57
+    },
+    {
+     "path": "backend/pytest.ini",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 4
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 1,
+   "type": "scenario",
+   "level": 3,
+   "concept": "Three-edit setting rule",
+   "question": "bhead-claude (standalone line): you add a field to `Settings` and put its variable in the repo-root `.env`, yet under docker compose the backend still runs on the default value. What did you miss?",
+   "answer": "The line in `docker-compose.yml`'s explicit `environment:` allowlist: a variable reaches the container ONLY if it is listed there, so the container silently runs on the default.",
+   "explanation": "A new setting needs three edits together: the `Settings` field, the compose allowlist line and a row in `.env.example`. Bare-metal `uvicorn` would have picked the value up, because `Settings` reads the repo-root `.env` itself, anchored on `__file__` rather than the working directory.",
+   "tags": [
+    "trap",
+    "config",
+    "line:claude/standalone-app"
+   ],
+   "source": [
+    "backend/app/config.py:12-14",
+    "docker-compose.yml:18-22",
+    "backend/app/config.py:5-9"
+   ],
+   "evidence_quote": "(otherwise the container silently runs on the default)",
+   "source_refs": [
+    {
+     "path": "backend/app/config.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 12,
+     "end": 14
+    },
+    {
+     "path": "docker-compose.yml",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 18,
+     "end": 22
+    },
+    {
+     "path": "backend/app/config.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 5,
+     "end": 9
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 2,
+   "type": "scenario",
+   "level": 3,
+   "concept": "Target stuck in running",
+   "question": "bhead-claude: after a backend crash mid-scrape, a manual trigger answers 409 `Scrape already in progress for this target.` and cron never picks the target up again. What happened and what do you do?",
+   "answer": "The target document is stuck at `status: \"running\"`: a scrape leaves that state only through `_persist_jobs()` or `_mark_error()`, and neither ran. No route resets it, so set `status` back by hand in `scrape_targets`.",
+   "explanation": "The scheduler filters on `status != running` and both trigger routes return 409 on `running`. A `uvicorn --reload` in the middle of a scrape causes the same thing. It is an open item of the known drift; a reset route or a stale-run timeout would close it.",
+   "tags": [
+    "trap",
+    "scheduler"
+   ],
+   "source": [
+    "docs/SYSTEM_MAPS.md:282-284",
+    "backend/app/routes/scraper.py:385-386",
+    "backend/app/scheduler.py:33"
+   ],
+   "evidence_quote": "the scheduler skips it and manual triggers return 409. No route resets `status`.",
+   "source_refs": [
+    {
+     "path": "docs/SYSTEM_MAPS.md",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 282,
+     "end": 284
+    },
+    {
+     "path": "backend/app/routes/scraper.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 385,
+     "end": 386
+    },
+    {
+     "path": "backend/app/scheduler.py",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 33
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 3,
+   "type": "recall",
+   "level": 1,
+   "concept": "Headless permission default",
+   "question": "bhead-claude · `main` line: what happens to a tool call that would ask for approval during a headless `claude -p` run?",
+   "answer": "It is DENIED — print mode is non-interactive. Grant it per workflow with `allowed_tools` or `extra_args`.",
+   "explanation": "Read-oriented workflows such as `/review` work as they are; one that must edit files or run commands fails until granted, for example `allowed_tools=[\"Edit\", \"Bash(git diff:*)\"]`. The module's rule: never default to bypassing permissions.",
+   "tags": [
+    "trap",
+    "line:main",
+    "headless-rail"
+   ],
+   "source": [
+    "claude-template/template/backend/app/headless.py:19-25",
+    "claude-template/template/backend/app/headless.py:113-115"
+   ],
+   "evidence_quote": "print mode is non-interactive, so tools that would normally prompt for approval are denied",
+   "source_refs": [
+    {
+     "path": "claude-template/template/backend/app/headless.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 19,
+     "end": 25
+    },
+    {
+     "path": "claude-template/template/backend/app/headless.py",
+     "branch": "main",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d",
+     "line": 113,
+     "end": 115
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 9,
+   "type": "recall",
+   "level": 2,
+   "concept": "Next step: authentication",
+   "question": "bhead-claude: what is the first open item to fix before HR Scout is exposed beyond localhost, and why?",
+   "answer": "Authentication: NO route has any. Whoever reaches port 8000 can trigger scrapes that spend Anthropic and Apify budget and can read vault secrets in plaintext through `GET /api/secrets/{name}/value`.",
+   "explanation": "Interim guard: keep it on localhost or put a reverse proxy with auth in front. It heads the known-drift list in `docs/SYSTEM_MAPS.md`, where the next pass starts; targets stuck in `running` (see 92) and non-atomic scheduler claims come next.",
+   "tags": [
+    "per-docs",
+    "security"
+   ],
+   "source": [
+    "docs/SYSTEM_MAPS.md:278-281",
+    "docs/SYSTEM_MAPS.md:272-276"
+   ],
+   "evidence_quote": "API behind a reverse proxy with auth before exposing it beyond localhost.",
+   "source_refs": [
+    {
+     "path": "docs/SYSTEM_MAPS.md",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 278,
+     "end": 281
+    },
+    {
+     "path": "docs/SYSTEM_MAPS.md",
+     "branch": "claude/standalone-app",
+     "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+     "line": 272,
+     "end": 276
+    }
+   ]
+  }
+ ]
+}

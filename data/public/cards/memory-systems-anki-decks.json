@@ -1,0 +1,1098 @@
+{
+ "slug": "memory-systems-anki-decks",
+ "cards": [
+  {
+   "category": 0,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Programming Millenium fork purpose",
+   "question": "memory-systems-anki-decks: what did the owner build on top of this forked memory-systems repository?",
+   "answer": "A Programming Millenium: 1000 programming concepts at fixed codes 000-999 (CSV -> xlsx -> Anki), plus a PAO starter kit.",
+   "explanation": "The upstream repository maps 1000 numbers to images; the owner's two folders reuse the same spreadsheet matrix method for programming concepts and add a beginner kit for peg systems.",
+   "anchor": "A thousand-drawer apothecary cabinet: every drawer carries a brass number that never changes, and inside each sits one programming idea with its tiny diorama.",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/README.md:3-5",
+    "00.Memory_systems/07.PAO_multiple_encoding/README.md:3-5"
+   ],
+   "evidence_quote": "1000 programming concepts mapped to fixed 3-digit addresses with vivid anchor images.",
+   "tags": [
+    "peg-matrix"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 3,
+     "end": 5
+    },
+    {
+     "path": "00.Memory_systems/07.PAO_multiple_encoding/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 3,
+     "end": 5
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 1,
+   "type": "recall",
+   "level": 1,
+   "concept": "Anki comes last",
+   "question": "Which rule about the place of Anki does memory-systems-anki-decks exist to protect?",
+   "answer": "Anki comes LAST: the matrix (the CSV behind it) stays the source of truth, Anki is only the drill.",
+   "explanation": "The matrix is edited in one place and the workbook and the Anki export files are regenerated from it; a block is exported only once it is stable, because drilling pegs that still change engraves the wrong images. Breaks if undone: edits made inside Anki diverge from the matrix, and nothing reads them back into it.",
+   "confusables": "Anki-first decks — there the deck is the source and cards are edited in place; here a card is a disposable PRINT of a matrix row.",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/README.md:112",
+    "00.Memory_systems/06.Programming_Millenium/build.py:4-6",
+    "00.Memory_systems/07.PAO_multiple_encoding/README.md:96-97"
+   ],
+   "evidence_quote": "Anki always comes last; the matrix stays the source of truth.",
+   "tags": [
+    "source-of-truth"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 112
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/build.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 4,
+     "end": 6
+    },
+    {
+     "path": "00.Memory_systems/07.PAO_multiple_encoding/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 96,
+     "end": 97
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 2,
+   "type": "cloze",
+   "level": 1,
+   "concept": "Code digit reading rule",
+   "question": "memory-systems-anki-decks: complete how a Programming Millenium code is read, digit by digit.",
+   "cloze": "A code reads left to right: hundreds digit = {{c1::domain}}, tens digit = {{c1::category}}, units digit = {{c2::rank on the shelf (0 = most fundamental)}}.",
+   "answer": "domain · category · rank on the shelf (0 = most fundamental)",
+   "example": "520 -> 5 = Concurrency & parallelism · 52 = Locks & mutual exclusion · rank 0 = Mutex",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/build.py:111",
+    "00.Memory_systems/06.Programming_Millenium/README.md:51-54"
+   ],
+   "evidence_quote": "hundreds digit = domain, tens = category, units = item (0 = most fundamental)",
+   "tags": [
+    "address-space"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/build.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 111
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 51,
+     "end": 54
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 3,
+   "type": "recall",
+   "level": 1,
+   "concept": "Engraver concept definition",
+   "question": "In memory-systems-anki-decks, what is an 'engraver concept'?",
+   "answer": "The ONE demo chosen per category for the notebooks: its input -> output burns in the category's larger idea.",
+   "explanation": "10 hundred-blocks x 10 categories give 100 demos, not 1000. The reason is at 62.",
+   "example": "716 EXPLAIN before/after an index stands for all of query performance",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/README.md:84-87"
+   ],
+   "evidence_quote": "exactly ONE carefully chosen **engraver concept**",
+   "tags": [
+    "procedural-layer"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 84,
+     "end": 87
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "programming_millenium.csv source row",
+   "question": "Which file is the source of truth of memory-systems-anki-decks' Programming Millenium, and what is one row of it?",
+   "answer": "`programming_millenium.csv` — one row per code 000-999, keyed by `code`.",
+   "explanation": "11 columns: code, concept, definition, anchor, example, confusables, alternates, domain_name, category_name, mnemonic, learned. `build.py` generates the workbook and the `export_for_anki/` files from it; the notebooks come from their own specs (see 40).",
+   "confusables": "`Programming_Millenium.xlsx` — GENERATED from the CSV by `build.py`; it is read by people, never by the build.",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/build.py:4",
+    "00.Memory_systems/06.Programming_Millenium/programming_millenium.csv:1"
+   ],
+   "evidence_quote": "Source of truth: programming_millenium.csv (one row per code 000-999).",
+   "tags": [
+    "source-of-truth"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/build.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 4
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/programming_millenium.csv",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 1
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 1,
+   "type": "compare",
+   "level": 2,
+   "concept": "Export field order",
+   "question": "memory-systems-anki-decks: column order of `programming_millenium.csv` vs field order of `export_for_anki/*.csv`: what is the ONE difference?",
+   "answer": "The CSV lists `definition` BEFORE `anchor`; the exports (and the workbook) put `anchor` BEFORE `definition`.",
+   "explanation": "The exports have no header row, so Anki maps fields by position: Code, Concept, Anchor, Definition, Example, Confusables. Breaks if confused: importing the CSV itself swaps the Anchor and Definition fields on every card.",
+   "anchor": "At the export gate every traveller shows the photo first and the written statement second; in the archive drawer the statement is stapled on top.",
+   "confusables": "`programming_millenium.csv` header order — definition comes FIRST there; only the generated exports match the note type's field order.",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/build.py:156-157",
+    "00.Memory_systems/06.Programming_Millenium/programming_millenium.csv:1"
+   ],
+   "evidence_quote": "w.writerow([r[\"code\"], r[\"concept\"], r[\"anchor\"], r[\"definition\"],",
+   "tags": [
+    "trap",
+    "field-order"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/build.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 156,
+     "end": 157
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/programming_millenium.csv",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 1
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 2,
+   "type": "recall",
+   "level": 1,
+   "concept": "Digit mnemonic for 5xx",
+   "question": "Which digit mnemonic marks the 5xx block of memory-systems-anki-decks' Programming Millenium, and which domain is it?",
+   "answer": "FIVE dining philosophers around the table — Concurrency & parallelism.",
+   "explanation": "Each hundreds digit has one image stored in the `mnemonic` column; it plays the part that phonetics play in the original Millenium.",
+   "confusables": "cf. wk-code-memorization-pkm category 5: the same philosophers image, but there the digit names a card CATEGORY inside one project, here a DOMAIN of programming.",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/programming_millenium.csv:502",
+    "00.Memory_systems/06.Programming_Millenium/README.md:39-44"
+   ],
+   "evidence_quote": "FIVE dining philosophers around the table",
+   "tags": [
+    "digit-mnemonic"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/programming_millenium.csv",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 502
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 39,
+     "end": 44
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 3,
+   "type": "recall",
+   "level": 2,
+   "concept": "PAO Number stored as text",
+   "question": "What makes the `drill` tab of memory-systems-anki-decks' PAO starter workbook find a digit pair in the `pao_00-99` tab?",
+   "answer": "`Number` is written as two-digit TEXT (`f\"{n:02d}\"`, '00' to '99') and the drill cuts the 6-digit text with `MID`, so the exact-match `VLOOKUP(..., FALSE)` compares text with text.",
+   "explanation": "Breaks if undone: retype the Number column as real numbers and the lookup stops matching; `IFERROR` then shows `(fill pao tab)`. `python3 make_template.py` writes the text keys again, but it REWRITES `PAO_starter_blank.xlsx` as a blank workbook, so anything filled in that file is lost.",
+   "example": "B3 = 731942 -> MID(B3,1,2) = \"73\" -> Person of row '73'",
+   "source": [
+    "00.Memory_systems/07.PAO_multiple_encoding/make_template.py:83",
+    "00.Memory_systems/07.PAO_multiple_encoding/make_template.py:98-106",
+    "00.Memory_systems/07.PAO_multiple_encoding/make_template.py:113-121"
+   ],
+   "evidence_quote": "ws.cell(r, 2, f\"{n:02d}\")",
+   "tags": [
+    "inferred",
+    "trap",
+    "text-keys"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/07.PAO_multiple_encoding/make_template.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 83
+    },
+    {
+     "path": "00.Memory_systems/07.PAO_multiple_encoding/make_template.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 98,
+     "end": 106
+    },
+    {
+     "path": "00.Memory_systems/07.PAO_multiple_encoding/make_template.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 113,
+     "end": 121
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 0,
+   "type": "trace",
+   "level": 3,
+   "concept": "build.py main flow",
+   "question": "memory-systems-anki-decks · `build.py` `main()`: recite the 7 steps from the CSV to the Anki export files.",
+   "steps": [
+    "`read_rows()` -> the CSV as a list of dicts, asserted to be exactly 1000",
+    "`openpyxl.Workbook()` -> a FRESH workbook, active sheet renamed `matrix`",
+    "`build_matrix_sheet()` -> headers, one row per code, SUM cell, backlog, filter",
+    "`build_taxonomy_sheet()` -> digit/domain/mnemonic table and 10x10 category grid",
+    "`build_tuto_sheet()` -> the Anki import steps from the `TUTO` constant",
+    "`wb.save(XLSX_PATH)` -> overwrites `Programming_Millenium.xlsx`",
+    "`export_anki(rows)` -> ten per-hundred files in `export_for_anki/`"
+   ],
+   "answer": "read · fresh workbook · matrix · taxonomy · tuto · save · export",
+   "explanation": "The workbook is saved before the exports are written, and both come from the same `rows`; the last line printed is `wrote ... from 1000 rows`.",
+   "anchor": "A press swallows one long paper ribbon, stamps three fresh sheets in a row, staples them shut, then cuts the same ribbon into ten bundles for the post.",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/build.py:160-170"
+   ],
+   "evidence_quote": "build_taxonomy_sheet(wb.create_sheet(\"taxonomy\"), rows)",
+   "tags": [
+    "build-pipeline"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/build.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 160,
+     "end": 170
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 1,
+   "type": "trace",
+   "level": 3,
+   "concept": "make_notebooks build() flow",
+   "question": "memory-systems-anki-decks · `make_notebooks.py` `build(spec_path)`: recite the 6 steps from a spec file to what `main()` does with the result.",
+   "steps": [
+    "`json.load(spec)` -> `notebook` name plus `cells` typed `md` or code",
+    "`nbformat.v4.new_notebook()` -> one markdown or code cell appended per spec cell",
+    "`NotebookClient(...).execute()` -> runs top to bottom, errors allowed",
+    "scan code cells -> error outputs WITHOUT the marker go to `unexpected`",
+    "`nbformat.write(nb, out)` -> executed `<notebook>.ipynb` beside the script",
+    "`return out, unexpected` -> `main()` prints the status and exits 1 if any"
+   ],
+   "answer": "load · assemble · execute · scan · write · return",
+   "explanation": "The pipeline is raw JSON -> execute -> output. The write is unconditional; see 91.",
+   "anchor": "A pianola plays the punched roll straight through, wrong notes included; an inspector circles only the wrong notes nobody pencilled in beforehand, and the record is pressed anyway.",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py:26-50",
+    "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py:53-61"
+   ],
+   "evidence_quote": "if errs and \"INTENDED ERROR\" not in cell.source:",
+   "tags": [
+    "notebook-pipeline"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 26,
+     "end": 50
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 53,
+     "end": 61
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 2,
+   "type": "cloze",
+   "level": 1,
+   "concept": "PAO six-digit compression",
+   "question": "memory-systems-anki-decks: complete the compression rule trained by the starter kit's `drill` tab.",
+   "cloze": "731942 -> the {{c1::Person}} of 73 doing the {{c1::Action}} of 19 with the {{c1::Object}} of 42 = {{c2::ONE}} scene for 6 digits.",
+   "answer": "Person · Action · Object · ONE",
+   "explanation": "One image per 6 digits instead of one per 2: three times fewer palace loci, and the combinations stay unique.",
+   "source": [
+    "00.Memory_systems/07.PAO_multiple_encoding/make_template.py:101",
+    "00.Memory_systems/07.PAO_multiple_encoding/README.md:49-53"
+   ],
+   "evidence_quote": "rows = [(\"Person of\", 1, 2), (\"Action of\", 3, 3), (\"Object of\", 5, 4)]",
+   "tags": [
+    "pao"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/07.PAO_multiple_encoding/make_template.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 101
+    },
+    {
+     "path": "00.Memory_systems/07.PAO_multiple_encoding/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 49,
+     "end": 53
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 0,
+   "type": "locate",
+   "level": 1,
+   "concept": "build.py entry command",
+   "question": "Which command regenerates memory-systems-anki-decks' Programming Millenium workbook and its Anki export files?",
+   "answer": "`python3 build.py`, run in `00.Memory_systems/06.Programming_Millenium` (needs `openpyxl`).",
+   "example": "python3 build.py  # wrote .../Programming_Millenium.xlsx and .../export_for_anki/*.csv from 1000 rows",
+   "confusables": "`python3 make_template.py` — rewrites the BLANK PAO workbook in `07.PAO_multiple_encoding`; it reads no CSV.",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/build.py:8",
+    "00.Memory_systems/06.Programming_Millenium/build.py:160-170"
+   ],
+   "evidence_quote": "Usage: python3 build.py (requires: pip install openpyxl)",
+   "tags": [
+    "entry-point"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/build.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 8
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/build.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 160,
+     "end": 170
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 1,
+   "type": "output",
+   "level": 3,
+   "concept": "read_rows() 1000-row guard",
+   "question": "memory-systems-anki-decks · `read_rows`: predict the result of the call below when `programming_millenium.csv` holds 999 data rows.",
+   "code_snippet": "def read_rows():\n    with open(CSV_PATH, newline=\"\", encoding=\"utf-8\") as f:\n        rows = list(csv.DictReader(f))\n    assert len(rows) == 1000, f\"expected 1000 rows, got {len(rows)}\"\n    return rows\n\nread_rows()  # the CSV holds 999 data rows",
+   "expected_output": "AssertionError: expected 1000 rows, got 999",
+   "answer": "`AssertionError: expected 1000 rows, got 999` — it RAISES before anything is written: the 000-999 address space must stay complete.",
+   "explanation": "Derivation: (1) `DictReader` consumes the header, so 999 data rows give `len(rows) == 999`; (2) 999 == 1000 is False; (3) the assert raises with the f-string message. The address space is closed: replace a concept in place, never insert or delete a row.",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/build.py:71-75"
+   ],
+   "evidence_quote": "assert len(rows) == 1000, f\"expected 1000 rows, got {len(rows)}\"",
+   "tags": [
+    "grounded:logic",
+    "intended-error",
+    "address-space"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/build.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 71,
+     "end": 75
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 2,
+   "type": "output",
+   "level": 3,
+   "concept": "sheet_pao() Major hint",
+   "question": "memory-systems-anki-decks · `sheet_pao`: predict the exact hint text written in the last column for `n = 67`.",
+   "code_snippet": "MAJOR = {0: \"s, z\", 1: \"t, d\", 2: \"n\", 3: \"m\", 4: \"r\", 5: \"l\",\n         6: \"j, ch, sh, soft g\", 7: \"k, hard c/g, q\", 8: \"f, v\", 9: \"p, b\"}\nn = 67\ntens, units = divmod(n, 10)\nhint = f\"{MAJOR[tens].split(',')[0]} + {MAJOR[units].split(',')[0]}\"",
+   "expected_output": "j + k",
+   "answer": "`j + k` — only the FIRST sound listed for each digit is kept, joined by ` + `.",
+   "explanation": "Derivation: (1) divmod(67, 10) = (6, 7); (2) MAJOR[6].split(',')[0] = 'j'; (3) MAJOR[7].split(',')[0] = 'k'; (4) the f-string joins them. The hint is the derivation of the Person, so a lapsed row can be re-derived instead of re-memorised.",
+   "source": [
+    "00.Memory_systems/07.PAO_multiple_encoding/make_template.py:84-85",
+    "00.Memory_systems/07.PAO_multiple_encoding/make_template.py:22-23"
+   ],
+   "evidence_quote": "ws.cell(r, 8, f\"{MAJOR[tens].split(',')[0]} + {MAJOR[units].split(',')[0]}\").font = HINT_FONT",
+   "tags": [
+    "grounded:logic",
+    "major-system"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/07.PAO_multiple_encoding/make_template.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 84,
+     "end": 85
+    },
+    {
+     "path": "00.Memory_systems/07.PAO_multiple_encoding/make_template.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 22,
+     "end": 23
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 3,
+   "type": "output",
+   "level": 3,
+   "concept": "Notebook demo 046 output",
+   "question": "memory-systems-anki-decks · notebook demo 046 in `000_fundamentals`: predict the printed lines and how the cell below ends.",
+   "code_snippet": "# INTENDED ERROR — read the traceback\nrails = [\"rail-0\", \"rail-1\", \"rail-2\"]\nprint(\"len(rails) =\", len(rails), \"| valid indexes: 0, 1, 2\")\nfor i in range(len(rails) + 1):   # + 1 is the fencepost\n    print(\"index\", i, \"->\", rails[i])",
+   "expected_output": "len(rails) = 3 | valid indexes: 0, 1, 2\nindex 0 -> rail-0\nindex 1 -> rail-1\nindex 2 -> rail-2\nIndexError: list index out of range",
+   "answer": "Four printed lines, then `IndexError: list index out of range` — the loop runs len + 1 times and the 4th pass asks for index 3.",
+   "explanation": "The first comment line marks the failure as intended, so the traceback is kept as committed output instead of failing the build; see 51.",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/notebooks/000_fundamentals.ipynb:270-290",
+    "00.Memory_systems/06.Programming_Millenium/notebooks/specs/000_fundamentals.json:46"
+   ],
+   "evidence_quote": "\"evalue\": \"list index out of range\"",
+   "tags": [
+    "grounded:fixture",
+    "intended-error",
+    "procedural-layer"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/notebooks/000_fundamentals.ipynb",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 270,
+     "end": 290
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/notebooks/specs/000_fundamentals.json",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 46
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 4,
+   "type": "locate",
+   "level": 1,
+   "concept": "export_anki() per-hundred files",
+   "question": "Which function in memory-systems-anki-decks writes the ten per-hundred Anki import files?",
+   "answer": "`export_anki(rows)` in `build.py`: rows grouped by the FIRST digit of `code` into `export_for_anki/{h}00.csv`.",
+   "explanation": "Each file holds 100 rows, semicolon-delimited, `utf-8-sig`, with NO header row: every line is data and Anki maps the six fields by position. One file per hundred-block becomes one subdeck.",
+   "example": "export_for_anki/500.csv starts with 500;Concurrency vs parallelism;...",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/build.py:148-157"
+   ],
+   "evidence_quote": "block = [r for r in rows if r[\"code\"][0] == str(h)]",
+   "tags": [
+    "anki-export"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/build.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 148,
+     "end": 157
+    }
+   ]
+  },
+  {
+   "category": 4,
+   "rank": 0,
+   "type": "compare",
+   "level": 2,
+   "concept": "build.py vs make_notebooks.py",
+   "question": "memory-systems-anki-decks: `build.py` vs `notebooks/make_notebooks.py`: what is the ONE difference in what they read?",
+   "answer": "`build.py` reads `programming_millenium.csv`; `make_notebooks.py` reads ONLY `notebooks/specs/*.json`, so a CSV edit never reaches the notebooks.",
+   "explanation": "The spec markdown cells carry their own copy of the definition and anchor text (018 Shadowing appears in both files). Breaks if confused: a concept reworded in the CSV keeps its old wording in the executed notebook until the spec is edited too.",
+   "anchor": "Two kitchens in one house: the first cooks from the ledger on the wall, the second from recipe cards photocopied long ago; rewrite the ledger and only one dish changes.",
+   "confusables": "`make_notebooks.py` — fed by SPECS, not by the CSV; the CSV is the source for the xlsx and the exports only.",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py:54",
+    "00.Memory_systems/06.Programming_Millenium/build.py:18",
+    "00.Memory_systems/06.Programming_Millenium/notebooks/specs/000_fundamentals.json:18",
+    "00.Memory_systems/06.Programming_Millenium/programming_millenium.csv:20"
+   ],
+   "evidence_quote": "specs = sys.argv[1:] or sorted(glob.glob(os.path.join(HERE, \"specs\", \"*.json\")))",
+   "tags": [
+    "trap",
+    "two-sources"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 54
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/build.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 18
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/notebooks/specs/000_fundamentals.json",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 18
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/programming_millenium.csv",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 20
+    }
+   ]
+  },
+  {
+   "category": 5,
+   "rank": 0,
+   "type": "locate",
+   "level": 2,
+   "concept": "allow_errors notebook execution",
+   "question": "Which `NotebookClient` setting lets memory-systems-anki-decks commit real tracebacks as notebook output?",
+   "answer": "`allow_errors=True` — execution continues past a raising cell and stores its traceback as that cell's output.",
+   "explanation": "Each notebook runs top to bottom in one `python3` kernel with `timeout=90` and is committed WITH its outputs, so review needs no run. Breaks if undone: the first intended failure stops the run and the cells after it have no output.",
+   "confusables": "`INTENDED ERROR` marker — `allow_errors` lets EVERY cell fail without stopping; the marker only decides which failures are REPORTED as build errors.",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py:37",
+    "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py:4-7"
+   ],
+   "evidence_quote": "client = NotebookClient(nb, timeout=90, allow_errors=True, kernel_name=\"python3\")",
+   "tags": [
+    "notebook-execution"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 37
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 4,
+     "end": 7
+    }
+   ]
+  },
+  {
+   "category": 5,
+   "rank": 1,
+   "type": "recall",
+   "level": 1,
+   "concept": "INTENDED ERROR marker",
+   "question": "Which literal text must a notebook cell contain for memory-systems-anki-decks' `make_notebooks.py` to accept its exception?",
+   "answer": "`INTENDED ERROR`, anywhere in the cell source (by convention in the first comment line).",
+   "example": "# INTENDED ERROR — read the traceback",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py:9-10",
+    "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py:45"
+   ],
+   "evidence_quote": "A cell whose source contains 'INTENDED ERROR' may raise",
+   "tags": [
+    "intended-error"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 9,
+     "end": 10
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 45
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 0,
+   "type": "why",
+   "level": 2,
+   "concept": "Decimal taxonomy addresses",
+   "question": "Why does memory-systems-anki-decks' Programming Millenium encode addresses with a decimal taxonomy rather than the phonetic Major code of the original Millenium?",
+   "answer": "The digits must let you DERIVE the shelf: read as domain -> category -> rank they locate a concept by its meaning, where consonant sounds would only spell a word.",
+   "explanation": "Each hundred carries a digit mnemonic, the 'phonetics' of this system, so the address alone names the kind of idea. Breaks if undone: a code no longer says which domain or category its concept belongs to, and the 10x10 category grid loses its meaning. Digit rule: see 02.",
+   "anchor": "A library where the shelf mark is the floor, the aisle and the position: read the three digits and your feet already know where to walk, no dictionary needed.",
+   "confusables": "Major system (original Millenium) — digits become consonant SOUNDS that spell an image word; here digits are taxonomy COORDINATES.",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/README.md:29",
+    "00.Memory_systems/06.Programming_Millenium/build.py:111"
+   ],
+   "evidence_quote": "**decimal taxonomy**: hundreds = domain, tens = category, units = item (0 = most fundamental)",
+   "tags": [
+    "inferred",
+    "address-space"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 29
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/build.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 111
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 1,
+   "type": "why",
+   "level": 2,
+   "concept": "Anchor encodes concept only",
+   "question": "Why must an anchor in memory-systems-anki-decks' Programming Millenium encode ONLY the concept rather than the digits of its code as well?",
+   "answer": "The taxonomy walk already decodes the digits; an anchor that also carries the number mixes two kinds of information, the main source of confusion.",
+   "explanation": "Fusion comes AFTERWARDS: stage the anchor scene at the address, or merge it with the French Millenium peg image for that number. Breaks if undone: one scene must serve both the mechanism and the number and serves neither. Fusion as the next step: see 99.",
+   "example": "520 Mutex: a restroom key chained to your own belt loop = ownership; no 5, 2 or 0 in the scene",
+   "anchor": "A street sign that also tries to be the shop window: passers-by can read neither the house number nor what is sold.",
+   "confusables": "French Millenium peg image — the peg encodes the NUMBER phonetically; the anchor encodes the CONCEPT. They are fused, never swapped.",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/README.md:50-59"
+   ],
+   "evidence_quote": "the digits are decoded by the taxonomy, never by the anchor.",
+   "tags": [
+    "per-docs",
+    "anchor"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 50,
+     "end": 59
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 2,
+   "type": "why",
+   "level": 2,
+   "concept": "One demo per category",
+   "question": "Why does memory-systems-anki-decks add executed notebooks with ONE demo per category rather than one demo for each of the 1000 codes?",
+   "answer": "One well-chosen demo per category burns in the LARGER idea, not the particulars; watching code produce its output trains procedural memory, while images and definitions train declarative memory.",
+   "explanation": "The demos are reviewed as read -> predict -> run -> compare; the demo count is at 03. Breaks if undone: flashcards alone leave the net effect of code untrained, while 1000 demos would drill particulars.",
+   "anchor": "A coin die struck once per shelf: one hard blow leaves its pattern on every blank stacked beneath it.",
+   "confusables": "The matrix rows — they hold WHAT a concept is (image, definition); the notebooks show what the code DOES.",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/README.md:82-87"
+   ],
+   "evidence_quote": "seeing the net effect of code you run is procedural memory",
+   "tags": [
+    "per-docs",
+    "procedural-layer"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 82,
+     "end": 87
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 3,
+   "type": "compare",
+   "level": 2,
+   "concept": "Anki pathway 3 multi-card",
+   "question": "memory-systems-anki-decks: Anki pathway 1 vs pathway 3: what is the ONE difference in what a matrix row becomes?",
+   "answer": "Pathway 1 imports the generated semicolon files as they are; pathway 3 turns one row into one note that yields SEVERAL cards through conditional templates.",
+   "explanation": "In pathway 3 each card front is wrapped in a conditional block on its field, so a blank field produces no card and the `N/A` padding of the original route becomes optional. The cost: one conditional template per question and a tab-delimited UTF-8 file saved by hand.",
+   "anchor": "One dough ball pushed through a three-blade cutter gives three shapes at once, and a blade that meets no dough cuts nothing.",
+   "confusables": "Pathway 1 (`export_for_anki/*.csv`) — the ready-made files are imported as they are; pathway 3 adds CONDITIONAL templates so one note per row yields several cards.",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/README.md:119-122",
+    "00.Memory_systems/06.Programming_Millenium/README.md:145-147",
+    "00.Memory_systems/06.Programming_Millenium/README.md:114-116"
+   ],
+   "evidence_quote": "you want ONE note per row to generate SEVERAL cards",
+   "tags": [
+    "per-docs",
+    "anki-export"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 119,
+     "end": 122
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 145,
+     "end": 147
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 114,
+     "end": 116
+    }
+   ]
+  },
+  {
+   "category": 7,
+   "rank": 0,
+   "type": "recall",
+   "level": 2,
+   "concept": "Learned flag persistence",
+   "question": "Where must a Learned flag be recorded to survive `python3 build.py` in memory-systems-anki-decks?",
+   "answer": "In the `learned` column of `programming_millenium.csv`: `build.py` starts from a FRESH workbook and fills column A from the CSV, so flags typed into the xlsx are overwritten.",
+   "explanation": "Drift: the README and the seeded backlog say to flip Learned in the matrix, 'where progress lives', yet nothing reads the workbook back. The same loss hits the reject column I and any backlog note typed by hand. The progress cell is `A1004` = `=SUM(A2:A1003)`.",
+   "anchor": "A whiteboard that the caretaker wipes and redraws from his ledger every morning: only the ticks written in the ledger are still there the next day.",
+   "confusables": "`Programming_Millenium.xlsx` column A — it DISPLAYS the flag and sums it; the CSV column is the only place the build READS it from.",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/build.py:87",
+    "00.Memory_systems/06.Programming_Millenium/build.py:161-168",
+    "00.Memory_systems/06.Programming_Millenium/README.md:168-169"
+   ],
+   "evidence_quote": "ws[f\"A{i}\"] = int(r.get(\"learned\", 0) or 0)",
+   "tags": [
+    "drift",
+    "trap",
+    "progress-state"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/build.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 87
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/build.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 161,
+     "end": 168
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 168,
+     "end": 169
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Notebook rebuild dependencies",
+   "question": "Which three packages must be installed to rebuild memory-systems-anki-decks' executed notebooks?",
+   "answer": "`nbformat`, `nbclient` and `ipykernel` (it provides the `python3` Jupyter kernel).",
+   "explanation": "`build.py` and `make_template.py` need only `openpyxl`. No requirements file exists in the two folders: the install commands live in the docstrings and READMEs. Everything runs as local scripts.",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py:13",
+    "00.Memory_systems/06.Programming_Millenium/build.py:8",
+    "00.Memory_systems/07.PAO_multiple_encoding/make_template.py:8"
+   ],
+   "evidence_quote": "Requires: pip install nbformat nbclient ipykernel",
+   "tags": [
+    "dependencies"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 13
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/build.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 8
+    },
+    {
+     "path": "00.Memory_systems/07.PAO_multiple_encoding/make_template.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 8
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 0,
+   "type": "recall",
+   "level": 2,
+   "concept": "Notebook rebuild passing sign",
+   "question": "What is the passing sign of a notebook rebuild in memory-systems-anki-decks?",
+   "answer": "One line `<notebook>.ipynb: OK` per spec and exit code 0; any `UNEXPECTED ERRORS: [...]` line makes the script exit 1.",
+   "explanation": "The two folders hold no test suite: this status line and the 1000-row assert in `build.py` (see 31) are the only automated checks.",
+   "example": "python3 make_notebooks.py specs/500_concurrency.json  # 500_concurrency.ipynb: OK",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py:53-61"
+   ],
+   "evidence_quote": "status = \"OK\" if not unexpected else f\"UNEXPECTED ERRORS: {unexpected}\"",
+   "tags": [
+    "check-command"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 53,
+     "end": 61
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 1,
+   "type": "scenario",
+   "level": 3,
+   "concept": "Unmarked failing demo cell",
+   "question": "memory-systems-anki-decks: a new demo cell raises `KeyError` and its source lacks the intended-error marker. What does `make_notebooks.py` do with that notebook?",
+   "answer": "It STILL writes the executed `.ipynb`, traceback included, then prints `UNEXPECTED ERRORS: [(cell index, ename, evalue)]` and exits 1 — the file on disk is already the broken one.",
+   "explanation": "The write is unconditional and comes before the return. Check the status line or the exit code before committing; then fix the cell or, when the failure is the lesson, put `INTENDED ERROR` in its source.",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py:40-50",
+    "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py:57-61"
+   ],
+   "evidence_quote": "nbformat.write(nb, out)",
+   "tags": [
+    "trap",
+    "notebook-pipeline"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 40,
+     "end": 50
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/notebooks/make_notebooks.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 57,
+     "end": 61
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 2,
+   "type": "scenario",
+   "level": 3,
+   "concept": "Better image after Learned=1",
+   "question": "memory-systems-anki-decks: you think of a better image for a PAO row that is already marked Learned=1. What do you do with it?",
+   "answer": "Keep the existing peg and park the new idea in `Non retenu mais convient` (the bench): a peg is frozen once you start learning it.",
+   "explanation": "Collisions are fixed BEFORE Learned=1; after that the `déjà pris` column exists precisely to stop the urge to improve a peg in mid-flight, and a good candidate you did not keep goes to the bench so it is never re-evaluated from scratch.",
+   "confusables": "`Attention doublon / déjà pris` — it logs a COLLISION between two addresses; the bench stores a valid ALTERNATIVE for the same address.",
+   "source": [
+    "00.Memory_systems/07.PAO_multiple_encoding/README.md:119-120",
+    "00.Memory_systems/07.PAO_multiple_encoding/README.md:84-85"
+   ],
+   "evidence_quote": "Don't change a peg after you start learning it.",
+   "tags": [
+    "per-docs",
+    "peg-stability"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/07.PAO_multiple_encoding/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 119,
+     "end": 120
+    },
+    {
+     "path": "00.Memory_systems/07.PAO_multiple_encoding/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 84,
+     "end": 85
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 3,
+   "type": "scenario",
+   "level": 4,
+   "concept": "Generate pathway 3 file",
+   "question": "memory-systems-anki-decks: `build.py` must emit the pathway 3 import file itself so the manual Save As step disappears. What is the smallest change, and what must stay true?",
+   "answer": "DESIGN TARGET, not built: a second writer in `export_anki()`. (1) It already emits the six fields in note-type order (code, concept, anchor, definition, example, confusables), so only the delimiter becomes Tab and the extension `.txt`. (2) The encoding must be UTF-8, or the accents in the anchors break. (3) No `N/A` padding: with conditional templates a blank field simply yields no card.",
+   "explanation": "Today pathway 3 starts from the `matrix` tab saved by hand as tab-delimited text and re-saved as UTF-8. The note type itself (fields in column order, one conditional template per question) would still be built once in Anki.",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/README.md:163-165",
+    "00.Memory_systems/06.Programming_Millenium/README.md:136-138",
+    "00.Memory_systems/06.Programming_Millenium/README.md:145-147",
+    "00.Memory_systems/06.Programming_Millenium/build.py:148-157"
+   ],
+   "evidence_quote": "pick the target deck, separator = **Tab**, and check in the preview that each field maps",
+   "tags": [
+    "anki-export",
+    "direction"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 163,
+     "end": 165
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 136,
+     "end": 138
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 145,
+     "end": 147
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/build.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 148,
+     "end": 157
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 9,
+   "type": "scenario",
+   "level": 4,
+   "concept": "Resume: fuse with French pegs",
+   "question": "memory-systems-anki-decks: you have one free evening to resume the Programming Millenium. Which backlog step is flagged as next, what does it buy and what does it depend on?",
+   "answer": "Fuse each code with the French Millenium peg image for the same number. (1) It is the only `BACKLOG` row flagged `!!!!`. (2) peg(number) x anchor(concept) gives ONE compound image that answers both 'what lives at 520?' and 'where does mutex live?'. (3) It depends on knowing the original pegs in `01.Millenium`, the upstream sheet that stands at 809/1000 learned.",
+   "explanation": "Three of the other seeded rows (per-language variants, a picture per anchor, a review of the confusables) carry no mark; the fourth (mark Learned=1, tracked by the SUM) is marked `done`. Learning itself has not started: every `learned` value in the CSV is 0.",
+   "source": [
+    "00.Memory_systems/06.Programming_Millenium/build.py:45-51",
+    "00.Memory_systems/06.Programming_Millenium/README.md:55-59",
+    "00.Memory_systems/06.Programming_Millenium/README.md:35"
+   ],
+   "evidence_quote": "(\"fuse each code with the French Millenium peg image (00.Memory_systems/01.Millenium)\", \"!!!!\", \"\"),",
+   "tags": [
+    "direction",
+    "resume"
+   ],
+   "source_refs": [
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/build.py",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 45,
+     "end": 51
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 55,
+     "end": 59
+    },
+    {
+     "path": "00.Memory_systems/06.Programming_Millenium/README.md",
+     "branch": "claude/programming-memory-system-mqtcef",
+     "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+     "line": 35
+    }
+   ]
+  }
+ ]
+}

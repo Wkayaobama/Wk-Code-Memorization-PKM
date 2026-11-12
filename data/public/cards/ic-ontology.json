@@ -1,0 +1,1352 @@
+{
+ "slug": "ic-ontology",
+ "cards": [
+  {
+   "category": 0,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "ic-ontology in one line",
+   "question": "What is ic-ontology and what does it produce from one ontology YAML?",
+   "answer": "CRM-agnostic distillation of ic-load's corrections framework: typed ontology, per-edge fill-rate probe, CSV/XLSX views.",
+   "explanation": "Python package `ontology_substrate`: schema + adapters + probe + renderers + audit. It rebuilds the ic-load lineage (ontology.yaml -> probe_ontology.py -> ontology workbook -> v7 mapping checks -> metagraph) without tenant-specific code in the core.",
+   "anchor": "A cartographer redraws one client's hand-made CRM map on tracing paper with blank legends, so the same sheet can be laid over any other CRM.",
+   "confusables": "cf. ic-load corrections framework: ic-load holds the tenant-wired ORIGINAL (`pipeline/corrections/ontology.yaml`, `probe_ontology.py`); ic-ontology is the generic re-build.",
+   "tags": [],
+   "source": [
+    "pyproject.toml:8",
+    "README.md:3-5",
+    "README.md:11-19"
+   ],
+   "evidence_quote": "CRM-agnostic ontology + probe substrate distilled from ic-load corrections framework",
+   "source_refs": [
+    {
+     "path": "pyproject.toml",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 8
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 3,
+     "end": 5
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 11,
+     "end": 19
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 1,
+   "type": "recall",
+   "level": 1,
+   "concept": "YAML single source of truth",
+   "question": "Which single artefact is ic-ontology's source of truth, from which every dataclass, count and workbook derives?",
+   "answer": "The ontology YAML: one declarative, re-runnable document that `load_ontology()` turns into an `OntologyDocument`.",
+   "explanation": "Entities, edges with their type bindings, property lineage and the two adapter names are all declared there; probe results and the four renderers are regenerated from it on every run.",
+   "confusables": "the rendered workbooks — they are OUTPUTS regenerated from the YAML, never the place to edit.",
+   "tags": [],
+   "source": [
+    "README.md:13",
+    "src/ontology_substrate/schema/loader.py:14-15"
+   ],
+   "evidence_quote": "YAML as single source of truth, declarative + re-runnable",
+   "source_refs": [
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 13
+    },
+    {
+     "path": "src/ontology_substrate/schema/loader.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 14,
+     "end": 15
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 2,
+   "type": "recall",
+   "level": 1,
+   "concept": "Import name ontology_substrate",
+   "question": "Which Python import name does ic-ontology's package use, given that the repo is called IC-Ontology?",
+   "answer": "`ontology_substrate` — the package is generic; the repo name marks the IC'ALPS -> HubSpot instantiation.",
+   "example": "from ontology_substrate.schema.loader import load_ontology  # not `import ic_ontology`",
+   "confusables": "`ontology-substrate` (hyphen) — the pip DISTRIBUTION and console-script name; the importable module uses an underscore.",
+   "tags": [],
+   "source": [
+    "README.md:7-9",
+    "pyproject.toml:6",
+    "pyproject.toml:25"
+   ],
+   "evidence_quote": "Python import name: `ontology_substrate`. Repo name: `IC-Ontology`.",
+   "source_refs": [
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 7,
+     "end": 9
+    },
+    {
+     "path": "pyproject.toml",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 6
+    },
+    {
+     "path": "pyproject.toml",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 25
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 0,
+   "type": "locate",
+   "level": 1,
+   "concept": "Edge central dataclass",
+   "question": "Which dataclass in ic-ontology models one relationship between two entities, with its FK column at each layer?",
+   "answer": "`Edge` in `src/ontology_substrate/schema/edge.py`; only `name`, `source`, `target`, `cardinality` are required.",
+   "explanation": "Optional: `bronze_source_fk`, `silver_source_fk`, `mirror_source_fk`, `mirror_target_match_col`, the three `assoc_*` fields, `expected_from`, `portal_constraint`, `notes` and a list of type bindings. For bronze, silver and mirror it names COLUMNS only; those tables live on the source `Entity` (see 20). The gold `assoc_table` is the one table an edge names itself.",
+   "anchor": "A courier's waybill lists the locker NUMBER to open at each of three depots, but not the depots' addresses; those are on the sender's file card.",
+   "confusables": "`EdgeTypeBinding` — ONE association type id of a relationship (with its API-reverse id); the relationship itself holds a LIST of them.",
+   "tags": [],
+   "source": [
+    "src/ontology_substrate/schema/edge.py:35-51",
+    "src/ontology_substrate/schema/edge.py:54-60"
+   ],
+   "evidence_quote": "class Edge: name: str source: str target: str cardinality: str bronze_source_fk: str | None = None",
+   "source_refs": [
+    {
+     "path": "src/ontology_substrate/schema/edge.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 35,
+     "end": 51
+    },
+    {
+     "path": "src/ontology_substrate/schema/edge.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 54,
+     "end": 60
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 1,
+   "type": "recall",
+   "level": 1,
+   "concept": "expected_from denominator switch",
+   "question": "ic-ontology: what does an edge's `expected_from` field select?",
+   "answer": "The fill-rate DENOMINATOR: `bronze` (default) -> bronze count; `mirror` -> gold count.",
+   "explanation": "Task edges declare `mirror` because the phaseA-created call tasks bypass bronze entirely, so a bronze denominator would be wrong for them. The trap this opens is in 92.",
+   "example": "task_company: expected_from: mirror  # note_company keeps expected_from: bronze",
+   "confusables": "`materialized_default` — the NUMERATOR; it is always the gold count, whatever `expected_from` says.",
+   "tags": [],
+   "source": [
+    "src/ontology_substrate/probe/fill_rates.py:43-45",
+    "src/ontology_substrate/schema/edge.py:48",
+    "docs/phases/phase_a_adapters_probe.md:131"
+   ],
+   "evidence_quote": "result.bronze_count if edge.expected_from == \"bronze\" else result.gold_count",
+   "source_refs": [
+    {
+     "path": "src/ontology_substrate/probe/fill_rates.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 43,
+     "end": 45
+    },
+    {
+     "path": "src/ontology_substrate/schema/edge.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 48
+    },
+    {
+     "path": "docs/phases/phase_a_adapters_probe.md",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 131
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 2,
+   "type": "recall",
+   "level": 1,
+   "concept": "Closed 7-flag drift vocabulary",
+   "question": "How many members does ic-ontology's `DriftFlag` enum have, and what does one flag say about a property?",
+   "answer": "7 — each names one way the property's lineage breaks at the sync boundary (e.g. `naming_drift`, `mirror_only`).",
+   "explanation": "naming_drift · mirror_only · api_readonly · sync_pending · silver_value_discarded · silver_hardcoded_then_backfilled · canonical_render_omits. Legacy YAML names `renamed` and `gold_only` are mapped onto the first two; anything else raises (see 32). The renderers emit one `flag_*` column per member.",
+   "confusables": "`boundary_drift_modes()` of the StackSync adapter — only THREE of the seven (naming_drift, mirror_only, api_readonly): those possible at the mirror boundary.",
+   "tags": [],
+   "source": [
+    "src/ontology_substrate/schema/drift_flags.py:3",
+    "src/ontology_substrate/schema/drift_flags.py:14-21",
+    "tests/test_schema/test_drift_flags.py:9-18",
+    "src/ontology_substrate/adapters/reference/stacksync.py:28-29"
+   ],
+   "evidence_quote": "Modelled on ic-load's 7-flag taxonomy",
+   "source_refs": [
+    {
+     "path": "src/ontology_substrate/schema/drift_flags.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 3
+    },
+    {
+     "path": "src/ontology_substrate/schema/drift_flags.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 14,
+     "end": 21
+    },
+    {
+     "path": "tests/test_schema/test_drift_flags.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 9,
+     "end": 18
+    },
+    {
+     "path": "src/ontology_substrate/adapters/reference/stacksync.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 28,
+     "end": 29
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 3,
+   "type": "recall",
+   "level": 1,
+   "concept": "Mandatory root key ontology",
+   "question": "Which YAML root key does ic-ontology's `load_ontology()` require around the whole document?",
+   "answer": "`ontology` — a file that starts directly at `target_system:` fails with `KeyError: 'ontology'`.",
+   "explanation": "The subscript is the first line of the loader. Inside the root, `name`, `version`, `target_system.adapter` and `sync_provider.adapter` are also mandatory; `layers`, `entities`, `edges` and `registries` default to empty.",
+   "example": "ontology: / name: ic-load-corrections / version: \"0.7.0\" / target_system: / adapter: hubspot",
+   "confusables": "cf. rsync_hubspot mr-load ontology skeleton: it starts at `target_system:` with NO `ontology:` root, so it must be wrapped before the dry-run accepts it.",
+   "tags": [
+    "trap"
+   ],
+   "source": [
+    "src/ontology_substrate/schema/loader.py:15",
+    "src/ontology_substrate/schema/loader.py:28-38",
+    "tests/fixtures/7_entity_icload_style.yaml:8-13"
+   ],
+   "evidence_quote": "raw = yaml.safe_load(Path(path).read_text(encoding=\"utf-8\"))[\"ontology\"]",
+   "source_refs": [
+    {
+     "path": "src/ontology_substrate/schema/loader.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 15
+    },
+    {
+     "path": "src/ontology_substrate/schema/loader.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 28,
+     "end": 38
+    },
+    {
+     "path": "tests/fixtures/7_entity_icload_style.yaml",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 8,
+     "end": 13
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 0,
+   "type": "trace",
+   "level": 3,
+   "concept": "Probe flow YAML to views",
+   "question": "ic-ontology · live probe of one ontology: recite the 9 steps from the YAML file to the rendered views.",
+   "steps": [
+    "`load_ontology(path)` -> the YAML under root key `ontology` becomes an `OntologyDocument`",
+    "caller builds a connectors dict keyed `bronze` / `silver` / `gold` -> `ProbeEngine(...)`",
+    "`ProbeEngine.run()` -> loops over `ontology.edges`, one edge per iteration",
+    "`_edge_context(edge.source)` -> the SOURCE entity's bronze / silver / mirror tables",
+    "`is_engagement_edge(edge)` -> `process_engagement` or `process_interentity`",
+    "`compute_*_counts()` -> bronze, silver and gold counts read through the connectors",
+    "`edge.expected_from` -> `expected` = bronze count, or gold count for `mirror`",
+    "one `EdgeProbeResult` per edge -> counts plus four zero-safe rate properties",
+    "caller passes the results to the renderers (a payload dict for the three XLSX writers, plain lists for the CSV sheets) -> CSV sheets, two workbooks, metagraph"
+   ],
+   "answer": "load · connectors · run loop · edge context · dispatch · counts · denominator · result · render",
+   "explanation": "Steps 2 and 9 happen in CALLING code (the tests, or the Phase B scripts kept in ic-load): the package CLI stops after step 1 with `--dry-run` (see 30 and 91).",
+   "anchor": "A meter reader takes one street cable at a time: he asks the house it leaves for its three fuse boxes, reads each, writes one slip, and at night pins every slip on the town board.",
+   "tags": [],
+   "source": [
+    "src/ontology_substrate/probe/engine.py:40-48",
+    "src/ontology_substrate/schema/loader.py:14-15",
+    "src/ontology_substrate/probe/fill_rates.py:34-48",
+    "src/ontology_substrate/probe/edge_processors.py:45-46",
+    "src/ontology_substrate/renderers/metagraph.py:36-38",
+    "tests/test_probe/test_engine.py:33-34"
+   ],
+   "evidence_quote": "ctx = self._edge_context(edge.source)",
+   "source_refs": [
+    {
+     "path": "src/ontology_substrate/probe/engine.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 40,
+     "end": 48
+    },
+    {
+     "path": "src/ontology_substrate/schema/loader.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 14,
+     "end": 15
+    },
+    {
+     "path": "src/ontology_substrate/probe/fill_rates.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 34,
+     "end": 48
+    },
+    {
+     "path": "src/ontology_substrate/probe/edge_processors.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 45,
+     "end": 46
+    },
+    {
+     "path": "src/ontology_substrate/renderers/metagraph.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 36,
+     "end": 38
+    },
+    {
+     "path": "tests/test_probe/test_engine.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 33,
+     "end": 34
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 1,
+   "type": "compare",
+   "level": 2,
+   "concept": "Inter-entity vs engagement counts",
+   "question": "ic-ontology: `compute_interentity_counts` vs `compute_engagement_counts`: what is the ONE difference?",
+   "answer": "Inter-entity takes the bronze side as `row_count(bronze_table)` (ALL source rows); engagement takes `filled_count(bronze_table, bronze_source_fk)` (only rows whose FK is FILLED).",
+   "explanation": "Silver, gold and the denominator rule are identical in both. The engagement docstring also promises a `comm_action` filter, but the code applies none: its bronze count is a plain non-null count.",
+   "anchor": "Two census clerks in the same village: one counts every door, the other only the doors that have a letterbox.",
+   "confusables": "`compute_engagement_counts` — bronze = non-null FK count, NOT the table's row count.",
+   "tags": [],
+   "source": [
+    "src/ontology_substrate/probe/fill_rates.py:73-76",
+    "src/ontology_substrate/probe/fill_rates.py:35-36",
+    "src/ontology_substrate/probe/fill_rates.py:58-63"
+   ],
+   "evidence_quote": "result.bronze_count = bronze.filled_count(",
+   "source_refs": [
+    {
+     "path": "src/ontology_substrate/probe/fill_rates.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 73,
+     "end": 76
+    },
+    {
+     "path": "src/ontology_substrate/probe/fill_rates.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 35,
+     "end": 36
+    },
+    {
+     "path": "src/ontology_substrate/probe/fill_rates.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 58,
+     "end": 63
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 0,
+   "type": "cloze",
+   "level": 1,
+   "concept": "Dry-run entry command",
+   "question": "ic-ontology: complete the command you run first to validate an ontology YAML.",
+   "cloze": "python -m ontology_substrate {{c1::probe}} --ontology <path> {{c2::--dry-run}}",
+   "answer": "probe · --dry-run",
+   "explanation": "`probe` is the only subcommand and `--dry-run` its only implemented mode: it loads the YAML through the schema and prints a five-line summary, with no connector calls. The console script `ontology-substrate` maps to the same `cli:main`.",
+   "anchor": "A customs officer stamps the passport and reads the name aloud, but never opens the suitcase.",
+   "confusables": "cf. rsync_hubspot Phase 0 gate: the SAME command, run there on that tenant's filled ontology file.",
+   "tags": [],
+   "source": [
+    "src/ontology_substrate/cli.py:4",
+    "src/ontology_substrate/cli.py:19-25",
+    "pyproject.toml:22"
+   ],
+   "evidence_quote": "python -m ontology_substrate probe --ontology <path> --dry-run",
+   "source_refs": [
+    {
+     "path": "src/ontology_substrate/cli.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 4
+    },
+    {
+     "path": "src/ontology_substrate/cli.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 19,
+     "end": 25
+    },
+    {
+     "path": "pyproject.toml",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 22
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 1,
+   "type": "output",
+   "level": 3,
+   "concept": "Dry-run summary on fixture",
+   "question": "ic-ontology · CLI `main`: predict the printed lines of the command below, run on the canonical 7-entity fixture.",
+   "code_snippet": "python -m ontology_substrate probe --ontology tests/fixtures/7_entity_icload_style.yaml --dry-run",
+   "expected_output": "ontology: ic-load-corrections v0.7.0\nentities: 7\nedges: 13\ntarget_system_adapter: hubspot\nsync_provider_adapter: stacksync",
+   "answer": "Five lines: name and version, `entities: 7`, `edges: 13`, then the two adapter NAMES (`hubspot`, `stacksync`) — a summary of what the schema parsed; return code 0.",
+   "explanation": "13 edges = 4 inter-entity + 9 engagement. The two adapter lines only echo strings stored by the loader (see 93). `tests/test_cli.py` asserts four of the five lines.",
+   "tags": [
+    "grounded:doc"
+   ],
+   "source": [
+    "README.md:31-41",
+    "src/ontology_substrate/cli.py:31-37",
+    "tests/test_cli.py:8-13",
+    "tests/fixtures/7_entity_icload_style.yaml:9-18"
+   ],
+   "evidence_quote": "ontology: ic-load-corrections v0.7.0",
+   "source_refs": [
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 31,
+     "end": 41
+    },
+    {
+     "path": "src/ontology_substrate/cli.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 31,
+     "end": 37
+    },
+    {
+     "path": "tests/test_cli.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 8,
+     "end": 13
+    },
+    {
+     "path": "tests/fixtures/7_entity_icload_style.yaml",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 9,
+     "end": 18
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 2,
+   "type": "output",
+   "level": 3,
+   "concept": "parse_drift_flag unknown flag",
+   "question": "ic-ontology · `parse_drift_flag`: predict the result of the call below.",
+   "code_snippet": "parse_drift_flag(\"foo\")",
+   "expected_output": "ValueError: unknown drift flag: foo",
+   "answer": "It RAISES `ValueError: unknown drift flag: foo` — the vocabulary is CLOSED, so a typo in a YAML `drift_flags` list stops the load instead of becoming an eighth flag.",
+   "explanation": "Order inside the function: (1) the legacy alias table, (2) `DriftFlag(raw)`, (3) the enum's own ValueError re-raised with this message. `PropertyLineage.from_dict` sends every flag through it.",
+   "confusables": "`parse_drift_flag(\"renamed\")` — a LEGACY alias, so it returns `DriftFlag.NAMING_DRIFT` instead of raising.",
+   "tags": [
+    "grounded:test",
+    "intended-error"
+   ],
+   "source": [
+    "tests/test_schema/test_drift_flags.py:34-36",
+    "src/ontology_substrate/schema/drift_flags.py:32-38",
+    "src/ontology_substrate/schema/property_lineage.py:24"
+   ],
+   "evidence_quote": "with pytest.raises(ValueError, match=\"unknown drift flag: foo\"):",
+   "source_refs": [
+    {
+     "path": "tests/test_schema/test_drift_flags.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 34,
+     "end": 36
+    },
+    {
+     "path": "src/ontology_substrate/schema/drift_flags.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 32,
+     "end": 38
+    },
+    {
+     "path": "src/ontology_substrate/schema/property_lineage.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 24
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 3,
+   "type": "output",
+   "level": 3,
+   "concept": "CsvConnector.filled_count nulls",
+   "question": "ic-ontology · `CsvConnector.filled_count`: predict the return value of the last call below.",
+   "code_snippet": "# Bronze_Deals.csv holds:\n#   a,b,c\n#   1,2,3\n#   4,5,6\n#   7,,9\nc = CsvConnector(name=\"bronze\", path_pattern=str(tmp_path / \"Bronze_*.csv\"))\nc.filled_count(table_or_file=\"Bronze_Deals.csv\", column=\"b\")",
+   "expected_output": "2",
+   "answer": "`2` — it counts the NON-NULL cells of the column (`notna().sum()`), so the empty `b` of the third row is skipped; `row_count` on the same file is 3.",
+   "explanation": "This is the 'filled' half of every fill rate: `row_count` = how many rows exist, `filled_count` = how many carry the value. The DataFrame is cached per file name, so a file changed mid-run is NOT re-read.",
+   "confusables": "`CsvConnector.row_count` — `len()` of the DataFrame: counts ROWS (3 here), not filled cells.",
+   "tags": [
+    "grounded:test"
+   ],
+   "source": [
+    "tests/test_probe/test_connectors.py:18-23",
+    "src/ontology_substrate/probe/connectors.py:44-46"
+   ],
+   "evidence_quote": "assert c.filled_count(table_or_file=\"Bronze_Deals.csv\", column=\"b\") == 2",
+   "source_refs": [
+    {
+     "path": "tests/test_probe/test_connectors.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 18,
+     "end": 23
+    },
+    {
+     "path": "src/ontology_substrate/probe/connectors.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 44,
+     "end": 46
+    }
+   ]
+  },
+  {
+   "category": 4,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Five subpackages of substrate",
+   "question": "ic-ontology: which five subpackages make up `ontology_substrate`?",
+   "answer": "`schema` · `adapters` · `probe` · `renderers` · `audit` (with `cli.py` on top).",
+   "explanation": "schema = dataclasses + the YAML loader · adapters = the two CRM-agnostic interfaces and their reference implementations · probe = connectors, engine, fill rates · renderers = CSV sheets and three workbooks · audit = SQLite trail of the memory observations behind the design.",
+   "anchor": "A print shop in five rooms: type cases, a shelf of interchangeable couplings, a proof-reader counting line by line, the presses, and a locked cabinet of who dictated what.",
+   "tags": [],
+   "source": [
+    "docs/phases/phase_a_renderers_cli.md:12",
+    "src/ontology_substrate/schema/__init__.py:1",
+    "src/ontology_substrate/adapters/base.py:1-5",
+    "src/ontology_substrate/probe/__init__.py:1",
+    "src/ontology_substrate/renderers/__init__.py:1",
+    "src/ontology_substrate/audit/__init__.py:1"
+   ],
+   "evidence_quote": "schema → adapters → probe → renderers → CLI",
+   "source_refs": [
+    {
+     "path": "docs/phases/phase_a_renderers_cli.md",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 12
+    },
+    {
+     "path": "src/ontology_substrate/schema/__init__.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 1
+    },
+    {
+     "path": "src/ontology_substrate/adapters/base.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 1,
+     "end": 5
+    },
+    {
+     "path": "src/ontology_substrate/probe/__init__.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 1
+    },
+    {
+     "path": "src/ontology_substrate/renderers/__init__.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 1
+    },
+    {
+     "path": "src/ontology_substrate/audit/__init__.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 1
+    }
+   ]
+  },
+  {
+   "category": 4,
+   "rank": 1,
+   "type": "compare",
+   "level": 2,
+   "concept": "Ontology workbook vs coverage workbook",
+   "question": "ic-ontology: `write_ontology_workbook` vs `write_coverage_workbook`: what is the ONE difference?",
+   "answer": "The ontology workbook is the 6-sheet GRAPH view (entities, edges, probe counts and rates); the coverage workbook is the 8-sheet FLAT v7-style view with one row per PROPERTY.",
+   "explanation": "Audiences differ: the workbook is the engineering build artefact, coverage the operator audit. Coverage is still a shape skeleton: its fill-rate and count cells are empty, the four 'is in ...' cells are hard-coded `True`, and 7 of its 8 sheets hold only a header row.",
+   "anchor": "Same city, two documents: a metro map with lines between stations, and a phone book with one line per resident where most numbers are still blank.",
+   "confusables": "`write_coverage_workbook` — FLAT per-property audit shape, no probe results in it; the ontology workbook is graph-shaped and carries the counts.",
+   "tags": [],
+   "source": [
+    "src/ontology_substrate/renderers/coverage.py:1",
+    "src/ontology_substrate/renderers/coverage.py:43-53",
+    "src/ontology_substrate/renderers/workbook.py:1-9",
+    "docs/phases/phase_a_renderers_cli.md:51"
+   ],
+   "evidence_quote": "v7-style flat coverage workbook — 8 sheets, per-property fill-rate matrix.",
+   "source_refs": [
+    {
+     "path": "src/ontology_substrate/renderers/coverage.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 1
+    },
+    {
+     "path": "src/ontology_substrate/renderers/coverage.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 43,
+     "end": 53
+    },
+    {
+     "path": "src/ontology_substrate/renderers/workbook.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 1,
+     "end": 9
+    },
+    {
+     "path": "docs/phases/phase_a_renderers_cli.md",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 51
+    }
+   ]
+  },
+  {
+   "category": 4,
+   "rank": 2,
+   "type": "locate",
+   "level": 1,
+   "concept": "Metagraph living tool renderer",
+   "question": "Which renderer in ic-ontology writes the operator's one-sheet 'living tool' with a live Fill Rate column?",
+   "answer": "`write_metagraph()` in `renderers/metagraph.py`: sheet `Metagraph - Edges`, 20 columns, one row per type binding.",
+   "explanation": "First column = the human association label (falls back to the edge name); last column = `all_types_fill_rate` of the latest probe as a one-decimal percentage. The operator sorts on it while throttling association writes. Caveat: the rate is per EDGE, so every binding row of one edge shows the same value.",
+   "confusables": "the `Metagraph-Edges` sheet of `write_ontology_workbook` — 19 columns and NO Fill Rate column.",
+   "tags": [],
+   "source": [
+    "src/ontology_substrate/renderers/metagraph.py:1-6",
+    "src/ontology_substrate/renderers/metagraph.py:30-38",
+    "tests/test_renderers/test_metagraph.py:10-14",
+    "src/ontology_substrate/renderers/workbook.py:30-37"
+   ],
+   "evidence_quote": "Standalone metagraph view — the operator's living tool.",
+   "source_refs": [
+    {
+     "path": "src/ontology_substrate/renderers/metagraph.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 1,
+     "end": 6
+    },
+    {
+     "path": "src/ontology_substrate/renderers/metagraph.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 30,
+     "end": 38
+    },
+    {
+     "path": "tests/test_renderers/test_metagraph.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 10,
+     "end": 14
+    },
+    {
+     "path": "src/ontology_substrate/renderers/workbook.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 30,
+     "end": 37
+    }
+   ]
+  },
+  {
+   "category": 5,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Synchronous on-demand probe run",
+   "question": "How and when does an ic-ontology probe run?",
+   "answer": "On demand, synchronously: `ProbeEngine.run()` is one sequential loop over `ontology.edges`; no scheduler, no async.",
+   "explanation": "Nothing in the repository schedules or deploys it: calling code builds the connectors dict and calls `run()` once. A layer without a connector leaves its count at 0 with no error. `PostgresConnector` opens its connection lazily, on the first count.",
+   "anchor": "A night watchman with one lantern checks the doors of a corridor one after another, and only when someone rings for him.",
+   "tags": [
+    "inferred"
+   ],
+   "source": [
+    "src/ontology_substrate/probe/engine.py:40-48",
+    "src/ontology_substrate/probe/connectors.py:55-59",
+    "src/ontology_substrate/probe/edge_processors.py:51-57"
+   ],
+   "evidence_quote": "for edge in self.ontology.edges:",
+   "source_refs": [
+    {
+     "path": "src/ontology_substrate/probe/engine.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 40,
+     "end": 48
+    },
+    {
+     "path": "src/ontology_substrate/probe/connectors.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 55,
+     "end": 59
+    },
+    {
+     "path": "src/ontology_substrate/probe/edge_processors.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 51,
+     "end": 57
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 0,
+   "type": "why",
+   "level": 2,
+   "concept": "Edge as unit of work",
+   "question": "Why does ic-ontology's probe take one EDGE as its unit of work rather than one target, as ic-load's base `Correction.run()` does?",
+   "answer": "Because what is measured is a RELATIONSHIP materialising layer by layer (bronze FK -> silver FK -> gold association table). ic-load's `probe_ontology.py` already overrides `Correction.run()` for that, and the substrate preserves it.",
+   "explanation": "Breaks if undone: `EdgeProbeResult`, the Relationship Lineage sheet and the metagraph Fill Rate are all keyed on `edge_name`; a per-target run has no row to hold the three layer counts.",
+   "anchor": "A bridge inspector is paid per bridge, not per pedestrian: he counts who set off, who reached the middle pier and who arrived on the far bank.",
+   "confusables": "cf. ic-load `Correction.run()`: the corrections framework works per TARGET; the ontology probe overrides it to work per edge.",
+   "tags": [
+    "inferred"
+   ],
+   "source": [
+    "src/ontology_substrate/probe/edge_processors.py:3-4",
+    "src/ontology_substrate/probe/engine.py:1",
+    "README.md:14"
+   ],
+   "evidence_quote": "because the unit of work is one edge, not one target. We preserve that.",
+   "source_refs": [
+    {
+     "path": "src/ontology_substrate/probe/edge_processors.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 3,
+     "end": 4
+    },
+    {
+     "path": "src/ontology_substrate/probe/engine.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 1
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 14
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 1,
+   "type": "why",
+   "level": 2,
+   "concept": "Explicit type-id pairing",
+   "question": "Why does ic-ontology write each association type as one list item with a nested `api_reverse` block rather than ic-load's three parallel dicts (`types`, `type_labels`, `api_reverse_labels`)?",
+   "answer": "ic-load paired a mirror type id with its API-reverse id only by dict insertion ORDER; one item per binding makes the pair explicit, so reordering the YAML can no longer mis-pair them.",
+   "explanation": "Each item becomes one `EdgeTypeBinding(id, role, label, api_reverse_id, api_reverse_label)`; an item without the block gets `None` for both reverse fields. Breaks if undone: an asymmetric label (forward text differs from reverse text) lands on the wrong direction, silently.",
+   "anchor": "Left and right shoes: the old shop kept them in two bins sorted the same way; the new one ties each pair together by the laces.",
+   "confusables": "ic-load's parallel dicts — the pairing is IMPLICIT (n-th id with n-th reverse id); in the substrate one object holds both.",
+   "tags": [
+    "per-docs"
+   ],
+   "source": [
+    "docs/phases/phase_a_schema.md:74",
+    "src/ontology_substrate/schema/edge.py:23-32",
+    "tests/fixtures/7_entity_icload_style.yaml:4-7"
+   ],
+   "evidence_quote": "The substrate makes this explicit so future ontologies don't depend on dict ordering.",
+   "source_refs": [
+    {
+     "path": "docs/phases/phase_a_schema.md",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 74
+    },
+    {
+     "path": "src/ontology_substrate/schema/edge.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 23,
+     "end": 32
+    },
+    {
+     "path": "tests/fixtures/7_entity_icload_style.yaml",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 4,
+     "end": 7
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 2,
+   "type": "why",
+   "level": 2,
+   "concept": "Two adapter seams",
+   "question": "Why does ic-ontology parameterise over TWO interfaces, `TargetSystemAdapter` and `SyncProviderAdapter`, rather than abstracting only the CRM?",
+   "answer": "A CRM swap alone would leave the mirror layer hard-coded: the sync provider decides the mirror's record-id columns and which drift modes can occur, so it gets its own seam.",
+   "explanation": "Target = destination-CRM semantics (`reconciliation_id_for`). Sync provider = the layer between CRM and mirror DB (`mirror_record_id_column`, `boundary_drift_modes`): StackSync exposes three drift modes, `DirectAPISyncProvider` has no mirror and only `api_readonly`. Breaks if undone: a tenant without StackSync cannot be described. Status: declared but not wired (see 93).",
+   "anchor": "A travel plug with two swappable ends, one for the wall socket and one for the device cable: weld either end and it works in a single hotel only.",
+   "confusables": "`TargetSystemAdapter` — WHERE records end up (the CRM); `SyncProviderAdapter` is HOW they travel between the CRM and the Postgres mirror.",
+   "tags": [
+    "per-docs"
+   ],
+   "source": [
+    "docs/phases/phase_a_adapters_probe.md:78",
+    "src/ontology_substrate/adapters/base.py:13-45",
+    "src/ontology_substrate/adapters/reference/direct_api.py:14-18"
+   ],
+   "evidence_quote": "because \"CRM-agnostic\" loses meaning if the mirror layer is hard-coded.",
+   "source_refs": [
+    {
+     "path": "docs/phases/phase_a_adapters_probe.md",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 78
+    },
+    {
+     "path": "src/ontology_substrate/adapters/base.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 13,
+     "end": 45
+    },
+    {
+     "path": "src/ontology_substrate/adapters/reference/direct_api.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 14,
+     "end": 18
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 3,
+   "type": "scenario",
+   "level": 4,
+   "concept": "Hard-coded engagement entity set",
+   "question": "ic-ontology must probe a second tenant whose activity entities are named `email` and `visit`. Which mechanism mishandles their edges, and what is the smallest change?",
+   "answer": "They are probed as inter-entity edges, silently. (1) `is_engagement_edge` tests `edge.source in ENGAGEMENT_ENTITIES`, the hard-coded set `{note, call, meeting, task}`. (2) Consequence: bronze becomes a full `row_count` instead of the filled-FK count, which deflates the rates; no error is raised. (3) Smallest change: read the set from the ontology YAML or the target adapter and hand it to `ProbeEngine`.",
+   "explanation": "This is the first thing that breaks the CRM-agnostic claim: the set lives in `probe/edge_processors.py`, not in the YAML or in an adapter. The difference between the two branches is card 21.",
+   "tags": [
+    "inferred"
+   ],
+   "source": [
+    "src/ontology_substrate/probe/edge_processors.py:14",
+    "src/ontology_substrate/probe/edge_processors.py:45-46",
+    "src/ontology_substrate/probe/engine.py:44-47",
+    "src/ontology_substrate/probe/fill_rates.py:35-36"
+   ],
+   "evidence_quote": "ENGAGEMENT_ENTITIES = {\"note\", \"call\", \"meeting\", \"task\"}",
+   "source_refs": [
+    {
+     "path": "src/ontology_substrate/probe/edge_processors.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 14
+    },
+    {
+     "path": "src/ontology_substrate/probe/edge_processors.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 45,
+     "end": 46
+    },
+    {
+     "path": "src/ontology_substrate/probe/engine.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 44,
+     "end": 47
+    },
+    {
+     "path": "src/ontology_substrate/probe/fill_rates.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 35,
+     "end": 36
+    }
+   ]
+  },
+  {
+   "category": 7,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "audit_observations table",
+   "question": "Which is the only persistent store ic-ontology defines, and what does one row record?",
+   "answer": "SQLite table `audit_observations`: one claude-mem observation and the design claim it supported.",
+   "explanation": "Columns: `observation_id` (primary key), `project`, `created_at`, `title`, `narrative_excerpt`, `reconstruction_step`, `claim_supported`, `fetched_at`. It is the fact-check trail of the reconstruction: which memory underwrote which step. The database FILE is not in this repository: Phase B creates it in the ic-load working tree under `_scratch/audit/`.",
+   "anchor": "A notary's ledger: every line names one remembered testimony and the wall of the house it was used to rebuild.",
+   "confusables": "probe results — NEVER persisted by the package; they live in memory until a renderer writes a CSV or XLSX.",
+   "tags": [],
+   "source": [
+    "src/ontology_substrate/audit/schema.sql:1-10",
+    "src/ontology_substrate/audit/db.py:3-12",
+    "docs/phases/phase_b_probe_drift.md:128"
+   ],
+   "evidence_quote": "CREATE TABLE IF NOT EXISTS audit_observations (",
+   "source_refs": [
+    {
+     "path": "src/ontology_substrate/audit/schema.sql",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 1,
+     "end": 10
+    },
+    {
+     "path": "src/ontology_substrate/audit/db.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 3,
+     "end": 12
+    },
+    {
+     "path": "docs/phases/phase_b_probe_drift.md",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 128
+    }
+   ]
+  },
+  {
+   "category": 7,
+   "rank": 1,
+   "type": "output",
+   "level": 3,
+   "concept": "AuditDB.insert idempotent re-seed",
+   "question": "ic-ontology · `AuditDB.insert`: predict the number of rows and the stored `claim_supported` after the calls below.",
+   "code_snippet": "db = AuditDB(db_path)\ndb.init_schema()\ndb.insert(_make_obs(1, \"step-a\", \"first claim\"))\ndb.insert(_make_obs(1, \"step-a\", \"first claim refined\"))\nrows = db.fetch_all()\n# len(rows) ?   rows[0].claim_supported ?",
+   "expected_output": "len(rows) == 1\nrows[0].claim_supported == \"first claim refined\"",
+   "answer": "1 row holding `first claim refined` — `INSERT OR REPLACE` on the primary key `observation_id` OVERWRITES instead of duplicating or raising.",
+   "explanation": "The first argument of `_make_obs` is the `observation_id`. This makes re-seeding idempotent: every Phase B script can re-insert its observations. A plain INSERT would fail on the second call with a primary-key conflict.",
+   "confusables": "`insert_many()` — loops over `insert()` and returns the number of CALLS, not the number of distinct rows left in the table.",
+   "tags": [
+    "grounded:test"
+   ],
+   "source": [
+    "tests/test_audit/test_db.py:32-40",
+    "src/ontology_substrate/audit/db.py:51-60",
+    "src/ontology_substrate/audit/schema.sql:2"
+   ],
+   "evidence_quote": "assert rows[0].claim_supported == \"first claim refined\"",
+   "source_refs": [
+    {
+     "path": "tests/test_audit/test_db.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 32,
+     "end": 40
+    },
+    {
+     "path": "src/ontology_substrate/audit/db.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 51,
+     "end": 60
+    },
+    {
+     "path": "src/ontology_substrate/audit/schema.sql",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 2
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 0,
+   "type": "recall",
+   "level": 2,
+   "concept": "Editable install into ic-load",
+   "question": "What makes ic-ontology usable from the Phase B probe scripts that live in ic-load?",
+   "answer": "An EDITABLE install: `pip install -e <ontology-substrate>[dev]` into the ic-load virtualenv, so the scripts simply `from ontology_substrate... import`. There is no deployment, CI job or container.",
+   "explanation": "The live wiring (connectors -> `ProbeEngine` -> renderers), the converted ontology, the drift outputs and the audit SQLite file all live in ic-load under `_scratch/ontology_probe_phase_b/` and `_scratch/audit/`, outside this repository.",
+   "anchor": "A toolbox lent to the neighbour's workbench on a long chain: the tools stay yours, and the ones you sharpen at home are sharp over there too.",
+   "confusables": "cf. ic-load `_scratch/ontology_probe_phase_b/`: the Phase B scripts RUN there; ic-ontology only supplies the importable package.",
+   "tags": [
+    "per-docs"
+   ],
+   "source": [
+    "docs/phases/phase_b_probe_drift.md:8",
+    "pyproject.toml:21-25",
+    "src/ontology_substrate/cli.py:40-43"
+   ],
+   "evidence_quote": "because the ic-load Python venv has it installed editable",
+   "source_refs": [
+    {
+     "path": "docs/phases/phase_b_probe_drift.md",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 8
+    },
+    {
+     "path": "pyproject.toml",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 21,
+     "end": 25
+    },
+    {
+     "path": "src/ontology_substrate/cli.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 40,
+     "end": 43
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 1,
+   "type": "why",
+   "level": 2,
+   "concept": "REST archive not SQL DELETE",
+   "question": "Why must an ic-ontology deletion-candidate HubSpot property be removed through the v3 REST archive endpoint rather than a SQL DELETE on the StackSync mirror?",
+   "answer": "A SQL DELETE against the mirror leaves a visible 'deleted record' shell; the archive endpoint removes it in the CRM itself. Each removal also needs per-operation operator authorisation: candidates are REPORTED, never executed.",
+   "explanation": "A deletion candidate is a HubSpot property that is NOT in the substrate ontology and NOT platform-native; Phase B listed 7 high-confidence ones from the v7 curation. Breaks if undone: tombstone shells in the mirror and an unauthorised change to `hubspot.*`.",
+   "anchor": "Tearing a page out of the photocopy leaves a stub in the binder; only the registrar can strike the entry in the original book.",
+   "confusables": "SQL DELETE on `hubspot.*` — acts on the MIRROR copy and leaves a shell; the archive endpoint acts on the CRM itself.",
+   "tags": [
+    "per-docs"
+   ],
+   "source": [
+    "docs/phases/phase_b_probe_drift.md:93-96",
+    "docs/phases/phase_b_probe_drift.md:70-72"
+   ],
+   "evidence_quote": "SQL DELETE leaves a visible \"deleted record\" shell",
+   "source_refs": [
+    {
+     "path": "docs/phases/phase_b_probe_drift.md",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 93,
+     "end": 96
+    },
+    {
+     "path": "docs/phases/phase_b_probe_drift.md",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 70,
+     "end": 72
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Test suite passing sign",
+   "question": "How do you prove ic-ontology works after a fresh clone, and what is the passing sign?",
+   "answer": "`pip install -e \".[dev]\"` then `pytest -v`: 62 tests pass, no database needed (connectors are mocked).",
+   "explanation": "62 = schema 22 + smoke 1, adapters 8, probe 12, renderers 12, CLI 2, audit 5. pytest temp dirs are routed into the project by `addopts = \"--basetemp=.pytest_tmp\"`. Second check: the dry-run on the canonical fixture (see 31).",
+   "anchor": "A fire drill with cardboard hydrants: sixty-two checks pass without a drop of real water.",
+   "tags": [
+    "per-docs"
+   ],
+   "source": [
+    "docs/phases/phase_audit_db.md:5",
+    "README.md:28-31",
+    "pyproject.toml:31",
+    "tests/test_probe/test_engine.py:1"
+   ],
+   "evidence_quote": "Cumulative suite: 62 passing.",
+   "source_refs": [
+    {
+     "path": "docs/phases/phase_audit_db.md",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 5
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 28,
+     "end": 31
+    },
+    {
+     "path": "pyproject.toml",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 31
+    },
+    {
+     "path": "tests/test_probe/test_engine.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 1
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 1,
+   "type": "scenario",
+   "level": 3,
+   "concept": "CLI live path not implemented",
+   "question": "ic-ontology: you run `python -m ontology_substrate probe --ontology x.yaml --out-dir out` expecting workbooks in `out/`. What happens?",
+   "answer": "It loads the YAML, then RAISES `NotImplementedError`: only `--dry-run` is implemented. `--out-dir` is parsed (default `./probe_out`) but never read; live probing is wired by the Phase B scripts kept in ic-load.",
+   "explanation": "Do instead: add `--dry-run` to validate the file, and wire connectors -> `ProbeEngine` -> renderers in calling code, as the tests and Phase B do. Because the load comes first, a broken YAML fails with its own error before this one.",
+   "tags": [
+    "trap",
+    "intended-error"
+   ],
+   "source": [
+    "src/ontology_substrate/cli.py:38-43",
+    "src/ontology_substrate/cli.py:26",
+    "src/ontology_substrate/cli.py:30"
+   ],
+   "evidence_quote": "Live probe is wired by Phase B scripts in ic-load/_scratch/ontology_probe_phase_b/.",
+   "source_refs": [
+    {
+     "path": "src/ontology_substrate/cli.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 38,
+     "end": 43
+    },
+    {
+     "path": "src/ontology_substrate/cli.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 26
+    },
+    {
+     "path": "src/ontology_substrate/cli.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 30
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 2,
+   "type": "scenario",
+   "level": 4,
+   "concept": "Mirror-expected fill rate trap",
+   "question": "ic-ontology: the metagraph shows Fill Rate `100.0%` for `task_company`, an edge declared `expected_from: mirror`. How much does that number tell you, and what do you read instead?",
+   "answer": "Nothing. (1) With `mirror`, `expected` is set to `gold_count`. (2) `materialized_all_types` is ALSO set to `gold_count`, so the rate is gold / gold: 100.0% as soon as one association row exists, 0.0% when none does. (3) Read the raw `gold_count` and compare it with the row counts of the task silver marts, or add a real mirror-side expected count.",
+   "explanation": "`source_side_fill_rate` has the same flaw (`materialized_default` is gold too). `materialized_custom` is never set, so every rate is per edge, never per type id.",
+   "tags": [
+    "trap",
+    "inferred"
+   ],
+   "source": [
+    "src/ontology_substrate/probe/fill_rates.py:77-81",
+    "src/ontology_substrate/probe/edge_processors.py:40-42",
+    "src/ontology_substrate/renderers/metagraph.py:36-38",
+    "tests/fixtures/7_entity_icload_style.yaml:257-262",
+    "tests/test_probe/test_engine.py:55-56"
+   ],
+   "evidence_quote": "result.materialized_all_types = result.gold_count",
+   "source_refs": [
+    {
+     "path": "src/ontology_substrate/probe/fill_rates.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 77,
+     "end": 81
+    },
+    {
+     "path": "src/ontology_substrate/probe/edge_processors.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 40,
+     "end": 42
+    },
+    {
+     "path": "src/ontology_substrate/renderers/metagraph.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 36,
+     "end": 38
+    },
+    {
+     "path": "tests/fixtures/7_entity_icload_style.yaml",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 257,
+     "end": 262
+    },
+    {
+     "path": "tests/test_probe/test_engine.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 55,
+     "end": 56
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 3,
+   "type": "recall",
+   "level": 2,
+   "concept": "Adapters declared not wired",
+   "question": "ic-ontology's schema phase doc says the probe engine will route runtime calls through whichever adapter the YAML names. What does the code actually do with `target_system.adapter`?",
+   "answer": "It only STORES the name as a string (`OntologyDocument.target_system_adapter`), and the dry-run prints it. No registry or factory instantiates an adapter, and `ProbeEngine` never touches one.",
+   "explanation": "Changing `adapter: hubspot` in the YAML changes one printed line and nothing else. To use `HubSpotTargetAdapter` or `StackSyncProviderAdapter` you construct them by hand in calling code. The same holds for `layers`: nothing builds connectors from them.",
+   "confusables": "the adapter CLASSES under `adapters/reference/` — they exist and are tested, but nothing maps the YAML's adapter NAME to them.",
+   "tags": [
+    "drift"
+   ],
+   "source": [
+    "src/ontology_substrate/schema/loader.py:31",
+    "docs/phases/phase_a_schema.md:85",
+    "src/ontology_substrate/cli.py:35",
+    "src/ontology_substrate/probe/engine.py:22-25"
+   ],
+   "evidence_quote": "target_system_adapter=raw[\"target_system\"][\"adapter\"],",
+   "source_refs": [
+    {
+     "path": "src/ontology_substrate/schema/loader.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 31
+    },
+    {
+     "path": "docs/phases/phase_a_schema.md",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 85
+    },
+    {
+     "path": "src/ontology_substrate/cli.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 35
+    },
+    {
+     "path": "src/ontology_substrate/probe/engine.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 22,
+     "end": 25
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 9,
+   "type": "recall",
+   "level": 2,
+   "concept": "Next step live CLI path",
+   "question": "What is the next planned step for ic-ontology?",
+   "answer": "Implement the non-dry-run path of `cli.py`: build the connectors, run `ProbeEngine`, write the renderers' files into `--out-dir`, so a live probe is ONE command instead of scripts kept in ic-load.",
+   "explanation": "Unblocks: a second tenant can be probed without copying the Phase B scripts. `--out-dir` already exists and is unused. Further gaps visible in the code, not written down as plans: an adapter registry keyed by the YAML names (see 93) and a real denominator for mirror-expected edges (see 92).",
+   "tags": [
+    "inferred"
+   ],
+   "source": [
+    "docs/phases/phase_a_adapters_probe.md:196",
+    "src/ontology_substrate/cli.py:26",
+    "src/ontology_substrate/cli.py:38-43"
+   ],
+   "evidence_quote": "(in eventual non-dry mode) wire connectors → ProbeEngine → renderers",
+   "source_refs": [
+    {
+     "path": "docs/phases/phase_a_adapters_probe.md",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 196
+    },
+    {
+     "path": "src/ontology_substrate/cli.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 26
+    },
+    {
+     "path": "src/ontology_substrate/cli.py",
+     "branch": "main",
+     "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+     "line": 38,
+     "end": 43
+    }
+   ]
+  }
+ ]
+}

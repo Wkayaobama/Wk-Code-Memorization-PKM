@@ -1,0 +1,511 @@
+{
+ "slug": "presentation-builder",
+ "repo": "Wkayaobama/presentation-builder",
+ "title": "Presentation Builder fork: grounded CRM deck + citation-metagraph skill",
+ "one_liner": "Fork of an HTML deck factory, extended with an evidence-graph method where every slide number carries a claim id traced to source, locator and quote; worked case: a 27-slide CRM scenario deck.",
+ "purpose": "Upstream is a Claude Code deck factory: a script in scripts/ plus a style reference become one self-contained HTML presentation under design rules in Claude.MD. The owner's added work turns it into a grounded-presentation pipeline. For the executive deck 'Three stories, three scenarios' (WISeKey group CRM, HubSpot portal [id]) a multi-agent workflow explored six source families, ranked what was built (keep / simplify / consolidate / pay for), built an evidence metagraph, attacked every claim with two verification lenses, then rendered the deck from the graph so each number carries data-claim and data-source. It deliberately presents three scenarios (DIY, DIY + partner, HubSpot-native) without recommending one: a presentation layer, not a decision layer. The method was distilled into the reusable skill structured-citation-metagraph with two stdlib guard scripts, and a second producer converts the HTML deck to Markdown and then PowerPoint. A sequel on 2026-10-12 appended three remediation-plan slides (layers L1-L3).",
+ "domain": "Evidence-grounded presentation generation (LLM multi-agent tooling, CRM audit)",
+ "status": "active",
+ "stack": [
+  "HTML/CSS/vanilla JS (single-file deck, inline SVG)",
+  "Python 3 (stdlib guard scripts)",
+  "Python lxml (HTML to Markdown converter)",
+  "pandoc (Markdown to pptx)",
+  "Node.js + Playwright/Chromium (SVG rasterising, render QA)",
+  "Claude Code workflow script (agent / parallel / phase)",
+  "Claude Code skill (SKILL.md + references + scripts)",
+  "HubSpot MCP read-only HubSQL (as a source)",
+  "LibreOffice + pdftoppm + markitdown (pptx QA)"
+ ],
+ "aliases": [
+  "presentation builder",
+  "the three-scenarios deck",
+  "three stories three scenarios",
+  "the citation metagraph",
+  "structured-citation-metagraph skill",
+  "the evidence ledger deck",
+  "the iceberg / speedometer / landlord deck",
+  "the pptx recovery pattern"
+ ],
+ "entry_points": [
+  {
+   "command": "Create a new presentation using @scripts/your-script.txt in the style of @style-references/your-chosen-style.html",
+   "what": "Upstream usage: a Claude Code prompt that turns a script into a single HTML deck saved in Finished Presentations/, following Claude.MD.",
+   "path": "README.md:38"
+  },
+  {
+   "command": "python3 scripts/citation_graph.py --graph metagraph.json --out metagraph.md --top-n 5",
+   "what": "Run from the skill folder (a copy also sits in projects/crm-three-scenarios/). Scores co-cited node pairs, rewrites metagraph.md idempotently, and exits 2 if any planned view cites an ungrounded node (the presentation-layer guard).",
+   "path": "projects/crm-three-scenarios/citation_graph.py:189"
+  },
+  {
+   "command": "python3 scripts/citation_graph.py --graph metagraph.json --dry-run [--weights 0.7 0.3]",
+   "what": "Prints the top-N neighbours of every node with combined / co / prox values, writes nothing, still runs the guard.",
+   "path": "projects/crm-three-scenarios/citation_graph.py:205"
+  },
+  {
+   "command": "python3 scripts/deck_cites_check.py --graph metagraph.json --deck <deck.html|deck.md> [--strict]",
+   "what": "Skill script (.claude/skills/structured-citation-metagraph/scripts/). Checks the built deck against the graph: unknown, non-fact or refuted claim ids exit 1; --strict also fails on ids no view planned; lists every caveated claim.",
+   "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:123-127"
+  },
+  {
+   "command": "node render_figures.js \"../../Finished Presentations/crm-three-scenarios.html\" figures",
+   "what": "Opens the deck in headless Chromium at 1920x1080 @2x, exhausts each slide's animations, screenshots every inline SVG of at least 200x80 px to slideNN-figK.png and writes manifest.json.",
+   "path": "projects/crm-three-scenarios/pptx/render_figures.js:2"
+  },
+  {
+   "command": "python3 build_pptx.py [--pptx] [--budget N] [--reference reference.pptx]",
+   "what": "Parses the HTML deck into pandoc slide-show Markdown (crm-three-scenarios.md), chunked by an 11-line budget; --pptx also runs pandoc with the 16 pt reference template.",
+   "path": "projects/crm-three-scenarios/pptx/build_pptx.py:434"
+  },
+  {
+   "command": "open Finished Presentations/crm-three-scenarios.html; Space / ArrowRight = next step, ArrowLeft = previous slide, N = notes, Home / End",
+   "what": "Runs the deck: each key press reveals the next animation step or the next slide; N opens the provenance notes panel.",
+   "path": "Finished Presentations/crm-three-scenarios.html:923"
+  }
+ ],
+ "architecture": [
+  {
+   "component": "Upstream deck factory (context only)",
+   "path": "Claude.MD",
+   "responsibility": "Design rules for script -> HTML decks: colour psychology, typography maxima (h1 max 60px), safe zones, sequential animations, keyboard controls, mandatory lead-magnet CTA for YouTube decks. scripts/, style-references/ and Finished Presentations/ are its folders.",
+   "talks_to": [
+    "Presentation agent",
+    "Design-rule QA"
+   ]
+  },
+  {
+   "component": "Boundary brief",
+   "path": "projects/crm-three-scenarios/brief.md",
+   "responsibility": "The only context boundary: the request verbatim (3 scenarios, 6-row gates table, stories and images), admissible sources with provenance tags, output conventions, and section 5 for the sequel request and its tracker source.",
+   "talks_to": [
+    "Every agent",
+    "Evidence ledger"
+   ]
+  },
+  {
+   "component": "Source extracts",
+   "path": "projects/crm-three-scenarios/sources",
+   "responsibility": "Text extracts of the owner's 2026 review deck and roadmap tracker, two CRM-health screenshots, and the 13-Oct remediation-plan CSV (22 task rows), copied beside the brief so locators stay repository-relative.",
+   "talks_to": [
+    "Explorers",
+    "Verifiers"
+   ]
+  },
+  {
+   "component": "Explorer outputs",
+   "path": "projects/crm-three-scenarios/explore",
+   "responsibility": "One JSON per source family (hs-logic, hubspot-ruler, deck-tracker, live-crm, pricing, remediation-plan) holding items, facts and gaps; every fact has a story_link and evidence.",
+   "talks_to": [
+    "Health check",
+    "Metagraph builder"
+   ]
+  },
+  {
+   "component": "Implementation health check + cost lines",
+   "path": "projects/crm-three-scenarios/implementation-health-check.md",
+   "responsibility": "15 built items ranked with exactly one verdict word each (keep, simplify, consolidate, pay_for), where each lives and what it is built on; cost-lines.md prices each scenario with provenance and a confidence tier.",
+   "talks_to": [
+    "Metagraph builder",
+    "Presentation agent"
+   ]
+  },
+  {
+   "component": "Metagraph",
+   "path": "projects/crm-three-scenarios/metagraph.json",
+   "responsibility": "The evidence graph: 282 nodes, 736 edges, 25 views. Narrative nodes sit at depths 1-3, evidence_fact nodes (183: 85 confirmed, 98 caveat) at depth 4; views are the planned slides with the node ids they cite.",
+   "talks_to": [
+    "citation_graph.py",
+    "deck_cites_check.py",
+    "Presentation agent"
+   ]
+  },
+  {
+   "component": "Citation scorer and guard",
+   "path": "projects/crm-three-scenarios/citation_graph.py",
+   "responsibility": "Stdlib script: co-citation x folder-proximity scores, idempotent metagraph.md with wikilinks and Co-cited tables, and the grounded-path guard that fails the run. Canonical copy in the skill at .claude/skills/structured-citation-metagraph/scripts/citation_graph.py; this project copy differs only at line 137.",
+   "talks_to": [
+    "metagraph.json",
+    "metagraph.md"
+   ]
+  },
+  {
+   "component": "Deck fidelity check",
+   "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:123-127",
+   "responsibility": "Stdlib script at .claude/skills/structured-citation-metagraph/scripts/deck_cites_check.py closing the plan-to-build gap: reads data-claim ids (HTML) or ^Cxxx^ / [Cxxx] (Markdown) from the built deck and checks them against the graph.",
+   "talks_to": [
+    "metagraph.json",
+    "HTML deck"
+   ]
+  },
+  {
+   "component": "Evidence ledger",
+   "path": "projects/crm-three-scenarios/evidence-ledger.md",
+   "responsibility": "One row per claim id (id, kind, claim, used by, source, locator, quote) with a Verification header (counts, refuted ids with the verifier's corrected reading) and the list of unsupported, illustrative story elements.",
+   "talks_to": [
+    "Fact-drift QA",
+    "HTML deck notes"
+   ]
+  },
+  {
+   "component": "HTML deck",
+   "path": "Finished Presentations/crm-three-scenarios.html",
+   "responsibility": "27 self-contained slides, inline SVG metaphors, every number in an element with data-claim and data-source, per-slide .notes block with claim status / caveat / provenance, animation map keyed by data-view.",
+   "talks_to": [
+    "render_figures.js",
+    "build_pptx.py",
+    "deck_cites_check.py"
+   ]
+  },
+  {
+   "component": "PPTX producer",
+   "path": "projects/crm-three-scenarios/pptx/build_pptx.py",
+   "responsibility": "HTML -> pandoc Markdown -> pptx. SlideConverter maps deck classes to blocks, chunk() splits by line budget, notes become speaker notes; render_figures.js supplies the PNG figures and manifest.",
+   "talks_to": [
+    "pandoc",
+    "reference.pptx",
+    "figures/manifest.json"
+   ]
+  },
+  {
+   "component": "Skill: structured-citation-metagraph",
+   "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:288-313",
+   "responsibility": "Skill folder at .claude/skills/structured-citation-metagraph/: SKILL.md (roles 0-6, invariants, pitfalls), references/ (schemas, brief template, method.md, the workflow script that ran the case), scripts/ (both guards), evals/ (3 prompts).",
+   "talks_to": [
+    "Claude Code skill loader",
+    "Workflow script"
+   ]
+  }
+ ],
+ "data_flow": [
+  "0. Scout and brief: the orchestrator lists the repos, extracts uploaded deck and tracker text, pulls screenshots, probes the read-only HubSpot connector once, then writes brief.md with the request verbatim, tagged admissible sources and output conventions.",
+  "1. Explore: five explorers run in parallel, one per source family (Hs-Logic repo, HubSpot-Ruler repo, deck + tracker, live CRM via read-only HubSQL, public pricing), each returning items / facts / gaps validated by INVENTORY_SCHEMA and written to an explore-*.json file. Worked case: 63 items, 135 facts, 55 gaps.",
+  "2. Rank: one health-check agent reads all explorer files and writes implementation-health-check.md (15 ranked items, one verdict word each) and cost-lines.md (per-scenario cost lines with confidence).",
+  "3. Metagraph: one agent builds metagraph.json (stories and scenarios at depth 1, images and gate cells at 2, data problems / examples / projects / cost lines at 3, evidence facts at 4), plans the views, writes evidence-ledger.md, then runs citation_graph.py until the guard passes.",
+  "4. Verify: claims are sliced into batches of 8; each batch gets two verifiers in parallel (source fidelity, numeric and logical consistency). Any refuted verdict wins, else any caveat, else confirmed. First pass: 69 confirmed, 83 caveat, 4 refuted (C058, C126, C128, C146).",
+  "5. Maintain: a maintainer agent writes caveats into attrs.caveat, removes refuted claims from view cites, adds the Verification section to the ledger and re-runs the guard to exit 0.",
+  "6. Present: one agent writes the spoken script (scripts/crm-three-scenarios-script.txt) then the HTML deck from the graph: views become slides, numbers carry data-claim, caveated wording is the wording shown, deviations from the view plan are logged in notes.",
+  "7. QA loop (max 3 rounds): render, fact-drift and design-rule checks run in parallel; a fixer agent repairs blocker / major issues between rounds. Worked case: round 1 had 18 issues (5 blocking, all layout), round 2 had 16 minor.",
+  "8. Hygiene and commit: scratch paths rewritten to repository-relative, forbidden tokens scrubbed, metagraph.md regenerated, guard and idempotency re-checked.",
+  "9. PPTX: render_figures.js rasterises SVGs to PNG + manifest.json; build_pptx.py writes crm-three-scenarios.md; pandoc with reference.pptx produces the pptx (27 HTML slides -> 90 pptx slides after the sequel).",
+  "10. Sequel (2026-10-12): remediation tracker CSV added as a source, claims C158-C171 verified (1 confirmed, 13 caveat), side findings filed as C172-C187, node types plan / plan_layer and views V23-V25 added, three slides inserted before the appendices, pptx regenerated."
+ ],
+ "key_functions": [
+  {
+   "name": "folder_proximity",
+   "path": "projects/crm-three-scenarios/citation_graph.py:59",
+   "signature": "def folder_proximity(a, b, chains, max_depth)",
+   "does": "Returns 1 / 2 ** (max_depth - shared_ancestor_depth): the hierarchy bonus that halves for every level two nodes do not share. It only breaks ties between equally co-cited nodes.",
+   "input_example": "max_depth = 4; dp_modelling and its own child fact C067 (shared ancestor depth 3)",
+   "expected_output": "0.5 (documented dry-run row: prox 0.500). Sibling scenarios s1_diy / s2_partner share nothing: 1/2**4 = 0.0625, printed as 0.062."
+  },
+  {
+   "name": "score_pairs",
+   "path": "projects/crm-three-scenarios/citation_graph.py:73",
+   "signature": "def score_pairs(nodes, views, co, chains, max_depth, w_co, w_prox)",
+   "does": "combined = w_co * co_citation + w_prox * folder_proximity, computed only for pairs that share at least one view (not all N^2 pairs). Default weights 0.7 / 0.3.",
+   "input_example": "dp_modelling <-> C067: co = 2, prox = 0.5",
+   "expected_output": "0.7*2 + 0.3*0.5 = 1.550 (method.md table); s2_partner <-> s1_diy with co = 3 gives 2.119"
+  },
+  {
+   "name": "build_co_citation_matrix",
+   "path": "projects/crm-three-scenarios/citation_graph.py:63",
+   "signature": "def build_co_citation_matrix(views)",
+   "does": "For each view, de-duplicates and sorts its cites and adds 1 to both (a, b) and (b, a) for every pair: co-citation = number of views (slides) citing both nodes.",
+   "input_example": "views = [{'cites': ['A','B']}, {'cites': ['A','B','C']}]",
+   "expected_output": "co[('A','B')] == 2, co[('A','C')] == 1, symmetric entries equal (by reading the loop)"
+  },
+  {
+   "name": "grounded_ok",
+   "path": "projects/crm-three-scenarios/citation_graph.py:82",
+   "signature": "def grounded_ok(nodes, edges)",
+   "does": "Returns a memoised predicate: a node is grounded if it is an evidence_fact with at least one evidence entry holding source AND locator AND quote, or if a grounded_in edge leads (transitively, cycle-safe) to such a fact. Unknown ids are not grounded.",
+   "input_example": "an evidence_fact whose evidence has source and locator but an empty quote",
+   "expected_output": "False"
+  },
+  {
+   "name": "guard",
+   "path": "projects/crm-three-scenarios/citation_graph.py:113",
+   "signature": "def guard(nodes, edges, views)",
+   "does": "Lists (view id, title, bad ids) for every view citing an ungrounded node. main() prints 'PRESENTATION-LAYER GUARD FAILED' on stderr and exits 2 when the list is non-empty, else prints 'guard OK'.",
+   "expected_output": "On success: guard OK: every cited node in 25 views is grounded (format string at line 223, 25 views in the committed graph)"
+  },
+  {
+   "name": "render_md",
+   "path": "projects/crm-three-scenarios/citation_graph.py:131",
+   "signature": "def render_md(g, nodes, edges, views, scores, top_n, w_co, w_prox)",
+   "does": "Builds metagraph.md: a Views list, then one section per node grouped by type with attributes, an Edges list as [[wikilinks]] and a Co-cited table of the top-N scores. The file is replaced on every run, never appended."
+  },
+  {
+   "name": "deck_cites_check (script body)",
+   "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:123-127",
+   "signature": "python3 deck_cites_check.py --graph G --deck D [--strict]",
+   "does": "At .claude/skills/structured-citation-metagraph/scripts/deck_cites_check.py:33. Extracts data-claim=\"Cxxx\" ids (falls back to ^Cxxx^ / [Cxxx] only when no HTML attribute matched), reports unknown, not-an-evidence-fact, refuted and unplanned ids plus a caveat roll-call. Exit 1 on unknown / non-fact / refuted; --strict also on unplanned.",
+   "expected_output": "Worked case before the sequel (method.md): 153 distinct ids shown, all planned, none refuted or unknown, 83 caveated"
+  },
+  {
+   "name": "Verdict merge (workflow)",
+   "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:151-154",
+   "signature": "const resolved = meta_.claims.map(c => ...)",
+   "does": "workflow-crm-three-scenarios.js:289-294 in the skill's references/. Merges the two lenses per claim: refuted if any verdict is refuted, else caveat if any is caveat, else confirmed if at least one verdict exists, else unverified. Only non-confirmed entries go to the maintainer agent.",
+   "input_example": "source lens: confirmed; numeric lens: caveat",
+   "expected_output": "status 'caveat'"
+  },
+  {
+   "name": "Verify fan-out (workflow)",
+   "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:215-218",
+   "signature": "await parallel(batches.flatMap((b, bi) => LENSES.map(l => () => agent(...))))",
+   "does": "workflow-crm-three-scenarios.js:263-284 in the skill's references/. Slices claims into batches of BATCH = 8 and runs every batch under both lenses in parallel with VERDICT_SCHEMA; the claim batch travels inline in the prompt (about 5 KB).",
+   "input_example": "156 claims",
+   "expected_output": "20 batches x 2 lenses = 40 verifier agents"
+  },
+  {
+   "name": "QA loop (workflow)",
+   "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:154",
+   "signature": "while (!qaPass && round < 3) { ... }",
+   "does": "workflow-crm-three-scenarios.js:398 in the skill's references/. Runs render, facts and design QA agents in parallel; passes when no blocker / major issue remains, otherwise a fixer agent repairs the deck (and script / ledger for factual issues) and the loop repeats, up to 3 rounds."
+  },
+  {
+   "name": "SlideConverter.visit",
+   "path": "projects/crm-three-scenarios/pptx/build_pptx.py:204",
+   "signature": "def visit(self, el, top=False)",
+   "does": "Maps the deck's HTML vocabulary to Block objects: h1 -> slide title, svg -> image from the figure manifest, .tiles and .bars -> bullet lists, .chips -> one line, table.gates -> one table per scenario, .notes skipped (emitted later as speaker notes)."
+  },
+  {
+   "name": "chunk",
+   "path": "projects/crm-three-scenarios/pptx/build_pptx.py:322",
+   "signature": "def chunk(blocks: list[Block]) -> list[dict]",
+   "does": "Groups blocks into pptx slides: a picture is alone on its slide and its caption opens the next text slide; a table is alone on its slide; text slides stay within LINES_PLAIN (11) estimated lines; a heading never ends a slide.",
+   "expected_output": "Deck level: 24 HTML slides became 74 pptx slides (method.md); 27 became 90 after the sequel (89 '## ' slides in the Markdown plus the YAML title slide)"
+  },
+  {
+   "name": "build_markdown",
+   "path": "projects/crm-three-scenarios/pptx/build_pptx.py:406",
+   "signature": "def build_markdown(deck_path, figures_dir)",
+   "does": "Loads figures/manifest.json, parses every section.slide with lxml, emits a YAML title block from slide 1, then one '## ' slide per chunk titled '... (k/n)'; provenance notes go on the first pptx slide of each HTML slide. Returns (markdown, pptx slide count, HTML slide count)."
+  },
+  {
+   "name": "nextAction / goToSlide (deck JS)",
+   "path": "Finished Presentations/crm-three-scenarios.html:917",
+   "signature": "function nextAction()",
+   "does": "If the current slide still has animation steps in slideAnimations[slide.dataset.view], reveals the next selector group by adding .animate-in; otherwise moves to the next slide. goToSlide resets steps and auto-reveals step 0 after 80 ms."
+  }
+ ],
+ "infra": [
+  {
+   "topic": "Deployment",
+   "detail": "No server, CI, Docker or cloud resources. Deliverables are static files committed to the repo: a self-contained HTML deck (system fonts, inline SVG, no external assets) and a .pptx in Finished Presentations/. Work lives on branch claude/affectionate-brahmagupta-r8n7t5 of a public fork.",
+   "path": "Finished Presentations/crm-three-scenarios.html:2"
+  },
+  {
+   "topic": "Agent orchestration",
+   "detail": "Claude Code workflow script (skill references/workflow-crm-three-scenarios.js) with six phases (Explore, Health check, Metagraph, Verify, Presentation, QA) using phase(), log(), agent() with JSON schemas, and parallel(). Paths are placeholders (<work-dir>, <repo>, <checkout>). Worked-case cost: 56 agents, 1,208 tool calls, 6.98 M tokens, 254.7 min wall clock; verification took 53 % of tokens.",
+   "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:133-154"
+  },
+  {
+   "topic": "External sources used at run time",
+   "detail": "HubSpot MCP tools in read-only mode (query_crm_data HubSQL, search_properties, get_organization_details) against portal [id]; WebSearch / WebFetch for public pricing pages with as-of dates; sibling repositories Hs-Logic and HubSpot-Ruler read from disk.",
+   "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:22-32"
+  },
+  {
+   "topic": "PPTX toolchain",
+   "detail": "Node with Playwright + Chromium (env var PLAYWRIGHT_MODULE points at the module when not resolvable), Python 3 with lxml, pandoc with --reference-doc reference.pptx (pandoc's own template with body 16 pt and titles 26 pt). QA used the pptx skill's validate.py, LibreOffice --convert-to pdf, pdftoppm contact sheets and markitdown.",
+   "path": "projects/crm-three-scenarios/pptx/README.md"
+  },
+  {
+   "topic": "Skill packaging",
+   "detail": "Claude Code skill folder .claude/skills/structured-citation-metagraph/: SKILL.md (frontmatter name + trigger description), scripts/ (two stdlib Python guards), references/ (method, schemas, brief template, workflow) and evals/evals.json with three test prompts. Not yet run on a second project.",
+   "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:311-313"
+  },
+  {
+   "topic": "Render QA",
+   "detail": "The render QA agent (workflow script, QA_CHECKS) opens the deck with Playwright at 1920x1080, 1440x900, 1366x768 and 375x667, steps through every slide and animation, and asserts no clipping, overflow or console errors (env var PLAYWRIGHT_BROWSERS_PATH locates Chromium). The deck exposes window.deckState() and window.goToSlide for this.",
+   "path": "Finished Presentations/crm-three-scenarios.html:933"
+  }
+ ],
+ "decisions": [
+  {
+   "decision": "Build a presentation layer, not a decision layer: show grounded truth against three scenarios and never recommend one.",
+   "why": "The request says the citation algorithm keeps the context that governs the scenarios; a tight boundary between desired outcome and reality yields a presentation layer rather than a decision layer. Verdict words apply to built items, never to scenarios.",
+   "alternative_rejected": "A persuasive pitch or a recommendation slide",
+   "evidence": "projects/crm-three-scenarios/brief.md:31-33"
+  },
+  {
+   "decision": "A view may cite a node only if it has a grounded_in path to an evidence fact carrying source, locator and quote; the script exits non-zero otherwise.",
+   "why": "It is this gate, not the scoring, that keeps the deck honest: a story node with no grounded path cannot appear on a slide except as a labelled metaphor. A fact without the triple cannot be verified by anyone later.",
+   "alternative_rejected": "Trusting prose synthesis or relaxing the triple for 'obvious' facts",
+   "evidence": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:81-84"
+  },
+  {
+   "decision": "Verify every claim before the deck is written, not after.",
+   "why": "The presentation agent writes with caveated wording already decided, so QA only has layout to fix; verifying after writing makes every refutation a slide rewrite. In the run, no QA blocker was factual.",
+   "alternative_rejected": "Write the deck first and fact-check it afterwards",
+   "evidence": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:258-262"
+  },
+  {
+   "decision": "Two different verification lenses per batch (source fidelity, numeric and logical consistency) instead of N identical refuters.",
+   "why": "The two lenses found different things: the four refutations were fabrications, and the 83 caveats re-scoped numbers (partial scan, subset denominator, as-of date) rather than rejecting them, which was the real return of 3.7 M tokens.",
+   "alternative_rejected": "Several identical adversarial reviewers, or a single verifier",
+   "evidence": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:224-228"
+  },
+  {
+   "decision": "Files are the bus between agents; schemas are the contract; the orchestrator reads only typed summaries and paths.",
+   "why": "Each agent reads brief.md and writes its full output to a named file, so nothing of substance travels in a prompt except claim batches and verdicts. This kept the orchestrator's context a control loop: it counted 135 facts instead of reading them.",
+   "alternative_rejected": "Passing raw material through prompts or the orchestrator's context",
+   "evidence": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:137-149"
+  },
+  {
+   "decision": "Score neighbours as 0.7 x co-citation + 0.3 x folder proximity, with slides as views and the entity hierarchy as folders.",
+   "why": "Reused unchanged from the owner's citation-algorithm plan. Proximity is small by design (halving per level) so it only breaks ties; the neighbourhood comes from where things were shown together, not from prose adjacency.",
+   "alternative_rejected": "Prose adjacency or an equal-weight proximity term",
+   "evidence": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:50-79"
+  },
+  {
+   "decision": "Keep refuted claims as nodes with status refuted and retire their ids, instead of deleting them.",
+   "why": "In the worked case refuted claims were deleted; keeping them as negative evidence lets a deck say 'two pricing claims were refuted' with a citation, and a retired id can never be silently reused.",
+   "alternative_rejected": "Delete the node, its edges and view cites (what the first pass did)",
+   "evidence": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:234-236"
+  },
+  {
+   "decision": "Write the boundary brief inside the project folder with repository-relative locators from the first minute.",
+   "why": "The first brief cited scratchpad paths, which leaked into 143 locators in the graph and 84 in the ledger and had to be rewritten by hand; scratch locators die when the session ends.",
+   "alternative_rejected": "A brief and extracts kept in a session scratch directory",
+   "evidence": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:207-211"
+  },
+  {
+   "decision": "Produce PowerPoint through an editable Markdown intermediate (HTML -> Markdown -> pandoc) with a 16 pt reference template, one picture or table per slide.",
+   "why": "The HTML deck stays the source of truth; wording can be edited in Markdown and facts only in HTML + ledger. Pandoc's stock 24 pt body overflows dense slides, and its two-column and caption layouts overlap pictures and tables.",
+   "alternative_rejected": "Direct pandoc defaults, or building the pptx by hand",
+   "evidence": "projects/crm-three-scenarios/pptx/README.md:20-29"
+  },
+  {
+   "decision": "Skip the upstream lead-magnet CTA slide and close with 'a presentation, not a decision'; light neutral style.",
+   "why": "The audience is executive stakeholders, not YouTube viewers, so the mandatory CTA rule of Claude.MD is deliberately overridden for this deck.",
+   "alternative_rejected": "Following Claude.MD's mandatory final CTA slide",
+   "evidence": "projects/crm-three-scenarios/brief.md:254-258"
+  }
+ ],
+ "gotchas": [
+  {
+   "issue": "A pricing explorer read a vendor calculator's default slider value as a price tier.",
+   "consequence": "A fabricated price band would have sat on a cost slide (claim C128, refuted).",
+   "fix_or_guard": "Only the source-fidelity verifier caught it: it re-opens the URL and checks the quote says exactly this.",
+   "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:220-221"
+  },
+  {
+   "issue": "git log -8 truncated a ten-commit history and hid the first commit.",
+   "consequence": "A provenance claim was wrong (C058 refuted) and the only evidence for the 'understand tech is outsourced' example was missed until harvested by hand as C157.",
+   "fix_or_guard": "Log without a count limit when provenance is the question; give verifiers a side_findings channel.",
+   "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:222-233"
+  },
+  {
+   "issue": "The live HubSQL engine summed an id column when asked to COUNT it and silently dropped an association filter inside a GROUP BY.",
+   "consequence": "Counts from the live portal can be silently wrong.",
+   "fix_or_guard": "Keep only COUNT(*) results and record the quirk as a methodological fact (Appendix A of the deck).",
+   "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:201-205"
+  },
+  {
+   "issue": "Capped scans (10,000 records) produce floors, not counts.",
+   "consequence": "A partial figure presented as a total; most of the 83 caveats were this kind of scope conflation.",
+   "fix_or_guard": "The caveat is stored in attrs.caveat and must travel to the slide or its notes; deck_cites_check.py lists every caveated claim.",
+   "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:215-218"
+  },
+  {
+   "issue": "The two copies of citation_graph.py differ at line 137: the project copy hard-codes the node-type order (with plan, plan_layer); the skill copy reads meta.node_types.",
+   "consequence": "With the project copy, a node type missing from the hard-coded list gets no section in metagraph.md; the two files can drift further.",
+   "fix_or_guard": "Use the skill copy (.claude/skills/structured-citation-metagraph/scripts/citation_graph.py) and declare new node types in meta.node_types.",
+   "path": "projects/crm-three-scenarios/citation_graph.py:137"
+  },
+  {
+   "issue": "The bundled workflow script (skill references/workflow-crm-three-scenarios.js:28 and :301) still carries first-run behaviour: EVIDENCE requires only source and locator (not quote), and the maintainer prompt says refuted -> remove.",
+   "consequence": "Reusing it verbatim contradicts the skill's invariants (evidence triple, refuted nodes kept with status refuted).",
+   "fix_or_guard": "SKILL.md says to reuse its phase shape and rewrite its prompts; tighten the schema to require quote.",
+   "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:307-309"
+  },
+  {
+   "issue": "A dense HTML slide (300-460 words, notes hidden behind N) does not fit a linear medium.",
+   "consequence": "24 HTML slides became 74 pptx slides, 27 became 90; views in the committed graph carry no budget.",
+   "fix_or_guard": "Plan each view with a budget per medium (words for HTML, lines for pptx) before writing; --budget tunes the pptx chunking.",
+   "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md:268-272"
+  },
+  {
+   "issue": "build_pptx.py is specific to this deck: default paths, the YAML date '2026-10-01' and the class vocabulary (tiles, bars, gates, hcgrid) are hard-coded; a stale docstring mentions WORDS_PLAIN.",
+   "consequence": "Reusing it for another deck silently mis-dates the title slide and drops unknown layouts into generic paragraphs.",
+   "fix_or_guard": "Pass --deck / --out / --figures and edit line 416; re-run render_figures.js first because figures are matched by slide and svgIndex.",
+   "path": "projects/crm-three-scenarios/pptx/build_pptx.py:416"
+  }
+ ],
+ "glossary": [
+  {
+   "term": "Presentation layer vs decision layer",
+   "meaning": "The deck's rule: show grounded truth against the options and offer no choice. Nothing shown is a recommendation."
+  },
+  {
+   "term": "Evidence triple",
+   "meaning": "{source, locator, quote}: the minimum every fact must carry to be shown; without all three the guard treats the node as ungrounded."
+  },
+  {
+   "term": "Metagraph",
+   "meaning": "metagraph.json: nodes (story, image, data_problem, practical_example, scenario, gate_cell, project, cost_line, evidence_fact, plan, plan_layer), typed edges and views, with max_depth 4."
+  },
+  {
+   "term": "View",
+   "meaning": "A planned slide: an id (V01...V25), a title and the list of node ids it cites. Co-citation is counted over views."
+  },
+  {
+   "term": "Claim id (Cxxx)",
+   "meaning": "The id of an evidence_fact node, shown on the deck as data-claim=\"C067\" and as a row in the evidence ledger. Retired ids (refuted) are never reused."
+  },
+  {
+   "term": "grounded_in",
+   "meaning": "The edge type that links a narrative node to its evidence; a node is citable only if a grounded_in path reaches a fact with a full evidence triple."
+  },
+  {
+   "term": "Co-citation",
+   "meaning": "Number of views (slides) that cite both of two nodes; weight 0.7 in the combined score."
+  },
+  {
+   "term": "Folder proximity",
+   "meaning": "1 / 2^(max_depth - shared ancestor depth) along the parent chain, which plays the role of vault folders; weight 0.3."
+  },
+  {
+   "term": "Boundary brief",
+   "meaning": "brief.md: the only context boundary. The user's stories are admissible as 'what was asked', never as truth."
+  },
+  {
+   "term": "Provenance tag",
+   "meaning": "The data-source label of a source family, e.g. tracker-210926, live-hubsql-2026-10-01, sealsq-property-set-2026-09-14, public-pricing-<url>, brief-2026-10-12."
+  },
+  {
+   "term": "Confidence ladder",
+   "meaning": "Price / fact tiers carried verbatim on cost slides: official list, vendor list, partner range, secondary, order of magnitude, illustrative, tracker words, not priced."
+  },
+  {
+   "term": "Verdicts (two vocabularies)",
+   "meaning": "Claim verdicts: confirmed, caveat, refuted (default refuted when unverifiable). Health-check verdicts about built items: keep, simplify, consolidate, pay_for."
+  },
+  {
+   "term": "Lenses",
+   "meaning": "The two verifier roles per batch of 8 claims: source fidelity (re-open the source) and numeric and logical consistency (recompute, catch scope conflation)."
+  },
+  {
+   "term": "Gates table",
+   "meaning": "The user's 6 rows x 3 scenarios matrix (sampling probe, schema blueprint, rules to comply, declarative action layer, new cost lines, depends on) = 18 gate_cell nodes."
+  },
+  {
+   "term": "Illustrative, not measured",
+   "meaning": "Label for story elements and metaphors (iceberg, Team A pitch, speedometer, messy landlord, Team B) that found no evidence; 18 such elements in the first pass."
+  }
+ ],
+ "relations": [],
+ "directions": [
+  "Run the skill on a second project (method.md says this is the next step) and execute the three prompts in evals/evals.json, since the skill has only its originating case.",
+  "Update the bundled workflow script to the skill's own rules: require quote in EVIDENCE, add side_findings to VERDICT_SCHEMA, keep refuted nodes, add kind / confidence to the explorer schema, and call deck_cites_check.py as a QA step.",
+  "Add a budget per medium to each view in metagraph.json (currently none) so dense slides are split at planning time instead of at pptx conversion.",
+  "Script the hygiene pass (path normalisation, forbidden-token and personal-data scrub, idempotent regeneration check) that the orchestrator did by hand.",
+  "Unify the two citation_graph.py copies and generalise build_pptx.py (date, paths, class map) so the 'pptx recovery pattern' works for any deck.",
+  "Reuse the claim-id + evidence-quote + guard pattern for other grounded outputs (documentation pages, flashcards): it is the same 'every statement cites a locator and a quote' contract."
+ ],
+ "confidence": "high",
+ "coverage_notes": "Read in full: the skill folder (SKILL.md, schemas, brief template, evals, method.md, both scripts), pptx/README.md, build_pptx.py, render_figures.js, the deck's script block, README.md; workflow script read for control flow, verify, QA and explorer prompts. brief.md sections 1, 2e, 2f, 3, 5 read. metagraph.json summarised by counting. Health check, cost lines, ledger read by headings and verification header; explore JSONs, sources/ extracts and metagraph.md not read (CRM detail and people). Nothing executed. CITATION NOTE: the validator cannot resolve paths starting with '.claude', so skill files are cited through identical project copies (citation_graph.py, method-structured-citation-metagraph.md) or through the method.md lines that describe them; the real skill path is given in the text."
+}

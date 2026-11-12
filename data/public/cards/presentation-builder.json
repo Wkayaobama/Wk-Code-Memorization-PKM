@@ -1,0 +1,760 @@
+{
+ "slug": "presentation-builder",
+ "cards": [
+  {
+   "category": 0,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Grounded deck pipeline fork",
+   "question": "What does the presentation-builder fork add on top of the upstream script-to-HTML deck factory?",
+   "answer": "A grounded-deck pipeline: EVERY number on a slide carries a claim id traced back to verified evidence.",
+   "explanation": "Worked case: the three-scenario CRM deck under `projects/crm-three-scenarios/`. The method is packaged as the skill `structured-citation-metagraph`. Upstream only turns a script plus a style reference into one HTML file.",
+   "anchor": "Every number on the slide wears a luggage tag; pull its string and you land on the shelf, the page and the sentence it came from.",
+   "tags": [
+    "claim-id"
+   ],
+   "source": [
+    ".claude/skills/structured-citation-metagraph/SKILL.md:8-12",
+    "README.md:3"
+   ],
+   "evidence_quote": "the deck is rendered from the graph with the claim id on every number; two scripts refuse to pass anything that is not grounded",
+   "source_refs": [
+    {
+     "path": ".claude/skills/structured-citation-metagraph/SKILL.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 8,
+     "end": 12
+    },
+    {
+     "path": "README.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 3
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 1,
+   "type": "recall",
+   "level": 1,
+   "concept": "The presentation-layer invariant",
+   "question": "Which invariant does presentation-builder's `structured-citation-metagraph` skill exist to protect?",
+   "answer": "The presentation-layer rule: everything shown traces to evidence, and NOTHING shown is a recommendation.",
+   "explanation": "The CRM deck shows grounded truth against three scenarios and offers no choice. Breaks if undone: the deck becomes a pitch that a sceptical reader can dismiss. The fields that make a fact traceable: see 10.",
+   "anchor": "A guide unlocks three rooms and describes each one to the centimetre, then stays silent when asked which room to rent.",
+   "confusables": "decision layer — it RECOMMENDS one option; the presentation layer only shows grounded truth against all of them.",
+   "tags": [
+    "presentation-layer"
+   ],
+   "source": [
+    "projects/crm-three-scenarios/method-structured-citation-metagraph.md:290-292",
+    "projects/crm-three-scenarios/brief.md:31-33",
+    ".claude/skills/structured-citation-metagraph/SKILL.md:12"
+   ],
+   "evidence_quote": "Its one invariant is the presentation-layer rule: nothing is shown that cannot be traced to a source, a locator and a quote, and nothing shown is a recommendation.",
+   "source_refs": [
+    {
+     "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 290,
+     "end": 292
+    },
+    {
+     "path": "projects/crm-three-scenarios/brief.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 31,
+     "end": 33
+    },
+    {
+     "path": ".claude/skills/structured-citation-metagraph/SKILL.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 12
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 0,
+   "type": "cloze",
+   "level": 1,
+   "concept": "Grounded node contract",
+   "question": "presentation-builder: complete the rule `grounded_ok()` applies before a view may cite a node.",
+   "cloze": "An `evidence_fact` is grounded when one evidence entry holds {{c1::source}}, {{c1::locator}} AND {{c1::quote}}; any other node needs a {{c2::grounded_in}} edge path to such a fact.",
+   "answer": "source · locator · quote · grounded_in",
+   "explanation": "The path is followed transitively and is cycle-safe; an id missing from the graph is not grounded. Breaks if undone: a story or metaphor node with no measurement behind it reaches a slide as if it were a fact.",
+   "confusables": "the workflow script's `EVIDENCE` schema — it requires ONLY `source` and `locator`; the guard also demands `quote` (see 91).",
+   "tags": [
+    "evidence-triple",
+    "guard"
+   ],
+   "source": [
+    "projects/crm-three-scenarios/citation_graph.py:82-108",
+    ".claude/skills/structured-citation-metagraph/references/schemas.md:8-12"
+   ],
+   "evidence_quote": "res = any(ev.get(\"source\") and ev.get(\"locator\") and ev.get(\"quote\") for ev in evs)",
+   "source_refs": [
+    {
+     "path": "projects/crm-three-scenarios/citation_graph.py",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 82,
+     "end": 108
+    },
+    {
+     "path": ".claude/skills/structured-citation-metagraph/references/schemas.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 8,
+     "end": 12
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 1,
+   "type": "compare",
+   "level": 2,
+   "concept": "Claim verdict vocabulary",
+   "question": "presentation-builder: a claim verdict (`confirmed`, `caveat`, `refuted`) vs a health-check verdict (`keep`, `simplify`, `consolidate`, `pay_for`): what is the ONE difference?",
+   "answer": "A claim verdict says whether a FACT survived verification; a health-check verdict says what to do with a built ITEM, and is never given to a scenario.",
+   "explanation": "Claim verdicts come from the two verifier lenses and decide the wording a slide may carry. Health-check verdicts come from the rank agent and become `health_verdict` edges in the graph.",
+   "anchor": "A proofreader stamps a sentence true, hedged or false; next door a mechanic hangs a keep-or-scrap label on a machine. Neither stamp fits the other's object.",
+   "confusables": "health-check verdict (`keep | simplify | consolidate | pay_for`) — it rates a built ITEM; a claim verdict rates the EVIDENCE of one fact.",
+   "tags": [
+    "verdicts"
+   ],
+   "source": [
+    ".claude/skills/structured-citation-metagraph/SKILL.md:57-59",
+    ".claude/skills/structured-citation-metagraph/SKILL.md:86-87",
+    ".claude/skills/structured-citation-metagraph/references/schemas.md:33",
+    ".claude/skills/structured-citation-metagraph/references/schemas.md:70",
+    "projects/crm-three-scenarios/method-structured-citation-metagraph.md:248-250"
+   ],
+   "evidence_quote": "Verdicts are about items, never about scenarios.",
+   "source_refs": [
+    {
+     "path": ".claude/skills/structured-citation-metagraph/SKILL.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 57,
+     "end": 59
+    },
+    {
+     "path": ".claude/skills/structured-citation-metagraph/SKILL.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 86,
+     "end": 87
+    },
+    {
+     "path": ".claude/skills/structured-citation-metagraph/references/schemas.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 33
+    },
+    {
+     "path": ".claude/skills/structured-citation-metagraph/references/schemas.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 70
+    },
+    {
+     "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 248,
+     "end": 250
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 0,
+   "type": "trace",
+   "level": 3,
+   "concept": "Skill procedure, brief to commit",
+   "question": "presentation-builder · `structured-citation-metagraph` procedure: recite the 7 steps from the boundary brief to the commit.",
+   "steps": [
+    "orchestrator writes `projects/<name>/brief.md` -> request, tagged sources, conventions",
+    "explorers, one per source family in parallel -> items, facts and gaps with evidence",
+    "rank agent -> `implementation-health-check.md` and `cost-lines.md`, one verdict per item",
+    "metagraph agent -> `metagraph.json`, planned views, ledger; `citation_graph.py` must pass",
+    "verifiers, two lenses per batch -> confirmed, caveat or refuted; maintainer applies them",
+    "presentation agent renders from the graph -> each number carries `data-claim`",
+    "QA loop, hygiene, commit -> render, fact drift, design rules, `deck_cites_check.py`"
+   ],
+   "answer": "brief · explore · rank · metagraph · verify · present · QA + hygiene + commit",
+   "explanation": "Each role writes its full output to the project folder and returns a typed summary, so the orchestrator reads summaries and paths, never the raw material. Verify sits BEFORE present on purpose (see 60).",
+   "anchor": "A trial day: the judge rules what is admissible, clerks gather exhibits, an appraiser grades them, a wall map links them, two cross-examiners attack, then the advocate speaks and an usher checks.",
+   "tags": [
+    "procedure"
+   ],
+   "source": [
+    "projects/crm-three-scenarios/method-structured-citation-metagraph.md:297-301",
+    ".claude/skills/structured-citation-metagraph/SKILL.md:27-34",
+    ".claude/skills/structured-citation-metagraph/SKILL.md:107-117"
+   ],
+   "evidence_quote": "→ metagraph (hierarchy, edges, planned views, ledger, guard script) → verify (two lenses per batch; confirm, caveat, refute; side-findings filed) → present",
+   "source_refs": [
+    {
+     "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 297,
+     "end": 301
+    },
+    {
+     "path": ".claude/skills/structured-citation-metagraph/SKILL.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 27,
+     "end": 34
+    },
+    {
+     "path": ".claude/skills/structured-citation-metagraph/SKILL.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 107,
+     "end": 117
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 1,
+   "type": "output",
+   "level": 3,
+   "concept": "Two-lens verdict merge",
+   "question": "presentation-builder · verdict merge in `workflow-crm-three-scenarios.js`: predict the `status` the code below assigns to the claim described in its first line.",
+   "code_snippet": "// vs = this claim's verdicts: source lens 'confirmed', numeric lens 'caveat'\nconst refuted = vs.some(v => v.verdict === 'refuted')\nconst caveat = !refuted && vs.some(v => v.verdict === 'caveat')\nreturn { id: c.id, status: refuted ? 'refuted' : caveat ? 'caveat' : vs.length ? 'confirmed' : 'unverified',\n  // ...\n}",
+   "expected_output": "caveat",
+   "answer": "`caveat` — ANY `refuted` verdict wins, else any `caveat`, else `confirmed`; a claim that received no verdict at all becomes `unverified`.",
+   "explanation": "(1) No verdict is `refuted`, so `refuted` is false. (2) One verdict is `caveat`, so `caveat` is true. (3) The ternary chain returns 'caveat'. The stricter lens always wins; only non-confirmed results are sent to the maintainer agent.",
+   "confusables": "`unverified` — given when NO lens returned a verdict for the claim; `confirmed` needs at least one verdict and none worse.",
+   "tags": [
+    "grounded:logic",
+    "verdict-merge"
+   ],
+   "source": [
+    ".claude/skills/structured-citation-metagraph/references/workflow-crm-three-scenarios.js:289-295",
+    ".claude/skills/structured-citation-metagraph/references/workflow-crm-three-scenarios.js:300"
+   ],
+   "evidence_quote": "const caveat = !refuted && vs.some(v => v.verdict === 'caveat')",
+   "source_refs": [
+    {
+     "path": ".claude/skills/structured-citation-metagraph/references/workflow-crm-three-scenarios.js",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 289,
+     "end": 295
+    },
+    {
+     "path": ".claude/skills/structured-citation-metagraph/references/workflow-crm-three-scenarios.js",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 300
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 0,
+   "type": "locate",
+   "level": 1,
+   "concept": "Guard and scoring command",
+   "question": "Which command in presentation-builder regenerates `metagraph.md` and enforces the grounded-path guard?",
+   "answer": "`python3 scripts/citation_graph.py --graph metagraph.json --out metagraph.md --top-n 5`",
+   "explanation": "`scripts/` is the skill's own folder; a near-identical copy (one line differs: the node-type order in `render_md`) also sits in `projects/crm-three-scenarios/`. It scores co-cited pairs, REPLACES the Markdown file (never appends) and exits 2 when a view cites an ungrounded node (see 90).",
+   "example": "python3 scripts/citation_graph.py --graph metagraph.json --dry-run  # prints each node's top neighbours, writes nothing, the guard still runs",
+   "anchor": "A doorman at the slide-room door: each guest shows an unbroken chain of receipts back to a quoted source, or the whole queue is sent home.",
+   "confusables": "`--dry-run` — prints the neighbours and WRITES no file; the guard runs in both modes.",
+   "tags": [
+    "guard",
+    "co-citation"
+   ],
+   "source": [
+    ".claude/skills/structured-citation-metagraph/SKILL.md:69-77",
+    "projects/crm-three-scenarios/citation_graph.py:189-196",
+    "projects/crm-three-scenarios/citation_graph.py:211-223",
+    ".claude/skills/structured-citation-metagraph/scripts/citation_graph.py:137",
+    "projects/crm-three-scenarios/citation_graph.py:137"
+   ],
+   "evidence_quote": "python3 scripts/citation_graph.py --graph metagraph.json --out metagraph.md --top-n 5",
+   "source_refs": [
+    {
+     "path": ".claude/skills/structured-citation-metagraph/SKILL.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 69,
+     "end": 77
+    },
+    {
+     "path": "projects/crm-three-scenarios/citation_graph.py",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 189,
+     "end": 196
+    },
+    {
+     "path": "projects/crm-three-scenarios/citation_graph.py",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 211,
+     "end": 223
+    },
+    {
+     "path": ".claude/skills/structured-citation-metagraph/scripts/citation_graph.py",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 137
+    },
+    {
+     "path": "projects/crm-three-scenarios/citation_graph.py",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 137
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 1,
+   "type": "output",
+   "level": 3,
+   "concept": "Combined co-citation score",
+   "question": "presentation-builder · `citation_graph.py --dry-run`: predict the `combined`, `co` and `prox` values printed for the pair described below.",
+   "code_snippet": "def folder_proximity(a, b, chains, max_depth):\n    return 1.0 / (2 ** (max_depth - shared_ancestor_depth(a, b, chains)))\n\n# in score_pairs():\nscores[a][b] = w_co * c + w_prox * folder_proximity(a, b, chains, max_depth)\n\n# pair: data problem `dp_modelling` (depth 3) and its own child fact `C067`\n# cited together by 2 views; max_depth = 4; default weights 0.7 / 0.3",
+   "expected_output": "combined=1.550 co=2 prox=0.500",
+   "answer": "`combined=1.550 co=2 prox=0.500` — proximity is 1 / 2 ** (4 - 3) = 0.5 for a parent and its child, and 0.7 * 2 + 0.3 * 0.5 = 1.55.",
+   "explanation": "(1) A child shares its parent's whole chain: shared ancestor depth 3. (2) prox = 1 / 2 ** (4 - 3) = 0.5. (3) combined = 0.7 * 2 + 0.3 * 0.5 = 1.55, printed with three decimals. Proximity halves per unshared level, so it only breaks ties between equally co-cited nodes.",
+   "confusables": "co-citation — COUNTS the views that cite both nodes (weight 0.7); folder proximity only reads the parent chain (weight 0.3).",
+   "tags": [
+    "grounded:doc",
+    "co-citation"
+   ],
+   "source": [
+    "projects/crm-three-scenarios/method-structured-citation-metagraph.md:69-79",
+    "projects/crm-three-scenarios/citation_graph.py:59-60",
+    "projects/crm-three-scenarios/citation_graph.py:73-79",
+    "projects/crm-three-scenarios/citation_graph.py:210",
+    "projects/crm-three-scenarios/metagraph.md:266"
+   ],
+   "evidence_quote": "| 2 | 0.500 | 1.550 | same branch, two shared slides: the fact that *defines* the problem |",
+   "source_refs": [
+    {
+     "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 69,
+     "end": 79
+    },
+    {
+     "path": "projects/crm-three-scenarios/citation_graph.py",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 59,
+     "end": 60
+    },
+    {
+     "path": "projects/crm-three-scenarios/citation_graph.py",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 73,
+     "end": 79
+    },
+    {
+     "path": "projects/crm-three-scenarios/citation_graph.py",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 210
+    },
+    {
+     "path": "projects/crm-three-scenarios/metagraph.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 266
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 2,
+   "type": "locate",
+   "level": 1,
+   "concept": "Built-deck fidelity check",
+   "question": "Which script in presentation-builder checks the claim ids the BUILT deck shows against the metagraph?",
+   "answer": "`deck_cites_check.py` in the skill's `scripts/`: unknown, non-fact or refuted ids exit 1.",
+   "explanation": "It reads `data-claim=\"Cxxx\"` from HTML, or `^Cxxx^` / `[Cxxx]` from Markdown, and lists every caveated claim so the caveat wording can be confirmed on the slide. `--strict` also fails on ids that no view planned.",
+   "example": "python3 scripts/deck_cites_check.py --graph metagraph.json --deck deck.html --strict  # exit 1 on unknown, refuted or unplanned ids",
+   "confusables": "`citation_graph.py` — guards the PLAN (what each view intends to cite); this script guards the BUILD (what the deck actually shows).",
+   "tags": [
+    "claim-id",
+    "guard"
+   ],
+   "source": [
+    ".claude/skills/structured-citation-metagraph/scripts/deck_cites_check.py:4-15",
+    ".claude/skills/structured-citation-metagraph/scripts/deck_cites_check.py:33",
+    ".claude/skills/structured-citation-metagraph/scripts/deck_cites_check.py:48-49"
+   ],
+   "evidence_quote": "This script closes the other gap: what the *built deck* actually shows.",
+   "source_refs": [
+    {
+     "path": ".claude/skills/structured-citation-metagraph/scripts/deck_cites_check.py",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 4,
+     "end": 15
+    },
+    {
+     "path": ".claude/skills/structured-citation-metagraph/scripts/deck_cites_check.py",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 33
+    },
+    {
+     "path": ".claude/skills/structured-citation-metagraph/scripts/deck_cites_check.py",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 48,
+     "end": 49
+    }
+   ]
+  },
+  {
+   "category": 4,
+   "rank": 0,
+   "type": "locate",
+   "level": 1,
+   "concept": "The boundary brief file",
+   "question": "Which file in presentation-builder's `projects/crm-three-scenarios/` is the single context boundary every agent reads first?",
+   "answer": "`brief.md`: the request verbatim, the admissible sources with provenance tags, the output conventions.",
+   "explanation": "The user's stories and tables are admissible as what was asked, never as truth. Breaks if undone: agents cite material nobody declared admissible. Write it INSIDE the repository: locators that point at a scratch directory die with the session.",
+   "anchor": "A chalk circle drawn on the floor before anyone enters: each worker steps into it first, and nothing lying outside it may be picked up.",
+   "tags": [
+    "boundary-brief"
+   ],
+   "source": [
+    "projects/crm-three-scenarios/brief.md:7-10",
+    ".claude/skills/structured-citation-metagraph/SKILL.md:34-39",
+    "projects/crm-three-scenarios/method-structured-citation-metagraph.md:137-138"
+   ],
+   "evidence_quote": "This file is the ONLY context boundary.",
+   "source_refs": [
+    {
+     "path": "projects/crm-three-scenarios/brief.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 7,
+     "end": 10
+    },
+    {
+     "path": ".claude/skills/structured-citation-metagraph/SKILL.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 34,
+     "end": 39
+    },
+    {
+     "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 137,
+     "end": 138
+    }
+   ]
+  },
+  {
+   "category": 5,
+   "rank": 0,
+   "type": "recall",
+   "level": 2,
+   "concept": "Verification fan-out by batch",
+   "question": "How does presentation-builder's workflow script fan out the verification of the claims?",
+   "answer": "It slices the claims into batches of `BATCH = 8` and runs EVERY batch under two lenses, source fidelity and numeric-and-logical consistency, inside one `parallel(...)` call.",
+   "explanation": "Worked case: 20 batches x 2 lenses = 40 verifiers. Two DIFFERENT lenses find different errors; identical refuters would not. A barrier follows: verdicts are merged per claim before anything is edited (see 21).",
+   "confusables": "QA loop — also parallel, but it checks the finished DECK (render, fact drift, design rules); the verify fan-out attacks CLAIMS before any slide exists.",
+   "tags": [
+    "fan-out",
+    "two-lenses"
+   ],
+   "source": [
+    ".claude/skills/structured-citation-metagraph/references/workflow-crm-three-scenarios.js:263-284",
+    "projects/crm-three-scenarios/method-structured-citation-metagraph.md:151-154",
+    "projects/crm-three-scenarios/method-structured-citation-metagraph.md:227-228"
+   ],
+   "evidence_quote": "const verdictLists = await parallel(batches.flatMap((b, bi) => LENSES.map(l => () =>",
+   "source_refs": [
+    {
+     "path": ".claude/skills/structured-citation-metagraph/references/workflow-crm-three-scenarios.js",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 263,
+     "end": 284
+    },
+    {
+     "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 151,
+     "end": 154
+    },
+    {
+     "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 227,
+     "end": 228
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 0,
+   "type": "why",
+   "level": 2,
+   "concept": "Verify before writing",
+   "question": "Why does presentation-builder's skill verify every claim BEFORE the presentation agent writes the deck rather than fact-check the finished deck?",
+   "answer": "The deck is then written with the caveated wording already decided, so QA has ONLY layout to fix; verifying afterwards turns every refutation into a slide rewrite.",
+   "explanation": "Breaks if undone: a refuted number already sits on a slide and in the spoken script, and each one costs a rewrite. Worked case: QA round 1 found five blocking issues, all layout, nothing factual.",
+   "anchor": "A sign painter letters prices on the shop window before the inspector arrives; every wrong price is then scraped off the glass by hand.",
+   "confusables": "fact-drift QA — it runs once the deck exists and only checks that slides still match the verified claims; it does NOT re-open the sources.",
+   "tags": [
+    "verify-first"
+   ],
+   "source": [
+    ".claude/skills/structured-citation-metagraph/SKILL.md:128-129",
+    "projects/crm-three-scenarios/method-structured-citation-metagraph.md:258-262",
+    ".claude/skills/structured-citation-metagraph/references/workflow-crm-three-scenarios.js:254",
+    ".claude/skills/structured-citation-metagraph/references/workflow-crm-three-scenarios.js:312"
+   ],
+   "evidence_quote": "Verifying after writing makes every refutation a slide rewrite.",
+   "source_refs": [
+    {
+     "path": ".claude/skills/structured-citation-metagraph/SKILL.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 128,
+     "end": 129
+    },
+    {
+     "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 258,
+     "end": 262
+    },
+    {
+     "path": ".claude/skills/structured-citation-metagraph/references/workflow-crm-three-scenarios.js",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 254
+    },
+    {
+     "path": ".claude/skills/structured-citation-metagraph/references/workflow-crm-three-scenarios.js",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 312
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 1,
+   "type": "why",
+   "level": 2,
+   "concept": "16 pt pandoc reference template",
+   "question": "Why does presentation-builder's `build_pptx.py --pptx` pass `--reference-doc reference.pptx` to pandoc rather than rely on pandoc's stock template?",
+   "answer": "The stock template sets body text at 24 pt, which overflows the denser slides; `reference.pptx` is pandoc's own template with body text at 16 pt and titles at 26 pt.",
+   "explanation": "Breaks if undone: text runs past PowerPoint's content placeholder, because `chunk()` budgets `LINES_PLAIN = 11` lines per slide for 16 pt text.",
+   "anchor": "A removal list counted in small boxes: load the same list packed in big boxes and the last ones stick out of the van door.",
+   "confusables": "`--budget` — changes how many LINES go on one slide; `reference.pptx` changes the font SIZE those lines are estimated for.",
+   "tags": [
+    "pptx"
+   ],
+   "source": [
+    "projects/crm-three-scenarios/pptx/README.md:22-24",
+    "projects/crm-three-scenarios/pptx/build_pptx.py:29",
+    "projects/crm-three-scenarios/pptx/build_pptx.py:442-443",
+    "projects/crm-three-scenarios/pptx/build_pptx.py:451"
+   ],
+   "evidence_quote": "pandoc's stock template sets body text at 24 pt, so expect overflow on the denser slides",
+   "source_refs": [
+    {
+     "path": "projects/crm-three-scenarios/pptx/README.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 22,
+     "end": 24
+    },
+    {
+     "path": "projects/crm-three-scenarios/pptx/build_pptx.py",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 29
+    },
+    {
+     "path": "projects/crm-three-scenarios/pptx/build_pptx.py",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 442,
+     "end": 443
+    },
+    {
+     "path": "projects/crm-three-scenarios/pptx/build_pptx.py",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 451
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 0,
+   "type": "recall",
+   "level": 2,
+   "concept": "Guard passing sign",
+   "question": "presentation-builder: what does `citation_graph.py` print when a metagraph is safe to render, and how does a failed guard show?",
+   "answer": "It prints `guard OK: every cited node in N views is grounded`. A failure prints `PRESENTATION-LAYER GUARD FAILED` with the offending views on stderr and exits 2.",
+   "explanation": "Before a commit the skill also wants `metagraph.md` byte-identical on a second run. Once the deck exists, `deck_cites_check.py` is the matching check on the build (see 32).",
+   "example": "python3 citation_graph.py --graph metagraph.json --out metagraph.md; echo $?  # 0 after the guard OK line, 2 after GUARD FAILED",
+   "tags": [
+    "guard"
+   ],
+   "source": [
+    "projects/crm-three-scenarios/citation_graph.py:217-223",
+    ".claude/skills/structured-citation-metagraph/SKILL.md:115-117"
+   ],
+   "evidence_quote": "print(f\"guard OK: every cited node in {len(views)} views is grounded\")",
+   "source_refs": [
+    {
+     "path": "projects/crm-three-scenarios/citation_graph.py",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 217,
+     "end": 223
+    },
+    {
+     "path": ".claude/skills/structured-citation-metagraph/SKILL.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 115,
+     "end": 117
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 1,
+   "type": "scenario",
+   "level": 4,
+   "concept": "Bundled workflow script drift",
+   "question": "presentation-builder: you reuse the skill's bundled `references/workflow-crm-three-scenarios.js` unchanged on a second project. Which of the skill's own rules does that script break, and what is the smallest fix for each?",
+   "answer": "It still carries first-run behaviour: reuse its phase shape, rewrite its prompts. (1) Its `EVIDENCE` schema requires ONLY `source` and `locator`, so a fact with no quote passes the tool layer and fails the guard once a view cites it: add `quote` to `required`. (2) Its maintainer prompt REMOVES refuted claims, while the skill keeps the node with `status: refuted`: rewrite that rule. (3) `VERDICT_SCHEMA` has no `side_findings`, so verifiers cannot file what they meet: add the field.",
+   "explanation": "The script also never calls `deck_cites_check.py`; the skill lists it as a QA step. The guard itself is already strict: `grounded_ok()` demands all three evidence fields (see 10).",
+   "tags": [
+    "drift",
+    "trap"
+   ],
+   "source": [
+    ".claude/skills/structured-citation-metagraph/references/workflow-crm-three-scenarios.js:21-29",
+    ".claude/skills/structured-citation-metagraph/references/workflow-crm-three-scenarios.js:255-262",
+    ".claude/skills/structured-citation-metagraph/references/workflow-crm-three-scenarios.js:301-303",
+    ".claude/skills/structured-citation-metagraph/SKILL.md:87-92",
+    ".claude/skills/structured-citation-metagraph/SKILL.md:144",
+    ".claude/skills/structured-citation-metagraph/references/schemas.md:70-71"
+   ],
+   "evidence_quote": "required: ['source', 'locator'],",
+   "source_refs": [
+    {
+     "path": ".claude/skills/structured-citation-metagraph/references/workflow-crm-three-scenarios.js",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 21,
+     "end": 29
+    },
+    {
+     "path": ".claude/skills/structured-citation-metagraph/references/workflow-crm-three-scenarios.js",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 255,
+     "end": 262
+    },
+    {
+     "path": ".claude/skills/structured-citation-metagraph/references/workflow-crm-three-scenarios.js",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 301,
+     "end": 303
+    },
+    {
+     "path": ".claude/skills/structured-citation-metagraph/SKILL.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 87,
+     "end": 92
+    },
+    {
+     "path": ".claude/skills/structured-citation-metagraph/SKILL.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 144
+    },
+    {
+     "path": ".claude/skills/structured-citation-metagraph/references/schemas.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 70,
+     "end": 71
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 9,
+   "type": "recall",
+   "level": 2,
+   "concept": "Next step: second project",
+   "question": "What is the next planned step for presentation-builder's `structured-citation-metagraph` skill?",
+   "answer": "Run it on a SECOND project: so far it has only the CRM case it came from. Its `evals/evals.json` holds the test prompts to start with.",
+   "explanation": "It unblocks trusting the skill as a method rather than the write-up of one run. Also open: script the hygiene pass, and give each view a budget per medium (no view in the committed graph carries one).",
+   "tags": [
+    "per-docs"
+   ],
+   "source": [
+    "projects/crm-three-scenarios/method-structured-citation-metagraph.md:311-313",
+    ".claude/skills/structured-citation-metagraph/evals/evals.json:1-23",
+    "projects/crm-three-scenarios/method-structured-citation-metagraph.md:283-284"
+   ],
+   "evidence_quote": "has not yet been run on a second project; that is the next step",
+   "source_refs": [
+    {
+     "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 311,
+     "end": 313
+    },
+    {
+     "path": ".claude/skills/structured-citation-metagraph/evals/evals.json",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 1,
+     "end": 23
+    },
+    {
+     "path": "projects/crm-three-scenarios/method-structured-citation-metagraph.md",
+     "branch": "claude/affectionate-brahmagupta-r8n7t5",
+     "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+     "line": 283,
+     "end": 284
+    }
+   ]
+  }
+ ]
+}

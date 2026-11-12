@@ -1,0 +1,551 @@
+{
+ "slug": "ic-ontology",
+ "repo": "Wkayaobama/IC-Ontology",
+ "title": "IC-Ontology: CRM-agnostic ontology + probe substrate (ontology_substrate)",
+ "one_liner": "Python package that loads a YAML ontology of CRM entities/edges/property lineage, probes per-edge fill rates across bronze/silver/gold, and renders CSV/XLSX audit views.",
+ "purpose": "IC-Ontology is the standalone, CRM-agnostic distillation of the ic-load corrections framework (ontology.yaml -> probe_ontology.py -> ontology_workbook.xlsx -> the v7 mapping-checks workbook -> the ontology metagraph). It turns one declarative YAML document (layers, entities, edges with paired association type IDs, per-property lineage with drift flags) into typed dataclasses, a probe engine whose unit of work is one edge, and four renderers that reproduce the ic-load artefacts. It was built in a single reconstruction session (2026-05-29) from claude-mem observations, so it also ships a SQLite audit DB that records which memory observation underwrote which design claim. The operator uses it to validate an ontology (CLI dry-run) and, from scripts living in ic-load, to produce drift overviews of the IC'ALPS -> HubSpot migration. The Python import name is ontology_substrate because the package is generic; the repo name marks the IC'ALPS instantiation.",
+ "domain": "CRM data migration / ontology and lineage auditing",
+ "status": "paused",
+ "stack": [
+  "Python >=3.11",
+  "PyYAML",
+  "pandas",
+  "openpyxl",
+  "psycopg 3 (lazy import)",
+  "sqlite3 (stdlib)",
+  "argparse",
+  "hatchling build",
+  "pytest 8",
+  "gitpython (declared, unused in src)"
+ ],
+ "aliases": [
+  "ontology substrate",
+  "ontology_substrate",
+  "the ontology probe",
+  "the metagraph tool",
+  "IC ontology",
+  "the 7-flag drift thing"
+ ],
+ "entry_points": [
+  {
+   "command": "python -m ontology_substrate probe --ontology tests/fixtures/7_entity_icload_style.yaml --dry-run",
+   "what": "Loads and validates the ontology YAML, prints name/version, entity count, edge count and both adapter names, returns 0. No connector calls.",
+   "path": "src/ontology_substrate/cli.py:15"
+  },
+  {
+   "command": "ontology-substrate probe --ontology <path> --dry-run",
+   "what": "Same CLI through the console script declared in pyproject ([project.scripts] -> ontology_substrate.cli:main).",
+   "path": "pyproject.toml:21"
+  },
+  {
+   "command": "python -m ontology_substrate probe --ontology <path> --out-dir <path>",
+   "what": "Non-dry-run path: raises NotImplementedError by design; the live probe is wired by Phase B scripts kept in ic-load. --out-dir is parsed but never used.",
+   "path": "src/ontology_substrate/cli.py:40"
+  },
+  {
+   "command": "pip install -e \".[dev]\" && pytest -v",
+   "what": "Editable install plus the 62-test suite (documented as 62 passing; 62 test functions counted by grep).",
+   "path": "README.md:27"
+  }
+ ],
+ "architecture": [
+  {
+   "component": "Schema dataclasses",
+   "path": "src/ontology_substrate/schema",
+   "responsibility": "Entity, Edge + EdgeTypeBinding, PropertyLineage, SilverMart, Layer and OntologyDocument: the typed shape of the ontology. Pure data, no I/O except the loader.",
+   "talks_to": [
+    "YAML loader",
+    "Probe engine",
+    "Renderers"
+   ]
+  },
+  {
+   "component": "YAML loader",
+   "path": "src/ontology_substrate/schema/loader.py",
+   "responsibility": "load_ontology reads the file, takes the mandatory root key 'ontology' and composes layers, entities (with properties and silver marts), edges and the two adapter name/config pairs into one OntologyDocument.",
+   "talks_to": [
+    "Schema dataclasses",
+    "Drift flag vocabulary"
+   ]
+  },
+  {
+   "component": "Drift flag vocabulary",
+   "path": "src/ontology_substrate/schema/drift_flags.py",
+   "responsibility": "Closed 7-value DriftFlag enum describing where property lineage breaks at the sync boundary, plus parse_drift_flag with two legacy aliases (renamed, gold_only) so ic-load YAML round-trips.",
+   "talks_to": [
+    "PropertyLineage",
+    "Renderers"
+   ]
+  },
+  {
+   "component": "Adapter seams",
+   "path": "src/ontology_substrate/adapters/base.py",
+   "responsibility": "Two ABCs that make the package CRM-agnostic: TargetSystemAdapter (destination CRM, reconciliation-id naming) and SyncProviderAdapter (mirror record-id column, boundary drift modes).",
+   "talks_to": [
+    "Reference adapters"
+   ]
+  },
+  {
+   "component": "Reference adapters",
+   "path": "src/ontology_substrate/adapters/reference",
+   "responsibility": "HubSpotTargetAdapter (prefix + entity + _id), StackSyncProviderAdapter (per-entity record-id columns registered at runtime, 3 drift modes) and DirectAPISyncProvider (no mirror, api_readonly only).",
+   "talks_to": [
+    "Adapter seams"
+   ]
+  },
+  {
+   "component": "Layer connectors",
+   "path": "src/ontology_substrate/probe/connectors.py",
+   "responsibility": "LayerConnector ABC with row_count and filled_count; CsvConnector (pandas, per-file DataFrame cache) and PostgresConnector (lazy psycopg connection, COUNT(*) queries).",
+   "talks_to": [
+    "CSV files",
+    "Postgres",
+    "Fill-rate computation"
+   ]
+  },
+  {
+   "component": "Probe engine",
+   "path": "src/ontology_substrate/probe/engine.py",
+   "responsibility": "ProbeEngine walks ontology.edges, resolves the source entity's bronze/silver/mirror tables into an edge context and dispatches each edge to the engagement or inter-entity processor.",
+   "talks_to": [
+    "Edge processors",
+    "Layer connectors",
+    "OntologyDocument"
+   ]
+  },
+  {
+   "component": "Edge processors + fill rates",
+   "path": "src/ontology_substrate/probe/edge_processors.py",
+   "responsibility": "EdgeProbeResult (counts plus four zero-safe rate properties), the engagement test on the source entity, and thin wrappers over compute_interentity_counts / compute_engagement_counts in fill_rates.py.",
+   "talks_to": [
+    "Layer connectors",
+    "Renderers"
+   ]
+  },
+  {
+   "component": "Renderers",
+   "path": "src/ontology_substrate/renderers",
+   "responsibility": "Four output shapes, each mirroring one ic-load artefact: 4 CSV sheets, the 6-sheet graph workbook, the 8-sheet v7-style flat coverage workbook and the 1-sheet 20-column metagraph with a live Fill Rate column.",
+   "talks_to": [
+    "openpyxl",
+    "csv",
+    "EdgeProbeResult"
+   ]
+  },
+  {
+   "component": "Audit DB",
+   "path": "src/ontology_substrate/audit",
+   "responsibility": "SQLite table audit_observations (one row per claude-mem observation used in the reconstruction) with AuditDB wrapper and a JSON bulk populator: the fact-check trail for 'which memory supported which claim'.",
+   "talks_to": [
+    "sqlite3",
+    "JSON seed file"
+   ]
+  },
+  {
+   "component": "CLI",
+   "path": "src/ontology_substrate/cli.py",
+   "responsibility": "argparse 'probe' subcommand; only --dry-run is implemented (load + print summary).",
+   "talks_to": [
+    "YAML loader"
+   ]
+  },
+  {
+   "component": "Canonical fixture + tests",
+   "path": "tests/fixtures/7_entity_icload_style.yaml",
+   "responsibility": "Faithful translation of ic-load's corrections ontology (7 entities, 13 edges, task entity with 3 silver marts and 11 properties); proving ground for the loader, CLI and renderers.",
+   "talks_to": [
+    "YAML loader",
+    "CLI"
+   ]
+  }
+ ],
+ "data_flow": [
+  "1. Author an ontology YAML under the root key 'ontology': name, version, target_system.adapter(+config), sync_provider.adapter(+config), layers, entities (optional properties and silver_marts), edges (with a list of type bindings), registries.",
+  "2. load_ontology(path) runs yaml.safe_load and builds Layer, Entity, PropertyLineage, SilverMart and Edge dataclasses; every drift flag string passes through parse_drift_flag (legacy aliases mapped, unknown values raise ValueError).",
+  "3. CLI dry-run stops here: it prints five summary lines (ontology name and version, entities, edges, target_system_adapter, sync_provider_adapter) and returns 0.",
+  "4. For a live probe, calling code (the Phase B scripts in ic-load, not this repo) builds a dict of connectors keyed 'bronze', 'silver', 'gold' and constructs ProbeEngine(ontology, connectors).",
+  "5. ProbeEngine.run loops over ontology.edges; _edge_context looks up the SOURCE entity and returns its bronze_table / silver_table / mirror_table, because an edge names columns, not the tables that hold them.",
+  "6. Dispatch: if edge.source is one of note/call/meeting/task the edge goes to process_engagement, otherwise to process_interentity.",
+  "7. Counts: inter-entity = bronze.row_count(bronze_table), silver.filled_count(silver_table, silver_source_fk), gold.row_count(assoc_table); engagement uses bronze.filled_count(bronze_table, bronze_source_fk) instead of a bronze row count. Missing connectors or columns leave the count at 0.",
+  "8. Denominator: expected = bronze_count when edge.expected_from == 'bronze', else gold_count; materialized_default and materialized_all_types are both set to gold_count.",
+  "9. Each edge yields an EdgeProbeResult exposing bronze_to_silver_rate, silver_to_gold_rate, source_side_fill_rate and all_types_fill_rate (0.0 when the denominator is 0).",
+  "10. The caller assembles a payload dict {edges, entities, silver_marts: [(entity, mart)], properties: [(entity, prop)], probe_results} and hands it to the renderers (CSV sheets 1-4, ontology workbook, coverage workbook, metagraph).",
+  "11. Separately, AuditDB.init_schema + populate_from_json load the claude-mem observations that justified the design into SQLite; Phase B exports them as audit_summary.csv next to the drift overview."
+ ],
+ "key_functions": [
+  {
+   "name": "main",
+   "path": "src/ontology_substrate/cli.py:15",
+   "signature": "def main(argv: list[str] | None = None) -> int",
+   "does": "argparse entry point with one subcommand, probe (--ontology required, --dry-run, --out-dir default ./probe_out). Dry-run loads the YAML and prints a 5-line summary; without --dry-run it raises NotImplementedError pointing to the Phase B scripts in ic-load.",
+   "input_example": "main([\"probe\", \"--ontology\", \"tests/fixtures/7_entity_icload_style.yaml\", \"--dry-run\"])",
+   "expected_output": "returns 0 and prints: ontology: ic-load-corrections v0.7.0 / entities: 7 / edges: 13 / target_system_adapter: hubspot / sync_provider_adapter: stacksync"
+  },
+  {
+   "name": "load_ontology",
+   "path": "src/ontology_substrate/schema/loader.py:14",
+   "signature": "def load_ontology(path: str | Path) -> OntologyDocument",
+   "does": "The single YAML -> OntologyDocument composer. Requires the root key 'ontology' and the keys name, version, target_system.adapter and sync_provider.adapter (KeyError otherwise); layers, entities, edges and registries default to empty.",
+   "input_example": "load_ontology(\"tests/fixtures/7_entity_icload_style.yaml\")",
+   "expected_output": "name == 'ic-load-corrections', 7 entities {deal, contact, company, note, call, meeting, task}, 13 edges; the task entity has 3 silver_marts and 11 properties"
+  },
+  {
+   "name": "parse_drift_flag",
+   "path": "src/ontology_substrate/schema/drift_flags.py:32",
+   "signature": "def parse_drift_flag(raw: str) -> DriftFlag",
+   "does": "Maps a YAML string to the closed DriftFlag enum, first through the legacy alias table so converted ic-load ontologies need no manual edits.",
+   "input_example": "parse_drift_flag(\"renamed\"); parse_drift_flag(\"gold_only\"); parse_drift_flag(\"foo\")",
+   "expected_output": "DriftFlag.NAMING_DRIFT; DriftFlag.MIRROR_ONLY; ValueError('unknown drift flag: foo')"
+  },
+  {
+   "name": "EdgeTypeBinding.from_dict",
+   "path": "src/ontology_substrate/schema/edge.py:24",
+   "signature": "def from_dict(cls, raw: dict[str, Any]) -> EdgeTypeBinding",
+   "does": "Builds one mirror type id paired with its API-reverse counterpart from the nested 'api_reverse' block; this explicit pairing is how asymmetric association label semantics survive.",
+   "input_example": "EdgeTypeBinding.from_dict({\"id\": 99, \"role\": \"custom_label\", \"label\": \"Foo\"})",
+   "expected_output": "id == 99, api_reverse_id is None, api_reverse_label is None"
+  },
+  {
+   "name": "Edge.from_dict",
+   "path": "src/ontology_substrate/schema/edge.py:54",
+   "signature": "def from_dict(cls, raw: dict[str, Any]) -> Edge",
+   "does": "Builds an edge with its per-layer FK columns, association table columns, expected_from, portal_constraint and the ordered list of type bindings. Only name, source, target and cardinality are required.",
+   "input_example": "Edge.from_dict({\"name\": \"x\", \"source\": \"a\", \"target\": \"b\", \"cardinality\": \"1:N\"})",
+   "expected_output": "expected_from == 'bronze' and types == []"
+  },
+  {
+   "name": "ProbeEngine.run",
+   "path": "src/ontology_substrate/probe/engine.py:40",
+   "signature": "def run(self) -> list[EdgeProbeResult]",
+   "does": "The orchestrator: one EdgeProbeResult per edge, routed to process_engagement or process_interentity depending on the source entity. Connectors are a plain dict passed to the constructor.",
+   "input_example": "ProbeEngine(onto_with_edge task_company (assoc_table set, expected_from='mirror'), {\"gold\": gold}).run() where gold.row_count returns 145",
+   "expected_output": "results[0].gold_count == 145 and results[0].expected == 145"
+  },
+  {
+   "name": "is_engagement_edge",
+   "path": "src/ontology_substrate/probe/edge_processors.py:45",
+   "signature": "def is_engagement_edge(edge: Edge) -> bool",
+   "does": "Returns True when edge.source is in the hard-coded set ENGAGEMENT_ENTITIES = {note, call, meeting, task}; this is the only branching rule of the engine."
+  },
+  {
+   "name": "compute_interentity_counts",
+   "path": "src/ontology_substrate/probe/fill_rates.py:19",
+   "signature": "def compute_interentity_counts(edge, edge_context, bronze, silver, gold) -> EdgeProbeResult",
+   "does": "Layer-by-layer counts for a primary-FK edge: bronze row count, silver filled count on silver_source_fk, gold row count of the association table; picks the denominator from expected_from. Each connector is optional.",
+   "input_example": "edge deal_primary_company, context {bronze_table: staging.stg_opportunity, silver_table: staging.stg_opportunity_normalised}, mocks returning 749 / 749 / 747",
+   "expected_output": "bronze_count 749, silver_count 749, gold_count 747, expected 749; with all connectors None every count and expected are 0"
+  },
+  {
+   "name": "compute_engagement_counts",
+   "path": "src/ontology_substrate/probe/fill_rates.py:51",
+   "signature": "def compute_engagement_counts(edge, edge_context, bronze, silver, gold) -> EdgeProbeResult",
+   "does": "Same shape for engagement edges, but the bronze side is filled_count on bronze_source_fk rather than a row count. The docstring mentions a comm_action filter; the code applies none."
+  },
+  {
+   "name": "EdgeProbeResult",
+   "path": "src/ontology_substrate/probe/edge_processors.py:18",
+   "signature": "@dataclass class EdgeProbeResult(edge_name, bronze_count=0, silver_count=0, gold_count=0, expected=0, materialized_default=0, materialized_custom=0, materialized_all_types=0)",
+   "does": "The record that flows from probe to renderers, with four derived zero-safe rates: bronze_to_silver_rate, silver_to_gold_rate, source_side_fill_rate (materialized_default / expected), all_types_fill_rate (materialized_all_types / expected).",
+   "input_example": "EdgeProbeResult(edge_name='deal_primary_company', bronze_count=749, silver_count=749, gold_count=747, expected=749, materialized_default=747, materialized_all_types=747)",
+   "expected_output": "bronze_to_silver_rate == 1.0; the other three rates round to 0.9973; a result with only edge_name gives 0.0 for all four"
+  },
+  {
+   "name": "CsvConnector.filled_count",
+   "path": "src/ontology_substrate/probe/connectors.py:44",
+   "signature": "def filled_count(self, table_or_file: str, column: str) -> int",
+   "does": "Counts non-null values of one CSV column through a cached pandas DataFrame; files are globbed in the parent directory of path_pattern and a missing file raises FileNotFoundError.",
+   "input_example": "CSV 'a,b,c / 1,2,3 / 4,5,6 / 7,,9': filled_count('Bronze_Deals.csv', 'b'), then column 'a', and row_count('Bronze_Deals.csv')",
+   "expected_output": "2, 3 and 3"
+  },
+  {
+   "name": "HubSpotTargetAdapter.reconciliation_id_for",
+   "path": "src/ontology_substrate/adapters/reference/hubspot.py:10",
+   "signature": "def reconciliation_id_for(self, entity_name: str) -> str",
+   "does": "Returns the reconciliation-id column for an entity as prefix + entity + '_id', with prefix read from config key reconciliation_id_prefix (default icalps_).",
+   "input_example": "HubSpotTargetAdapter(config={\"reconciliation_id_prefix\": \"icalps_\"}).reconciliation_id_for(\"company\"); same with prefix \"legacy_\" and entity \"deal\"",
+   "expected_output": "'icalps_company_id'; 'legacy_deal_id'"
+  },
+  {
+   "name": "StackSyncProviderAdapter.boundary_drift_modes",
+   "path": "src/ontology_substrate/adapters/reference/stacksync.py:28",
+   "signature": "def boundary_drift_modes(self) -> list[str]",
+   "does": "Declares the three drift modes possible at a StackSync mirror boundary; DirectAPISyncProvider returns only api_readonly. Record-id columns are registered per entity with register_entity_pattern because their suffixes are per-connection.",
+   "expected_output": "['naming_drift', 'mirror_only', 'api_readonly']; mirror_record_id_column('unknown') is None"
+  },
+  {
+   "name": "write_sheet2_relationship_lineage",
+   "path": "src/ontology_substrate/renderers/csv_sheets.py:91",
+   "signature": "def write_sheet2_relationship_lineage(results: list[EdgeProbeResult], out: Path, edges: list[Edge] | None = None) -> None",
+   "does": "Writes the 22-column relationship lineage CSV (counts plus four rates formatted as one-decimal percentages), joining each result to its Edge by name for FK, table and type-id columns.",
+   "input_example": "the sample payload result 749 / 749 / 747",
+   "expected_output": "22 header columns; row[0] == 'deal_primary_company', bronze_count '749', silver_to_gold_rate '99.7%'"
+  },
+  {
+   "name": "write_metagraph",
+   "path": "src/ontology_substrate/renderers/metagraph.py:30",
+   "signature": "def write_metagraph(payload: dict[str, Any], out: Path) -> None",
+   "does": "Writes the operator's 'living tool': one sheet 'Metagraph - Edges', 20 columns, one row per type binding, first column the human association label (falls back to the edge name), last column Fill Rate taken from all_types_fill_rate of the latest probe.",
+   "input_example": "sample payload with binding id 6 labelled 'Deal with Primary Company'",
+   "expected_output": "sheetnames == ['Metagraph - Edges']; header[0] == 'Hubspot Association Label View', header[-1] == 'Fill Rate'; first data cell 'Deal with Primary Company'; last cell contains '%'"
+  },
+  {
+   "name": "write_ontology_workbook",
+   "path": "src/ontology_substrate/renderers/workbook.py:40",
+   "signature": "def write_ontology_workbook(payload: dict[str, Any], out: Path) -> None",
+   "does": "Writes the 6-sheet graph-shaped workbook; the Metagraph-Edges sheet emits one row per type binding so mirror type id (column index 12) and API-reverse id (index 14) stay paired.",
+   "expected_output": "sheets: Entity-Pair Inventory, Relationship Lineage, Metagraph-Entities, Metagraph-Edges, Ingestion Paths, Property Lineage; with bindings 6/5 and 342/341 the rows carry (6, 5) then (342, 341)"
+  },
+  {
+   "name": "write_coverage_workbook",
+   "path": "src/ontology_substrate/renderers/coverage.py:37",
+   "signature": "def write_coverage_workbook(payload: dict[str, Any], out: Path) -> None",
+   "does": "Writes the v7-style flat coverage workbook: a 26-column Ontologie sheet with one row per property plus seven register/config/mapping sheets that contain headers only.",
+   "expected_output": "8 sheets: Ontologie, HubSpot_property_check, Silver_property_check, Bronze_property_check, Source_property_check, Check_config, Source_to_bronze_map, Bronze_to_silver_map; Ontologie header has 26 columns starting with 'hubspot_helper'"
+  },
+  {
+   "name": "AuditDB.insert",
+   "path": "src/ontology_substrate/audit/db.py:51",
+   "signature": "def insert(self, obs: Observation) -> None",
+   "does": "INSERT OR REPLACE of one observation keyed by observation_id, committed immediately; makes re-seeding idempotent. populate_from_json (audit/populator.py:14) bulk-loads a JSON list through insert_many and returns the count.",
+   "input_example": "insert obs id 1 with claim 'first claim', then id 1 again with 'first claim refined'",
+   "expected_output": "fetch_all() returns 1 row whose claim_supported == 'first claim refined'"
+  }
+ ],
+ "infra": [
+  {
+   "topic": "Packaging",
+   "detail": "Distribution name ontology-substrate 0.1.0, import name ontology_substrate, hatchling backend with the wheel built from src/ontology_substrate, requires Python >=3.11. Runtime deps: pyyaml, pandas, openpyxl, psycopg[binary], gitpython; dev extra: pytest. Console script ontology-substrate -> ontology_substrate.cli:main.",
+   "path": "pyproject.toml"
+  },
+  {
+   "topic": "How it is consumed",
+   "detail": "No deployment, no CI, no Docker. The package is installed editable (pip install -e) into the ic-load virtualenv and imported by the Phase B scripts under ic-load-main/_scratch/ontology_probe_phase_b/, which live outside this repository.",
+   "path": "docs/phases/phase_b_probe_drift.md:8"
+  },
+  {
+   "topic": "Tests",
+   "detail": "62 pytest tests across schema (23 incl. smoke), adapters (8), probe (12), renderers (12), CLI (2) and audit (5). tests/conftest.py puts src/ on sys.path and provides the sample_probe_payload fixture. Connectors are mocked with MagicMock; no database is needed.",
+   "path": "tests/conftest.py"
+  },
+  {
+   "topic": "pytest temp directory",
+   "detail": "addopts = --basetemp=.pytest_tmp with tmp_path_retention_policy = failed, because the default per-user pytest temp directory on the Windows workstation was locked. .pytest_tmp/ is git-ignored.",
+   "path": "pyproject.toml:31"
+  },
+  {
+   "topic": "External systems the connectors target",
+   "detail": "Bronze = CSV files (glob Bronze_*.csv), silver = Postgres schema staging, gold = the hubspot.* Postgres mirror maintained by the sync provider (StackSync). PostgresConnector takes a DSN string and connects lazily; no environment variable names are defined in this repo.",
+   "path": "src/ontology_substrate/probe/connectors.py:49"
+  },
+  {
+   "topic": "Audit database location",
+   "detail": "The SQLite schema ships in the package (audit/schema.sql: one table, three indexes), but the database file itself is created in the ic-load working tree under _scratch/audit/ontology_reconstruction.sqlite, seeded by the Phase B step 01 script.",
+   "path": "docs/phases/phase_audit_db.md:85"
+  },
+  {
+   "topic": "Per-phase build documentation",
+   "detail": "docs/phases holds one markdown per build phase (schema, adapters+probe, renderers+CLI, audit DB, Phase B execution), each listing files, test counts, verification commands and the claude-mem observation numbers that justified it. The CLAUDE.md files are empty claude-mem stubs.",
+   "path": "docs/phases"
+  }
+ ],
+ "decisions": [
+  {
+   "decision": "The probe's unit of work is one edge, not one target record.",
+   "why": "Carried over from ic-load's probe_ontology.py, which overrides Correction.run() for exactly that reason: reconciliation questions are about relationships materialising layer by layer.",
+   "alternative_rejected": "Per-target (per-record) correction runs as in the rest of the ic-load corrections framework",
+   "evidence": "src/ontology_substrate/probe/edge_processors.py:3"
+  },
+  {
+   "decision": "Each mirror association type id is explicitly paired with its API-reverse id inside one list item (types: [{id, role, label, api_reverse: {id, label}}]).",
+   "why": "ic-load used three parallel dicts and relied on YAML dict insertion order to align mirror ids with reverse ids. Making the pair explicit removes the dependency on ordering while preserving asymmetric label semantics.",
+   "alternative_rejected": "ic-load's types / type_labels / api_reverse_labels parallel dicts",
+   "evidence": "docs/phases/phase_a_schema.md:74"
+  },
+  {
+   "decision": "Two adapter seams (TargetSystemAdapter and SyncProviderAdapter) instead of only abstracting the CRM.",
+   "why": "The docs argue that 'CRM-agnostic' loses meaning if the mirror layer is hard-coded; a user who only varies the CRM can keep a single StackSync provider instance.",
+   "alternative_rejected": "Hard-coding the StackSync mirror and parameterising only the target CRM",
+   "evidence": "docs/phases/phase_a_adapters_probe.md:78"
+  },
+  {
+   "decision": "A closed 7-flag drift vocabulary with legacy aliases rather than free-text drift notes.",
+   "why": "ic-load locked seven canonical modes for where property lineage breaks at the sync boundary; a closed enum lets renderers emit seven yes/blank flag columns and makes unknown flags fail loudly. Aliases renamed -> naming_drift and gold_only -> mirror_only keep old YAML loadable.",
+   "alternative_rejected": "Open strings or per-project flag names",
+   "evidence": "docs/phases/phase_a_schema.md:103"
+  },
+  {
+   "decision": "A per-edge expected_from switch (bronze or mirror) selects the fill-rate denominator.",
+   "why": "Task edges are fed by phaseA-created call tasks that bypass bronze entirely, so a bronze denominator would be wrong for them; they declare expected_from: mirror and the engine uses the gold count.",
+   "alternative_rejected": "Always using bronze_count as the expected count",
+   "evidence": "docs/phases/phase_a_adapters_probe.md:129"
+  },
+  {
+   "decision": "Three output shapes are kept separate: graph workbook (6 sheets), flat coverage workbook (8 sheets) and distilled metagraph (1 sheet).",
+   "why": "Each has a different audience: the workbook is the engineering build artefact, the coverage workbook is the operator audit, the metagraph is the living tool carried while throttling association writes against the mirror.",
+   "alternative_rejected": "One merged workbook",
+   "evidence": "docs/phases/phase_a_renderers_cli.md:51"
+  },
+  {
+   "decision": "The CLI implements only --dry-run; live probing is wired by scripts in ic-load.",
+   "why": "Dry-run is the substrate-side contract check (does the YAML parse into the schema). Real connectors, credentials and outputs belong to the consuming project, so the standalone tool stays free of environment specifics.",
+   "alternative_rejected": "Wiring connectors, engine and renderers inside the package CLI",
+   "evidence": "src/ontology_substrate/cli.py:38"
+  },
+  {
+   "decision": "Ship a SQLite audit DB of the claude-mem observations used to rebuild the design, written with INSERT OR REPLACE.",
+   "why": "The operator asked for a database of the memory indexes to fact-check which memory supported which reconstruction step; idempotent inserts let every Phase B script re-seed without duplicates.",
+   "alternative_rejected": "Citations left only in prose documentation",
+   "evidence": "docs/phases/phase_audit_db.md:97"
+  },
+  {
+   "decision": "Import name ontology_substrate differs from the repo name IC-Ontology.",
+   "why": "The package is generic and CRM-agnostic by design, while the repository holds the specific instantiation rooted in the IC'ALPS -> HubSpot work.",
+   "alternative_rejected": "Naming the package after the tenant",
+   "evidence": "README.md:7"
+  },
+  {
+   "decision": "Gold-layer deletion candidates are reported, never executed, and the removal mechanism is the HubSpot v3 REST archive endpoint.",
+   "why": "Every schema change touching hubspot.* needs per-operation operator authorisation, and a SQL DELETE against the StackSync mirror leaves a visible deleted-record shell.",
+   "alternative_rejected": "SQL DELETE on the mirror tables",
+   "evidence": "docs/phases/phase_b_probe_drift.md:95"
+  }
+ ],
+ "gotchas": [
+  {
+   "issue": "Running the CLI without --dry-run raises NotImplementedError, and --out-dir is accepted but never read.",
+   "consequence": "There is no one-command live probe; nothing in this repo wires connectors -> engine -> renderers outside the tests.",
+   "fix_or_guard": "Use --dry-run for validation; write the wiring in the consuming project (as the Phase B scripts did) or implement it in cli.py.",
+   "path": "src/ontology_substrate/cli.py:40"
+  },
+  {
+   "issue": "With expected_from: mirror the denominator is gold_count while materialized_default and materialized_all_types are also gold_count.",
+   "consequence": "source_side_fill_rate and all_types_fill_rate are 100% for any task edge with gold rows (0% when empty): the rate carries no signal for mirror-expected edges.",
+   "fix_or_guard": "Read the raw counts for those edges, or introduce a real mirror-side expected count.",
+   "path": "src/ontology_substrate/probe/fill_rates.py:43"
+  },
+  {
+   "issue": "Fill rates are per edge, not per type id: materialized_custom is never set and materialized_default equals the association table row count.",
+   "consequence": "Every type binding row of an edge shows the same Fill Rate in the metagraph, and the 'resolvable' column of sheet 2 is always blank.",
+   "fix_or_guard": "Filter the association table by type id before counting if per-label rates are needed.",
+   "path": "src/ontology_substrate/renderers/metagraph.py:42"
+  },
+  {
+   "issue": "Adapters and layers are declarative only: the loader stores adapter names as strings and nothing instantiates an adapter or builds a connector from ontology.layers.",
+   "consequence": "Changing target_system.adapter in the YAML changes only what dry-run prints; there is no adapter registry or factory.",
+   "fix_or_guard": "Instantiate adapters and connectors by hand in calling code.",
+   "path": "src/ontology_substrate/schema/loader.py:31"
+  },
+  {
+   "issue": "The engagement entity set {note, call, meeting, task} is hard-coded, and the engagement processor does not apply the comm_action filter its docstring describes.",
+   "consequence": "A new tenant whose activity entities have other names is silently probed as inter-entity; engagement bronze counts are plain non-null counts.",
+   "fix_or_guard": "Rename entities to match, or move the set into the ontology/adapter.",
+   "path": "src/ontology_substrate/probe/edge_processors.py:14"
+  },
+  {
+   "issue": "The loader requires the root key 'ontology' plus name, version, target_system.adapter and sync_provider.adapter; cardinality and role are unvalidated free strings.",
+   "consequence": "A YAML that starts directly at target_system fails with KeyError, while a typo in a cardinality or role loads without complaint.",
+   "fix_or_guard": "Wrap the document under 'ontology:' and validate with the CLI dry-run.",
+   "path": "src/ontology_substrate/schema/loader.py:15"
+  },
+  {
+   "issue": "PostgresConnector interpolates table and column names into SQL with f-strings and has no cache, although the module docstring promises cached counts and the docs call the query parameterised.",
+   "consequence": "Only trusted ontology YAML should be probed; repeated edges re-scan the same tables.",
+   "fix_or_guard": "Keep ontology files under version control; add identifier quoting and a count cache if reused widely.",
+   "path": "src/ontology_substrate/probe/connectors.py:63"
+  },
+  {
+   "issue": "The coverage workbook is a shape skeleton: fill-rate and count columns are empty, the four 'is in ...' columns are hard-coded 'True', and seven of the eight sheets contain only a header row.",
+   "consequence": "It looks like the v7 mapping-checks workbook but carries no measured coverage.",
+   "fix_or_guard": "Treat it as a template until property-level fill rates are computed and passed in.",
+   "path": "src/ontology_substrate/renderers/coverage.py:51"
+  },
+  {
+   "issue": "CsvConnector ignores the glob part of path_pattern: it globs the requested file name in the pattern's parent directory and reads the first match.",
+   "consequence": "The 'Bronze_*.csv' pattern only selects a directory; an ambiguous name silently picks one file, and the cache hides later file changes.",
+   "fix_or_guard": "Pass exact file names as table_or_file; create a new connector to re-read.",
+   "path": "src/ontology_substrate/probe/connectors.py:32"
+  }
+ ],
+ "glossary": [
+  {
+   "term": "Substrate",
+   "meaning": "The generic package ontology_substrate: schema + adapters + probe + renderers + audit, independent of any one CRM."
+  },
+  {
+   "term": "Layer (bronze / silver / gold)",
+   "meaning": "Bronze = extracted CSV files, silver = normalised Postgres staging tables, gold = the hubspot.* mirror tables written through the sync provider. The fixture also declares a 'source' SQL Server layer."
+  },
+  {
+   "term": "Edge",
+   "meaning": "One relationship between two entities, carrying its FK column at each layer, the association table and columns, cardinality, expected_from and a list of type bindings. The fixture has 13: 4 inter-entity and 9 engagement edges."
+  },
+  {
+   "term": "EdgeTypeBinding",
+   "meaning": "One association type id with role (default_forward, primary_reverse, custom_label, primary_label), label and its API-reverse id and label. Example in the fixture: mirror id 6 pairs with reverse id 5, 342 with 341."
+  },
+  {
+   "term": "Ordinal pairing",
+   "meaning": "The rule that the n-th mirror type id corresponds to the n-th API-reverse id; implicit in ic-load's YAML ordering, explicit in the substrate's binding list."
+  },
+  {
+   "term": "expected_from",
+   "meaning": "Per-edge switch choosing the fill-rate denominator: 'bronze' (default) uses the bronze count, 'mirror' uses the gold count (task edges)."
+  },
+  {
+   "term": "Engagement edge",
+   "meaning": "An edge whose source entity is note, call, meeting or task; routed to process_engagement instead of process_interentity."
+  },
+  {
+   "term": "Drift flag",
+   "meaning": "One of seven closed labels for where a property's lineage breaks: naming_drift, mirror_only, api_readonly, sync_pending, silver_value_discarded, silver_hardcoded_then_backfilled, canonical_render_omits."
+  },
+  {
+   "term": "PropertyLineage",
+   "meaning": "Per-property record: bronze column (+ bronze_alt), silver column, api_property, gold_column, drift_flags, remediation_script, notes."
+  },
+  {
+   "term": "SilverMart",
+   "meaning": "One silver ingestion path feeding a gold entity (name, path, unique_id_pattern, gold_writer, scope, cardinality_note, write_mode default direct-insert). The task entity has three."
+  },
+  {
+   "term": "Reconciliation id",
+   "meaning": "The legacy-key column that ties a record across layers, e.g. icalps_company_id; produced by HubSpotTargetAdapter as prefix + entity + _id."
+  },
+  {
+   "term": "Mirror",
+   "meaning": "The Postgres copy of the CRM kept in sync by the sync provider (StackSync): schema hubspot, primary key column id, plus a per-entity record-id column with a per-connection suffix."
+  },
+  {
+   "term": "Metagraph",
+   "meaning": "The one-sheet, 20-column edge view with a live Fill Rate column; the operator sorts it to find under-materialised edges while throttling association writes."
+  },
+  {
+   "term": "v7 coverage workbook",
+   "meaning": "The flat 8-sheet operator audit workbook (Ontologie + four property-check registers + Check_config + two mapping sheets) that coverage.py reproduces in shape."
+  },
+  {
+   "term": "Phase A / Phase B",
+   "meaning": "Phase A built the package (schema, adapters, probe, renderers, CLI, audit). Phase B executed it from ic-load scripts to produce the drift overview (v7 drift, remote drift, deletion candidates, audit summary)."
+  },
+  {
+   "term": "Deletion candidate",
+   "meaning": "A HubSpot property that is not in the substrate ontology and is not platform-native; Phase B found 7 high-confidence ones from the v7 curation. Candidates only, never auto-deleted."
+  }
+ ],
+ "relations": [
+  {
+   "project": "rsync_hubspot",
+   "relation": "Its mr-load directory reuses this package for the Miraex tenant: ontology/miraex_ontology.skeleton.yaml is modelled on the 7-entity fixture and is meant to be validated with the dry-run CLI, and its PLAN/RETRIEVAL notes cite SyncProviderAdapter as the existing seam. That skeleton starts at target_system with no 'ontology:' root key, which load_ontology requires."
+  }
+ ],
+ "directions": [
+  "Implement the live path in cli.py (layers -> connectors, ProbeEngine, renderers writing into --out-dir) so the probe is one command instead of scripts in another repo; the argument already exists and is unused.",
+  "Add an adapter registry keyed by the YAML adapter names and build connectors from ontology.layers, so swapping target_system.adapter actually changes behaviour (today the names are only printed).",
+  "Make fill rates per type id (fill materialized_custom and the 'resolvable' column) and give mirror-expected edges a real denominator; today task edges always read 100% or 0%.",
+  "Extend the ontology YAML with property blocks for Company, Contact, Deal and Case: Phase B found 122 properties documented only in the v7 workbook and zero string overlap because the two sources key on different naming conventions.",
+  "Compute property-level fill rates and populate the coverage workbook's empty rate, count and register sheets so it becomes a real replacement for the hand-maintained v7 file.",
+  "Prove the CRM-agnostic claim with a second tenant: finish the Miraex ontology from the rsync_hubspot/mr-load skeleton and move the hard-coded engagement entity set into the ontology or the target adapter."
+ ],
+ "confidence": "high",
+ "coverage_notes": "Read every source file under src/ontology_substrate, all five docs/phases files, README, pyproject, conftest, the tests for CLI, probe, adapters, audit, loader, edge, drift flags and renderers, and most of the 7-entity fixture (lines 1-128 fully, the edge section by grep). Nothing was executed; expected outputs come from test assertions and the README. Single branch (main), shallow clone with one commit visible, no alternate worktrees. The Phase B scripts, converted ontology, drift outputs and the audit SQLite file are described in docs but live in ic-load's _scratch tree and are absent from both this repo and the analysed ic-load checkout, so Phase B numbers (62 tests passing, 122 / 18 / 0 v7 drift, 7 deletion candidates) are as documented, not verified. The CLAUDE.md files are empty claude-mem stubs. Status 'paused' is inferred from a single-day build with no later commits. The repo is small (about 137 KB tracked, 82 files)."
+}

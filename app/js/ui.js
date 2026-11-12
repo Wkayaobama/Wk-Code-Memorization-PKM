@@ -84,6 +84,8 @@
   /* Offer a generated file. Hosted pages must go through the downloads capability; plain pages use a blob link. */
   function saveFile(filename, text, caps) {
     if (caps && caps.downloads) return caps.downloads.save({ filename: filename, data: text }).then(function () { return 'saved'; });
+    /* a hosted page without the file capability cannot start a download: say so instead of pretending */
+    if (root.claude) return Promise.reject(new Error('this view cannot save files'));
     return new Promise(function (resolve, reject) {
       try {
         var blob = new Blob([text], { type: 'application/octet-stream' }), url = URL.createObjectURL(blob);

@@ -1,0 +1,1246 @@
+{
+ "slug": "remotion-maker",
+ "cards": [
+  {
+   "category": 0,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Brand video pipeline purpose",
+   "question": "What does remotion-maker's pipeline take in, and what does it produce?",
+   "answer": "A website's brand identity + an operator's script IN; a Remotion video rendered in 30-second chunks OUT.",
+   "explanation": "The repository holds the reusable workflow (`workflow/`) and the project that instantiates it (`sealcoin-promo/`). The root README is a bare heading: start from `workflow/README.md`. See 02.",
+   "anchor": "A press takes paint swatches scraped off a shopfront in one hand and a typed script in the other, and extrudes film in reels of equal length.",
+   "tags": [
+    "chunked-render"
+   ],
+   "source": [
+    "workflow/README.md:3",
+    "README.md:1"
+   ],
+   "evidence_quote": "into a Remotion video rendered in **30-second chunks**, previewable in a locally hosted Remotion Studio",
+   "source_refs": [
+    {
+     "path": "workflow/README.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 3
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 1
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 1,
+   "type": "recall",
+   "level": 1,
+   "concept": "Script-true total invariant",
+   "question": "Which timing invariant does remotion-maker's sealcoin-promo fail loudly to protect?",
+   "answer": "Scene durations must sum to EXACTLY the script's timed map: 4500 frames (75 s at 60 fps).",
+   "explanation": "Durations are script-true (script seconds x 60) and tile the timeline with no gap. The check runs at module scope, so Studio and every render stop when it fails; see 32.",
+   "anchor": "A tailor's tape cut to the script's exact length: eight strips of cloth must cover it end to end, no gap and no overhang, or the shop bell rings.",
+   "confusables": "`TOTAL_FRAMES` — the COMPUTED sum of the scene durations; `EXPECTED_TOTAL_FRAMES` is the DECLARED script total it is checked against.",
+   "tags": [
+    "drift-guard"
+   ],
+   "source": [
+    "sealcoin-promo/remotion/manifest.ts:37-40",
+    "sealcoin-promo/remotion/manifest.ts:69-70"
+   ],
+   "evidence_quote": "export const EXPECTED_TOTAL_FRAMES = 4500; // 75s — synopsis.md §3 map [0-75]",
+   "source_refs": [
+    {
+     "path": "sealcoin-promo/remotion/manifest.ts",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 37,
+     "end": 40
+    },
+    {
+     "path": "sealcoin-promo/remotion/manifest.ts",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 69,
+     "end": 70
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 2,
+   "type": "recall",
+   "level": 1,
+   "concept": "sealcoin-promo instance",
+   "question": "In remotion-maker, what is the `sealcoin-promo` directory?",
+   "answer": "The project that instantiates the workflow: a 75-second explainer for the Eco Wave Power x SEALCOIN x SEALSQ PoC.",
+   "explanation": "A Remotion 4.0.438 app whose structure was replicated from `h2-promo`. Its script is `sealcoin/synopsis.md` (8 timed segments), its tokens `docs/BRAND.md`, its timing `remotion/manifest.ts`.",
+   "confusables": "`sealcoin/` (no suffix) — holds ONLY the operator's script `synopsis.md`, read-only ground truth; `sealcoin-promo/` is the app built from it.",
+   "tags": [],
+   "source": [
+    "sealcoin-promo/README.md:3",
+    "sealcoin-promo/README.md:5-8"
+   ],
+   "evidence_quote": "75-second explainer for the **Eco Wave Power × SEALCOIN × SEALSQ** Autonomous Renewable Energy Marketplace PoC.",
+   "source_refs": [
+    {
+     "path": "sealcoin-promo/README.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 3
+    },
+    {
+     "path": "sealcoin-promo/README.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 5,
+     "end": 8
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 3,
+   "type": "recall",
+   "level": 1,
+   "concept": "[V] / [I] provenance tags",
+   "question": "In remotion-maker, what do the provenance tags `[V]` and `[I]` on a brand token mean?",
+   "answer": "`[V]` VERIFIED: seen on the live site or stated in the script. `[I]` INFERRED: proposed, needs sign-off.",
+   "explanation": "Every brand token and every on-screen line carries one; an inferred value is never silently promoted. In sealcoin-promo's `theme.ts` only the orange accent, its gradient stop and two of the three fonts are verified.",
+   "example": "accentPrimary: \"#FF9C1E\", // [V] / accentSecondary: \"#3EC1F0\", // [I]  # same file, different trust",
+   "tags": [
+    "provenance"
+   ],
+   "source": [
+    "workflow/README.md:22",
+    "sealcoin-promo/remotion/theme.ts:3-13"
+   ],
+   "evidence_quote": "`[VERIFIED]` (observed on the live site / stated in the operator's script) or `[INFERRED]` (proposed, needs sign-off)",
+   "source_refs": [
+    {
+     "path": "workflow/README.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 22
+    },
+    {
+     "path": "sealcoin-promo/remotion/theme.ts",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 3,
+     "end": 13
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "SceneSpec entry of SCENES",
+   "question": "remotion-maker: which four fields does one `SceneSpec` entry of sealcoin-promo's `SCENES` hold?",
+   "answer": "`id`, `label`, `durationInFrames` (script seconds x 60) and `scriptRef` (the script's time range).",
+   "explanation": "Eight entries in play order: ocean, identity, marketplace, autonomy, trust, scale, pqc, finale. `id` is also the key that picks the scene's React component; `scriptRef` traces the scene to the operator's timed map.",
+   "example": "{ id: \"ocean\", label: \"Ocean energy\", durationInFrames: 480, scriptRef: \"[0-8s]\" }  # 8 s x 60 fps",
+   "tags": [],
+   "source": [
+    "sealcoin-promo/remotion/manifest.ts:16-33",
+    "sealcoin-promo/remotion/SealcoinPromo.tsx:17"
+   ],
+   "evidence_quote": "{ id: \"ocean\", label: \"Ocean energy\", durationInFrames: 480, scriptRef: \"[0-8s]\" },",
+   "source_refs": [
+    {
+     "path": "sealcoin-promo/remotion/manifest.ts",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 16,
+     "end": 33
+    },
+    {
+     "path": "sealcoin-promo/remotion/SealcoinPromo.tsx",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 17
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 1,
+   "type": "recall",
+   "level": 1,
+   "concept": "CHUNK_FRAMES chunk size",
+   "question": "How many frames is one render chunk in remotion-maker, and what running time is that?",
+   "answer": "1800 frames = 30 s at 60 fps (`CHUNK_FRAMES`); the last chunk may be partial.",
+   "explanation": "Chunk count = `ceil(TOTAL_FRAMES / 1800)`. For the 4500-frame sealcoin-promo that is 3 chunks: 1800, 1800 and a partial 900; see 33.",
+   "tags": [
+    "chunked-render"
+   ],
+   "source": [
+    "sealcoin-promo/remotion/manifest.ts:36",
+    "workflow/README.md:25"
+   ],
+   "evidence_quote": "export const CHUNK_FRAMES = 1800; // 30s @ 60fps",
+   "source_refs": [
+    {
+     "path": "sealcoin-promo/remotion/manifest.ts",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 36
+    },
+    {
+     "path": "workflow/README.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 25
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 0,
+   "type": "trace",
+   "level": 3,
+   "concept": "Six-stage pipeline",
+   "question": "remotion-maker · Brand Video Maker pipeline: recite the 6 stages from the baseline commit to the verified chunk files.",
+   "steps": [
+    "Stage 0 checkpoint -> baseline commit pushed to the remote",
+    "Stage 1 brand decomposition: website URL -> `docs/BRAND.md`, 12-section token dictionary",
+    "Stage 2 script intake (hard gate): operator script -> `script.md` + `SCENE-MANIFEST.md`",
+    "Stage 3 scaffold: h2-promo structure + BRAND.md -> `theme.ts` + `manifest.ts`",
+    "Stage 4 scenes + assets: scene manifest -> scene components and SVG assets",
+    "Stage 5 chunked render + verify -> chunk MP4s, the concat file, a probe report"
+   ],
+   "answer": "checkpoint · brand decomposition · script gate · scaffold · scenes + assets · chunked render + verify",
+   "explanation": "Stages are numbered 0 to 5 and each ends in a commit and a reviewable artifact; the operator reviews at stage boundaries. Stage 2 is the only hard gate; see 62.",
+   "anchor": "A relay through six huts: sign the logbook, scrape colour chips off a shopfront, wait for the typed pages, raise a bare frame, hang the drawings on it, then film it in reels and weigh each reel.",
+   "tags": [
+    "pipeline"
+   ],
+   "source": [
+    "workflow/README.md:9-18"
+   ],
+   "evidence_quote": "| 5. Chunked render + verify | registered chunk compositions |",
+   "source_refs": [
+    {
+     "path": "workflow/README.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 9,
+     "end": 18
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 1,
+   "type": "trace",
+   "level": 3,
+   "concept": "Stage 5 render chain",
+   "question": "remotion-maker · sealcoin-promo stage 5: recite the 4 npm scripts that go from clean code to verified MP4s, in order.",
+   "steps": [
+    "`npm run lint` -> eslint then `tsc --noEmit`; must be clean before any render",
+    "`npm run render:chunks` -> `out/sealcoin-chunk-01..03.mp4`, each rendered muted",
+    "`npm run concat` -> stream-copies the chunks into `out/sealcoin-promo-75s.mp4`",
+    "`npm run verify:media` -> asserts 30 s / 30 s / 15 s / 75 s within one frame"
+   ],
+   "answer": "lint · render:chunks · concat · verify:media",
+   "explanation": "`npm run studio` (preview) and `npm run render:full` (single-pass reference) sit beside the chain but are not part of it. Run from `sealcoin-promo/`.",
+   "anchor": "A print shop: proofread the plates, print three booklets one after another, staple them without reprinting a page, then lay a ruler on each booklet and on the stapled volume.",
+   "tags": [
+    "chunked-render"
+   ],
+   "source": [
+    "workflow/CHUNK-RENDER.md:13-19",
+    "sealcoin-promo/package.json:52-60"
+   ],
+   "evidence_quote": "npm run lint            # eslint + tsc --noEmit — must be clean before any render",
+   "source_refs": [
+    {
+     "path": "workflow/CHUNK-RENDER.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 13,
+     "end": 19
+    },
+    {
+     "path": "sealcoin-promo/package.json",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 52,
+     "end": 60
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 0,
+   "type": "locate",
+   "level": 1,
+   "concept": "Studio entry point",
+   "question": "Which command in remotion-maker's sealcoin-promo opens the local preview of the master and every chunk?",
+   "answer": "`npm run studio` (cwd `sealcoin-promo`) — it runs `remotion studio`.",
+   "explanation": "Studio lists four compositions, all scrubbable: `SealcoinPromo` plus `SealcoinChunk01/02/03`. Loading them imports the manifest, so this is also where a drift throw first shows; see 32.",
+   "confusables": "`npm run dev` — starts the inherited Electron shell (`electron-forge start`), whose export button is BROKEN; see 92.",
+   "example": "cd sealcoin-promo / npm run studio  # master + the 3 chunk compositions",
+   "tags": [],
+   "source": [
+    "sealcoin-promo/package.json:48-49",
+    "sealcoin-promo/README.md:13"
+   ],
+   "evidence_quote": "\"studio\": \"remotion studio\",",
+   "source_refs": [
+    {
+     "path": "sealcoin-promo/package.json",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 48,
+     "end": 49
+    },
+    {
+     "path": "sealcoin-promo/README.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 13
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 1,
+   "type": "output",
+   "level": 3,
+   "concept": "seriesDuration() crossfade extension",
+   "question": "remotion-maker · `seriesDuration`: predict the two return values of the calls below. Scene 0 lasts 480 frames, scene 7 (the last of 8) lasts 360, and `TRANSITION_FRAMES` is 12.",
+   "code_snippet": "export const seriesDuration = (index: number): number =>\n  SCENES[index].durationInFrames +\n  (index < SCENES.length - 1 ? TRANSITION_FRAMES : 0);\n\nseriesDuration(0);\nseriesDuration(7);",
+   "expected_output": "492\n360",
+   "answer": "`492` and `360` — every scene EXCEPT the last is lengthened by the 12-frame crossfade it hands off into.",
+   "explanation": "A crossfade overlaps two neighbours, so 7 transitions would eat 84 frames. Derivation: (1) index 0 < 7, so 480 + 12 = 492; (2) index 7 is the last, so 360 + 0; (3) the eight values sum to 4584 and 4584 - 7 x 12 = 4500.",
+   "confusables": "`sceneStart(index)` — the script-true segment boundary (sum of the durations BEFORE it), with NO crossfade extension.",
+   "tags": [
+    "grounded:logic",
+    "transition-series"
+   ],
+   "source": [
+    "sealcoin-promo/remotion/manifest.ts:42-46",
+    "sealcoin-promo/remotion/manifest.ts:35",
+    "sealcoin-promo/docs/SCENE-MANIFEST.md:26-27"
+   ],
+   "evidence_quote": "(index < SCENES.length - 1 ? TRANSITION_FRAMES : 0);",
+   "source_refs": [
+    {
+     "path": "sealcoin-promo/remotion/manifest.ts",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 42,
+     "end": 46
+    },
+    {
+     "path": "sealcoin-promo/remotion/manifest.ts",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 35
+    },
+    {
+     "path": "sealcoin-promo/docs/SCENE-MANIFEST.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 26,
+     "end": 27
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 2,
+   "type": "output",
+   "level": 3,
+   "concept": "Manifest drift guard",
+   "question": "remotion-maker · sealcoin-promo `manifest.ts`: the `ocean` scene is edited from 480 to 500 frames and nothing else changes. Predict the result of starting Studio or any render.",
+   "code_snippet": "{ id: \"ocean\", label: \"Ocean energy\", durationInFrames: 500, scriptRef: \"[0-8s]\" }, // was 480\n// ... the seven other scenes unchanged (they sum to 4020)\n\nexport const EXPECTED_TOTAL_FRAMES = 4500;\nexport const TOTAL_FRAMES = SCENES.reduce((sum, s) => sum + s.durationInFrames, 0);\n\nif (TOTAL_FRAMES !== EXPECTED_TOTAL_FRAMES) {\n  throw new Error(/* ... */);\n}",
+   "expected_output": "Error: Manifest drift: scene durations sum to 4520 frames, expected 4500. Fix SCENES in remotion/manifest.ts (script map: sealcoin/synopsis.md §3).",
+   "answer": "It THROWS `Manifest drift: scene durations sum to 4520 frames, expected 4500. ...` — the guard sits at module scope, so importing the manifest fails before a single frame is drawn.",
+   "explanation": "Derivation: 4020 + 500 = 4520, and 4520 !== 4500. The guard protects the script's 75 s map: fix `SCENES`, or, when the script itself changed, change `EXPECTED_TOTAL_FRAMES` too and then see 94.",
+   "tags": [
+    "grounded:logic",
+    "intended-error",
+    "drift-guard"
+   ],
+   "source": [
+    "sealcoin-promo/remotion/manifest.ts:69-75",
+    "sealcoin-promo/remotion/manifest.ts:37-40"
+   ],
+   "evidence_quote": "`Manifest drift: scene durations sum to ${TOTAL_FRAMES} frames, expected ${EXPECTED_TOTAL_FRAMES}. ` +",
+   "source_refs": [
+    {
+     "path": "sealcoin-promo/remotion/manifest.ts",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 69,
+     "end": 75
+    },
+    {
+     "path": "sealcoin-promo/remotion/manifest.ts",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 37,
+     "end": 40
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 3,
+   "type": "output",
+   "level": 3,
+   "concept": "CHUNKS partial last window",
+   "question": "remotion-maker · `CHUNKS`: predict the four fields of the THIRD element of the array computed below. `TOTAL_FRAMES` is 4500 and `CHUNK_FRAMES` is 1800.",
+   "code_snippet": "export const CHUNKS: readonly ChunkSpec[] = Array.from(\n  { length: Math.ceil(TOTAL_FRAMES / CHUNK_FRAMES) },\n  (_, i) => ({\n    index: i + 1,\n    id: `SealcoinChunk${String(i + 1).padStart(2, \"0\")}`,\n    fromFrame: i * CHUNK_FRAMES,\n    durationInFrames: Math.min(CHUNK_FRAMES, TOTAL_FRAMES - i * CHUNK_FRAMES),\n  }),\n);",
+   "expected_output": "{ index: 3, id: \"SealcoinChunk03\", fromFrame: 3600, durationInFrames: 900 }",
+   "answer": "`index 3`, `id \"SealcoinChunk03\"`, `fromFrame 3600`, `durationInFrames 900` — `ceil(4500 / 1800)` gives 3 windows and the last is PARTIAL (15 s).",
+   "explanation": "Derivation with i = 2: (1) index 2 + 1 = 3; (2) `padStart(2, \"0\")` turns 3 into `03`; (3) fromFrame 2 x 1800 = 3600; (4) min(1800, 4500 - 3600) = 900. `Root.tsx` registers one composition per element, passing `fromFrame` as a default prop.",
+   "tags": [
+    "grounded:logic",
+    "chunked-render"
+   ],
+   "source": [
+    "sealcoin-promo/remotion/manifest.ts:59-67",
+    "sealcoin-promo/remotion/Root.tsx:29-38",
+    "sealcoin-promo/README.md:21"
+   ],
+   "evidence_quote": "durationInFrames: Math.min(CHUNK_FRAMES, TOTAL_FRAMES - i * CHUNK_FRAMES),",
+   "source_refs": [
+    {
+     "path": "sealcoin-promo/remotion/manifest.ts",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 59,
+     "end": 67
+    },
+    {
+     "path": "sealcoin-promo/remotion/Root.tsx",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 29,
+     "end": 38
+    },
+    {
+     "path": "sealcoin-promo/README.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 21
+    }
+   ]
+  },
+  {
+   "category": 4,
+   "rank": 0,
+   "type": "locate",
+   "level": 1,
+   "concept": "Timing chokepoint file",
+   "question": "Which is the ONLY file in remotion-maker's sealcoin-promo where a scene's length may be set?",
+   "answer": "`sealcoin-promo/remotion/manifest.ts` — the `SCENES` array; totals and chunk windows are derived from it.",
+   "explanation": "`Root.tsx`, the master composition and the chunk wrapper all import their numbers from it. `theme.ts` holds design tokens only; see 61.",
+   "confusables": "`docs/SCENE-MANIFEST.md` — the human MIRROR of the same table; when the two disagree the code wins and the document is corrected.",
+   "tags": [
+    "single-source"
+   ],
+   "source": [
+    "sealcoin-promo/remotion/manifest.ts:1-3",
+    "sealcoin-promo/remotion/theme.ts:2"
+   ],
+   "evidence_quote": "// Scene + chunk manifest — THE single source of truth for all timing.",
+   "source_refs": [
+    {
+     "path": "sealcoin-promo/remotion/manifest.ts",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 1,
+     "end": 3
+    },
+    {
+     "path": "sealcoin-promo/remotion/theme.ts",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 2
+    }
+   ]
+  },
+  {
+   "category": 5,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "render:chunks sequential chain",
+   "question": "In what order and concurrency does `npm run render:chunks` run remotion-maker's three chunk renders?",
+   "answer": "One after another: `render:chunk1 && render:chunk2 && render:chunk3` — a failed chunk stops the chain.",
+   "explanation": "Everything is started by hand on a local machine through npm scripts. The three chunk scripts are HARD-CODED in `package.json`, so a fourth chunk would need a new script; see 94.",
+   "tags": [],
+   "source": [
+    "sealcoin-promo/package.json:52-55"
+   ],
+   "evidence_quote": "\"render:chunks\": \"npm run render:chunk1 && npm run render:chunk2 && npm run render:chunk3\",",
+   "source_refs": [
+    {
+     "path": "sealcoin-promo/package.json",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 52,
+     "end": 55
+    }
+   ]
+  },
+  {
+   "category": 5,
+   "rank": 1,
+   "type": "locate",
+   "level": 2,
+   "concept": "seededRandom() particle determinism",
+   "question": "Which function in remotion-maker's sealcoin-promo makes the background particles identical in every render and every chunk?",
+   "answer": "`seededRandom(seed)` in `remotion/components/BubbleField.tsx`: the fractional part of `sin(seed * 9301 + 49297) * 233280`, a pure function of the particle index.",
+   "explanation": "Position, size, speed and delay of each particle come from it. A frame is rendered on its own and a chunk in its own run, so anything random must be reproducible. Breaks if undone: particles differ between runs and jump at a chunk boundary.",
+   "confusables": "`Math.random()` — a NEW value on every call; `seededRandom(i)` returns the SAME value for the same index forever.",
+   "tags": [
+    "determinism"
+   ],
+   "source": [
+    "sealcoin-promo/remotion/components/BubbleField.tsx:13-17",
+    "sealcoin-promo/remotion/components/BubbleField.tsx:29-36"
+   ],
+   "evidence_quote": "// Deterministic pseudo-random for consistent renders",
+   "source_refs": [
+    {
+     "path": "sealcoin-promo/remotion/components/BubbleField.tsx",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 13,
+     "end": 17
+    },
+    {
+     "path": "sealcoin-promo/remotion/components/BubbleField.tsx",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 29,
+     "end": 36
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 0,
+   "type": "why",
+   "level": 2,
+   "concept": "Chunks window the master",
+   "question": "Why does remotion-maker register each render chunk as `<Sequence from={-fromFrame}>` around the master rather than building each 30 s chunk as its own edit?",
+   "answer": "A negative `from` slides the ONE master timeline back, so chunk frame 0 shows master frame `fromFrame`: boundaries are pixel-continuous by construction and may fall mid-scene.",
+   "explanation": "Breaks if undone: separately edited chunks must rebuild mid-animation state at every cut by hand, and any retiming moves the cuts. Here chunk 1 ends 2 s into `autonomy` with no special handling. Proof: a still of the master at frame k x 1800 equals a still of chunk k+1 at frame 0.",
+   "anchor": "One long film strip slides under a fixed half-minute viewing slot. Three cameramen each filming their own half minute would make the wave jump at every handover.",
+   "confusables": "A separately edited chunk — its frame 0 starts every animation FRESH; a window chunk's frame 0 is the master caught mid-flight.",
+   "tags": [
+    "chunked-render"
+   ],
+   "source": [
+    "sealcoin-promo/remotion/SealcoinChunk.tsx:11-19",
+    "workflow/README.md:25",
+    "sealcoin-promo/docs/SCENE-MANIFEST.md:29",
+    "workflow/CHUNK-RENDER.md:41"
+   ],
+   "evidence_quote": "master frame `fromFrame`. Boundary continuity is guaranteed by construction.",
+   "source_refs": [
+    {
+     "path": "sealcoin-promo/remotion/SealcoinChunk.tsx",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 11,
+     "end": 19
+    },
+    {
+     "path": "workflow/README.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 25
+    },
+    {
+     "path": "sealcoin-promo/docs/SCENE-MANIFEST.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 29
+    },
+    {
+     "path": "workflow/CHUNK-RENDER.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 41
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 1,
+   "type": "why",
+   "level": 2,
+   "concept": "One timing source of truth",
+   "question": "Why does remotion-maker keep scene durations ONLY in `remotion/manifest.ts` rather than also in a `SCENES` table inside `theme.ts`?",
+   "answer": "Two timing tables drift: in the H2Evo exemplar `theme.SCENES` stopped matching the master composition's real durations. One source plus a module-scope throw makes drift impossible to miss.",
+   "explanation": "So `theme.ts` holds design tokens only and its `VIDEO` object deliberately has no `durationInFrames`. Breaks if undone: a token table says one length, the render uses another, and nothing fails. See 01 and 32.",
+   "anchor": "Two clocks in one workshop, one on the paint shelf and one on the bench, slowly disagree and nobody knows which the film obeys. The shelf clock is thrown out; the bench clock gets an alarm.",
+   "confusables": "`DURATIONS` in `theme.ts` — motion MICRO-timing (fade, pop, stagger, the 12-frame transition), NOT scene lengths.",
+   "tags": [
+    "single-source"
+   ],
+   "source": [
+    "workflow/README.md:23",
+    "sealcoin-promo/remotion/theme.ts:2",
+    "sealcoin-promo/remotion/theme.ts:44",
+    "sealcoin-promo/remotion/theme.ts:59"
+   ],
+   "evidence_quote": "its `theme.SCENES` drifted from the master comp's real durations",
+   "source_refs": [
+    {
+     "path": "workflow/README.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 23
+    },
+    {
+     "path": "sealcoin-promo/remotion/theme.ts",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 2
+    },
+    {
+     "path": "sealcoin-promo/remotion/theme.ts",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 44
+    },
+    {
+     "path": "sealcoin-promo/remotion/theme.ts",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 59
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 2,
+   "type": "why",
+   "level": 2,
+   "concept": "Hard script gate",
+   "question": "Why does remotion-maker stop at a hard script gate in stage 2 rather than letting the assistant draft scene copy from the brand website?",
+   "answer": "On-screen copy must be ground truth: final scene copy comes ONLY from the operator's script. Until it arrives, scenes exist only as neutral timing stubs (scene id + frame counter).",
+   "explanation": "Breaks if undone: invented claims about a partner's product reach a rendered video. Once the script lands and the decomposition is approved, work switches to auto-mode (scenes, assets, chunked render without stops). For sealcoin-promo the script is `sealcoin/synopsis.md`.",
+   "anchor": "A turnstile that turns only when the operator feeds typed pages into its slot; behind it wait empty boxes, each showing nothing but its name and a running counter.",
+   "confusables": "Stage 1 brand decomposition — it MAY propose values tagged `[INFERRED]` for sign-off; stage 2 may not start the scene build without the script.",
+   "tags": [
+    "script-gate"
+   ],
+   "source": [
+    "workflow/SCENE-MANIFEST.template.md:6-9",
+    "workflow/README.md:13",
+    "workflow/README.md:22"
+   ],
+   "evidence_quote": "**No scene visuals or copy may be built from inferred data points.**",
+   "source_refs": [
+    {
+     "path": "workflow/SCENE-MANIFEST.template.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 6,
+     "end": 9
+    },
+    {
+     "path": "workflow/README.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 13
+    },
+    {
+     "path": "workflow/README.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 22
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 3,
+   "type": "why",
+   "level": 2,
+   "concept": "--muted chunk renders",
+   "question": "Why do remotion-maker's chunk render scripts all pass `--muted` rather than letting Remotion embed its default audio track?",
+   "answer": "Un-muted, each chunk gets a silent AAC track slightly LONGER than its video; the concat demuxer aligns on the longest stream, leaving ~3-frame gaps at every boundary (75.117 s instead of 75.000 s).",
+   "explanation": "The rule holds only while the composition has no audio. Breaks if undone: the joined file runs long and hitches at each chunk boundary. See 99 for what adding audio would change.",
+   "anchor": "Three planks, each with a strip of tape glued along it that sticks out a finger past the end: butt them together and the tape holds a crack open at every joint.",
+   "confusables": "`-c copy` in the concat step — it avoids RE-ENCODING; `--muted` avoids the over-long audio track. The join uses both.",
+   "tags": [
+    "chunked-render",
+    "ffmpeg-concat"
+   ],
+   "source": [
+    "workflow/CHUNK-RENDER.md:39",
+    "sealcoin-promo/package.json:52-56"
+   ],
+   "evidence_quote": "The concat demuxer aligns segments on the longest stream, so un-muted chunks concat into a video with ~3-frame timestamp gaps at every boundary",
+   "source_refs": [
+    {
+     "path": "workflow/CHUNK-RENDER.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 39
+    },
+    {
+     "path": "sealcoin-promo/package.json",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 52,
+     "end": 56
+    }
+   ]
+  },
+  {
+   "category": 7,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "out/ render directory",
+   "question": "Where does remotion-maker's sealcoin-promo write its rendered MP4s, and why does the repository contain none?",
+   "answer": "`sealcoin-promo/out/` — the root `.gitignore` excludes `out/`, so every MP4 must be re-rendered.",
+   "explanation": "Re-running is safe: `Config.setOverwriteOutput(true)` lets the CLI overwrite and the concat step passes `-y`. The frame-exact results quoted in the runbook therefore cannot be checked from a clone without rendering.",
+   "tags": [],
+   "source": [
+    ".gitignore:1-3",
+    "sealcoin-promo/package.json:52",
+    "sealcoin-promo/remotion.config.ts:11",
+    "sealcoin-promo/scripts/concat-chunks.mjs:8"
+   ],
+   "evidence_quote": "# Dependencies / build output node_modules/ out/",
+   "source_refs": [
+    {
+     "path": ".gitignore",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 1,
+     "end": 3
+    },
+    {
+     "path": "sealcoin-promo/package.json",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 52
+    },
+    {
+     "path": "sealcoin-promo/remotion.config.ts",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 11
+    },
+    {
+     "path": "sealcoin-promo/scripts/concat-chunks.mjs",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 8
+    }
+   ]
+  },
+  {
+   "category": 7,
+   "rank": 1,
+   "type": "compare",
+   "level": 2,
+   "concept": "-full.mp4 vs -75s.mp4",
+   "question": "remotion-maker · sealcoin-promo: `out/sealcoin-promo-full.mp4` vs `out/sealcoin-promo-75s.mp4`: what is the ONE difference?",
+   "answer": "`-full` is ONE single-pass render of `SealcoinPromo` (`render:full`, a reference); `-75s` is the CONCATENATION of the chunk files (`concat`), and the only one of the two that `verify:media` checks.",
+   "anchor": "A loaf baked whole sits on the shelf for comparison; the loaf rebuilt from three slices is the one the inspector measures.",
+   "confusables": "`out/sealcoin-promo-75s.mp4` — JOINED from chunk files by stream copy; `-full` never passes through the chunk pipeline.",
+   "tags": [
+    "chunked-render"
+   ],
+   "source": [
+    "sealcoin-promo/package.json:56",
+    "sealcoin-promo/scripts/concat-chunks.mjs:10",
+    "sealcoin-promo/scripts/verify-media.mjs:19-22"
+   ],
+   "evidence_quote": "\"render:full\": \"remotion render SealcoinPromo out/sealcoin-promo-full.mp4 --muted\",",
+   "source_refs": [
+    {
+     "path": "sealcoin-promo/package.json",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 56
+    },
+    {
+     "path": "sealcoin-promo/scripts/concat-chunks.mjs",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 10
+    },
+    {
+     "path": "sealcoin-promo/scripts/verify-media.mjs",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 19,
+     "end": 22
+    }
+   ]
+  },
+  {
+   "category": 7,
+   "rank": 2,
+   "type": "recall",
+   "level": 2,
+   "concept": "h2-promo excluded from git",
+   "question": "Where is the `h2-promo` reference implementation that remotion-maker's stage 3 scaffolds from?",
+   "answer": "NOT in this repository: the root `.gitignore` excludes `h2-promo/` because that folder owns its own nested git repo; the pristine copy lives outside, under `Codebase\\h2evo`.",
+   "explanation": "What survives here of the H2Evo exemplar: the root `workflow.md` (its completed brand dictionary), `Step1.md`-`Step4.md` (its phase prompts), the role prompt `Agents.md` and the tracker `task.md`. On a fresh clone the only app structure left to copy is `sealcoin-promo/`, itself replicated from h2-promo.",
+   "tags": [
+    "trap"
+   ],
+   "source": [
+    ".gitignore:6-8",
+    "workflow/README.md:5",
+    "workflow/README.md:14",
+    "sealcoin-promo/README.md:3",
+    "task.md:1",
+    "Agents.md:10-11"
+   ],
+   "evidence_quote": "# h2-promo owns its own nested git repo (template lineage, left untouched).",
+   "source_refs": [
+    {
+     "path": ".gitignore",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 6,
+     "end": 8
+    },
+    {
+     "path": "workflow/README.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 5
+    },
+    {
+     "path": "workflow/README.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 14
+    },
+    {
+     "path": "sealcoin-promo/README.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 3
+    },
+    {
+     "path": "task.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 1
+    },
+    {
+     "path": "Agents.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 10,
+     "end": 11
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 0,
+   "type": "recall",
+   "level": 2,
+   "concept": "Bundled ffmpeg and ffprobe",
+   "question": "What makes remotion-maker's concat and verify scripts able to run ffmpeg and ffprobe on a machine with no system install of them?",
+   "answer": "They call the binaries BUNDLED with Remotion: `npx remotion ffmpeg` and `npx remotion ffprobe`. Setting env `FFMPEG=ffmpeg` or `FFPROBE=ffprobe` switches to the system binaries.",
+   "explanation": "Nothing is deployed: preview and renders run locally through npm scripts. The runbook asks to record which binary was used.",
+   "example": "npm run concat  # spawns: npx remotion ffmpeg -y -f concat ... / set FFMPEG=ffmpeg to spawn the system ffmpeg instead",
+   "tags": [
+    "ffmpeg-concat"
+   ],
+   "source": [
+    "sealcoin-promo/scripts/concat-chunks.mjs:28-31",
+    "sealcoin-promo/scripts/verify-media.mjs:24-28",
+    "workflow/CHUNK-RENDER.md:22"
+   ],
+   "evidence_quote": "// Prefer Remotion's bundled ffmpeg; caller can set FFMPEG=ffmpeg to use system binary.",
+   "source_refs": [
+    {
+     "path": "sealcoin-promo/scripts/concat-chunks.mjs",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 28,
+     "end": 31
+    },
+    {
+     "path": "sealcoin-promo/scripts/verify-media.mjs",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 24,
+     "end": 28
+    },
+    {
+     "path": "workflow/CHUNK-RENDER.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 22
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 1,
+   "type": "cloze",
+   "level": 1,
+   "concept": "concat demuxer arguments",
+   "question": "remotion-maker: complete the ffmpeg arguments that `concat-chunks.mjs` uses to join the chunk files.",
+   "cloze": "ffmpeg -y -f {{c1::concat}} -safe 0 -i out/concat-list.txt -c {{c2::copy}} out/sealcoin-promo-75s.mp4",
+   "answer": "concat · copy",
+   "explanation": "The concat DEMUXER reads a list file of `file '<chunk>'` lines discovered from `out/`; `-c copy` stream-copies, so nothing is re-encoded. The join is frame-exact only with muted chunks; see 63.",
+   "tags": [
+    "ffmpeg-concat"
+   ],
+   "source": [
+    "sealcoin-promo/scripts/concat-chunks.mjs:32",
+    "sealcoin-promo/scripts/concat-chunks.mjs:26"
+   ],
+   "evidence_quote": "args.push(\"-y\", \"-f\", \"concat\", \"-safe\", \"0\", \"-i\", LIST_FILE, \"-c\", \"copy\", OUTPUT);",
+   "source_refs": [
+    {
+     "path": "sealcoin-promo/scripts/concat-chunks.mjs",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 32
+    },
+    {
+     "path": "sealcoin-promo/scripts/concat-chunks.mjs",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 26
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "verify:media passing sign",
+   "question": "Which command proves remotion-maker's sealcoin-promo render is correct, and what is its passing sign?",
+   "answer": "`npm run verify:media` — it prints `All media checks passed.` after probing each chunk and the concat file.",
+   "explanation": "It ffprobes the three chunks and the concat file and asserts 30 s / 30 s / 15 s / 75 s within one frame (1/60 s); a missing file counts as a failure and the exit code is 1. Rule: verify by artifacts, not exit codes.",
+   "anchor": "A customs officer ignores the 'delivered' stamp on the form and puts the parcel itself on the scale.",
+   "tags": [
+    "verify-by-artifacts"
+   ],
+   "source": [
+    "sealcoin-promo/scripts/verify-media.mjs:60-64",
+    "sealcoin-promo/scripts/verify-media.mjs:11",
+    "sealcoin-promo/scripts/verify-media.mjs:53",
+    "workflow/CHUNK-RENDER.md:35"
+   ],
+   "evidence_quote": "console.log(\"\\nAll media checks passed.\");",
+   "source_refs": [
+    {
+     "path": "sealcoin-promo/scripts/verify-media.mjs",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 60,
+     "end": 64
+    },
+    {
+     "path": "sealcoin-promo/scripts/verify-media.mjs",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 11
+    },
+    {
+     "path": "sealcoin-promo/scripts/verify-media.mjs",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 53
+    },
+    {
+     "path": "workflow/CHUNK-RENDER.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 35
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 1,
+   "type": "compare",
+   "level": 2,
+   "concept": "stream=duration probe",
+   "question": "remotion-maker · `verify-media.mjs`: ffprobe `stream=duration` vs `format=duration`: what is the ONE difference?",
+   "answer": "`stream=duration` on `v:0` is FRAME-EXACT (30.000 s for 1800 frames); `format=duration` adds container muxing overhead (chunk 1 read 30.059 s) and would fail the one-frame tolerance.",
+   "anchor": "Timing a train by the station clock adds the minutes its doors stand open; timing only the wheels turning gives the exact run.",
+   "confusables": "`format=duration` — the CONTAINER's length including muxing overhead; never assert on it.",
+   "tags": [
+    "verify-by-artifacts"
+   ],
+   "source": [
+    "sealcoin-promo/scripts/verify-media.mjs:29-35",
+    "workflow/CHUNK-RENDER.md:40",
+    "sealcoin-promo/scripts/verify-media.mjs:11"
+   ],
+   "evidence_quote": "// Video-stream duration, not format duration: the mp4 container reports a few",
+   "source_refs": [
+    {
+     "path": "sealcoin-promo/scripts/verify-media.mjs",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 29,
+     "end": 35
+    },
+    {
+     "path": "workflow/CHUNK-RENDER.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 40
+    },
+    {
+     "path": "sealcoin-promo/scripts/verify-media.mjs",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 11
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 2,
+   "type": "scenario",
+   "level": 3,
+   "concept": "Broken Electron export",
+   "question": "remotion-maker: you start sealcoin-promo's Electron UI with `npm run dev` and click its render button. What happens, and how do you render instead?",
+   "answer": "The render fails: `src/render-video.ts` hard-codes `compositionId = \"HelloWorld\"`, an id `Root.tsx` does NOT register. Render through the CLI scripts (`npm run render:chunks`).",
+   "explanation": "The Electron `src/` tree is inherited from the template and kept only for structure parity; `remotion/types.ts` still holds only `HelloWorldProps`. The registered ids are `SealcoinPromo` and `SealcoinChunk01/02/03`.",
+   "tags": [
+    "trap"
+   ],
+   "source": [
+    "sealcoin-promo/src/render-video.ts:25",
+    "sealcoin-promo/src/render-video.ts:182",
+    "sealcoin-promo/README.md:25",
+    "sealcoin-promo/remotion/Root.tsx:21",
+    "sealcoin-promo/remotion/types.ts:1"
+   ],
+   "evidence_quote": "const compositionId = \"HelloWorld\";",
+   "source_refs": [
+    {
+     "path": "sealcoin-promo/src/render-video.ts",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 25
+    },
+    {
+     "path": "sealcoin-promo/src/render-video.ts",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 182
+    },
+    {
+     "path": "sealcoin-promo/README.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 25
+    },
+    {
+     "path": "sealcoin-promo/remotion/Root.tsx",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 21
+    },
+    {
+     "path": "sealcoin-promo/remotion/types.ts",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 1
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 3,
+   "type": "scenario",
+   "level": 3,
+   "concept": "Skill rule vs version pin",
+   "question": "remotion-maker: following the vendored `remotion-best-practices` rules you add `premountFor` to a `<Sequence>` in sealcoin-promo and type-checking fails. Which rule settles it, and what do you do?",
+   "answer": "The PINNED version wins: Remotion is fixed at 4.0.438, where `Sequence premountFor` does not exist. Strip the prop (the H2Evo build stripped 10 usages) and re-run `npm run lint`.",
+   "explanation": "The rules under `.agents/skills/remotion-best-practices/` are third-party and describe newer APIs; `skills-lock.json` pins them by hash. `npm run lint` ends with `tsc --noEmit`, which is what catches the missing prop before a render.",
+   "tags": [
+    "trap",
+    "version-pin",
+    "per-docs"
+   ],
+   "source": [
+    "workflow/README.md:30",
+    ".agents/skills/remotion-best-practices/rules/sequencing.md:15",
+    "sealcoin-promo/package.json:26",
+    "sealcoin-promo/package.json:60",
+    "task.md:30"
+   ],
+   "evidence_quote": "When a rule and the pinned version disagree, the pinned version wins.",
+   "source_refs": [
+    {
+     "path": "workflow/README.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 30
+    },
+    {
+     "path": ".agents/skills/remotion-best-practices/rules/sequencing.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 15
+    },
+    {
+     "path": "sealcoin-promo/package.json",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 26
+    },
+    {
+     "path": "sealcoin-promo/package.json",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 60
+    },
+    {
+     "path": "task.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 30
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 4,
+   "type": "scenario",
+   "level": 4,
+   "concept": "Retiming is not one-file",
+   "question": "remotion-maker: the script grows to 100 s (6000 frames). sealcoin-promo's README says retiming only ever means editing scene durations in `manifest.ts`. Which other places must change, and what goes wrong at each if it does not?",
+   "answer": "Three more places; the one-file claim is DRIFT. (1) `EXPECTED_TOTAL_FRAMES` in `manifest.ts`: left at 4500, the drift guard throws on import. (2) `scripts/verify-media.mjs` repeats `CHUNK_FRAMES` and `EXPECTED_TOTAL_FRAMES`: it still expects 3 chunks and 75 s. (3) `package.json` has only `render:chunk1..3`: `ceil(6000 / 1800)` = 4, so `SealcoinChunk04` is registered but never rendered.",
+   "explanation": "The output name `sealcoin-promo-75s.mp4` is also hard-coded in both scripts. Only a `keep in sync` comment guards the duplicated constants. The concat step is the one part that adapts by itself: it discovers chunk files from `out/`.",
+   "tags": [
+    "drift",
+    "single-source"
+   ],
+   "source": [
+    "sealcoin-promo/scripts/verify-media.mjs:8-10",
+    "sealcoin-promo/README.md:21",
+    "sealcoin-promo/package.json:52-55",
+    "sealcoin-promo/remotion/manifest.ts:37",
+    "sealcoin-promo/scripts/concat-chunks.mjs:10",
+    "sealcoin-promo/scripts/concat-chunks.mjs:12-15"
+   ],
+   "evidence_quote": "const EXPECTED_TOTAL_FRAMES = 4500; // keep in sync with remotion/manifest.ts",
+   "source_refs": [
+    {
+     "path": "sealcoin-promo/scripts/verify-media.mjs",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 8,
+     "end": 10
+    },
+    {
+     "path": "sealcoin-promo/README.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 21
+    },
+    {
+     "path": "sealcoin-promo/package.json",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 52,
+     "end": 55
+    },
+    {
+     "path": "sealcoin-promo/remotion/manifest.ts",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 37
+    },
+    {
+     "path": "sealcoin-promo/scripts/concat-chunks.mjs",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 10
+    },
+    {
+     "path": "sealcoin-promo/scripts/concat-chunks.mjs",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 12,
+     "end": 15
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 9,
+   "type": "scenario",
+   "level": 4,
+   "concept": "Resume: audio pass",
+   "question": "remotion-maker · resume: sealcoin-promo was rendered as a video-only pass, with the script's voice-over kept as metadata. When audio is added, which parts of the chunk pipeline stop being valid?",
+   "answer": "The `--muted` + stream-copy join. (1) Every render script passes `--muted`, a rule stated only for compositions WITHOUT audio. (2) Un-muted chunks carry an AAC track slightly longer than their video, so the concat demuxer leaves ~3-frame gaps at each boundary. (3) `verify-media.mjs` probes only the video stream `v:0`, so it cannot see audio drift.",
+   "explanation": "DESIGN TARGET: no audio code exists, and the repository names no next step for sealcoin-promo in so many words (root `task.md` lists voiceover integration as future work, but for the H2Evo exemplar); audio is the open item its documents point at. Whatever replaces the join must be proved the same way: by probing the produced file.",
+   "tags": [
+    "inferred",
+    "chunked-render"
+   ],
+   "source": [
+    "sealcoin-promo/docs/SCENE-MANIFEST.md:19",
+    "workflow/CHUNK-RENDER.md:39",
+    "sealcoin-promo/package.json:52",
+    "sealcoin-promo/scripts/verify-media.mjs:33",
+    "task.md:36"
+   ],
+   "evidence_quote": "All voice-over text is production metadata only (no audio in this pass)",
+   "source_refs": [
+    {
+     "path": "sealcoin-promo/docs/SCENE-MANIFEST.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 19
+    },
+    {
+     "path": "workflow/CHUNK-RENDER.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 39
+    },
+    {
+     "path": "sealcoin-promo/package.json",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 52
+    },
+    {
+     "path": "sealcoin-promo/scripts/verify-media.mjs",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 33
+    },
+    {
+     "path": "task.md",
+     "branch": "main",
+     "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+     "line": 36
+    }
+   ]
+  }
+ ]
+}

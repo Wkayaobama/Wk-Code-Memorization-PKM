@@ -1,0 +1,675 @@
+{
+ "slug": "wkayaobama-skills",
+ "cards": [
+  {
+   "category": 0,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Personal Claude Code skills library",
+   "question": "What is wkayaobama-skills, and what kinds of content does it hold?",
+   "answer": "A personal library of Claude Code commands and skills: salvation plans, ETL method, PDF salvage, a rigor hook.",
+   "explanation": "A command is what you ask Claude to read; skills are pulled in on demand (see 40). Only the PDF salvage skill ships Node and Python scripts; the rigor skill ships one PowerShell hook; the rest is methodology text.",
+   "anchor": "A toolbox that travels in the car boot: at each garage you open only the drawer the job needs and never tip the whole box out.",
+   "source": [
+    "README.md:1-3",
+    "README.md:46-60"
+   ],
+   "evidence_quote": "Personal skills and commands for Claude Code.",
+   "tags": [
+    "skills-library"
+   ],
+   "source_refs": [
+    {
+     "path": "README.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 1,
+     "end": 3
+    },
+    {
+     "path": "README.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 46,
+     "end": 60
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 1,
+   "type": "recall",
+   "level": 1,
+   "concept": "CLAUDE__ROOT absolute root",
+   "question": "Which single environment variable makes wkayaobama-skills portable from one machine to the next?",
+   "answer": "`CLAUDE__ROOT` (TWO underscores): set once per machine; every skill and command path starts from it.",
+   "explanation": "The maintenance rules forbid relative paths in skill files. Breaks if unset: every `${CLAUDE__ROOT}/...` reference inside a command resolves to nothing.",
+   "example": "export CLAUDE__ROOT=\"$HOME/Documents/wkayaobama-skills\"  # once, in ~/.bashrc",
+   "source": [
+    "README.md:5-17",
+    "skills/github-deployment/SKILL.md:155"
+   ],
+   "evidence_quote": "All skill files use `${CLAUDE__ROOT}` as the absolute root. Set once per machine.",
+   "tags": [
+    "env-var",
+    "portability"
+   ],
+   "source_refs": [
+    {
+     "path": "README.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 5,
+     "end": 17
+    },
+    {
+     "path": "skills/github-deployment/SKILL.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 155
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Per-corpus config.json",
+   "question": "Which file holds everything corpus-specific in wkayaobama-skills' PDF salvage, so `build.js` never changes per document family?",
+   "answer": "`config.json`, one per corpus: labels, regex, thresholds, style, badge highlights, meta.",
+   "explanation": "A wrong classification is fixed by adding a label or a regex there, never by editing `build.js`. Not fully true yet: `preview.js` still hard-codes one corpus's page title.",
+   "example": "node build.js raw.json config.json output.docx  # same script, another corpus = another config",
+   "confusables": "`raw.json` — it is the stage-1 DUMP of text items and path boxes produced by `parse.js`; `config.json` is AUTHORED by hand per corpus.",
+   "source": [
+    "skills/salvage-pdf-to-word/SKILL.md:192-198",
+    "skills/salvage-pdf-to-word/SKILL.md:105-108",
+    "skills/salvage-pdf-to-word/scripts/build.js:43",
+    "skills/salvage-pdf-to-word/scripts/preview.js:43"
+   ],
+   "evidence_quote": "**Don't make `build.js` smarter to fit one corpus.** Add a regex or label to that corpus's `config.json` instead. The script should stay corpus-agnostic.",
+   "tags": [
+    "config-contract",
+    "corpus-agnostic"
+   ],
+   "source_refs": [
+    {
+     "path": "skills/salvage-pdf-to-word/SKILL.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 192,
+     "end": 198
+    },
+    {
+     "path": "skills/salvage-pdf-to-word/SKILL.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 105,
+     "end": 108
+    },
+    {
+     "path": "skills/salvage-pdf-to-word/scripts/build.js",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 43
+    },
+    {
+     "path": "skills/salvage-pdf-to-word/scripts/preview.js",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 43
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 1,
+   "type": "cloze",
+   "level": 1,
+   "concept": "Four buckets file classification",
+   "question": "wkayaobama-skills · pipeline-salvation: complete the four buckets into which a salvation plan classifies every file.",
+   "cloze": "KEEP · {{c1::REWRITE-MINIMAL}} · {{c1::DEFER}} · DROP",
+   "answer": "REWRITE-MINIMAL · DEFER",
+   "explanation": "KEEP powers the runnable core; REWRITE-MINIMAL is boundary cleanup only (say WHAT changes, not 'refactor'); DEFER is useful later; DROP is noise. Every file of the main package goes into exactly one.",
+   "confusables": "cf. [private project] skills/pipeline-salvation: the GENERIC variant of the same four buckets; the copy here adds separate tables per system (Python layer and Workflowps).",
+   "source": [
+    "commands/write_plan.md:93",
+    "skills/pipeline-salvation/SKILL.md:95-113"
+   ],
+   "evidence_quote": "3. **Four Buckets** — Keep / Rewrite-minimal / Defer / Drop (separate tables per system)",
+   "tags": [
+    "per-docs",
+    "four-buckets"
+   ],
+   "source_refs": [
+    {
+     "path": "commands/write_plan.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 93
+    },
+    {
+     "path": "skills/pipeline-salvation/SKILL.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 95,
+     "end": 113
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 0,
+   "type": "trace",
+   "level": 3,
+   "concept": "Four-stage PDF salvage flow",
+   "question": "wkayaobama-skills · salvage-pdf-to-word: recite the 5 script runs from the source PDF to `preview.html`.",
+   "steps": [
+    "`node parse.js <input.pdf> <out-dir>` -> `raw.json` + `raw.stats.json` (top-left coords)",
+    "`render_canvas.py <pdf> <out_png>` -> PNG of the first page, 50 DPI by default",
+    "`slice_canvas.py <in_png> <out_dir>` -> 6 horizontal bands by default: the ground truth",
+    "`node build.js <raw.json> <config.json> <output.docx>` -> the DOCX + `output.ir.json`",
+    "`node preview.js <output.docx> <preview.html>` -> HTML preview through mammoth"
+   ],
+   "answer": "parse · render · slice · build · preview",
+   "explanation": "Stage 2 is two scripts (render, then slice). You then iterate build -> preview on `config.json` until the preview matches the slices; `output.ir.json` tells a classification error from an emission error. Stage 1 carries a latent, unconfirmed crash: see 91.",
+   "anchor": "A tailor unpicks a coat into numbered pieces, pins a photo of it on the wall in strips, sews a new coat from the pieces, then tries it on facing the photo.",
+   "source": [
+    "skills/salvage-pdf-to-word/SKILL.md:49-101",
+    "skills/salvage-pdf-to-word/scripts/build.js:632-640",
+    "skills/salvage-pdf-to-word/scripts/render_canvas.py:14-17",
+    "skills/salvage-pdf-to-word/scripts/slice_canvas.py:14"
+   ],
+   "evidence_quote": "PDF ─► (1) parse.js ─► raw.json (text items + rect ops, top-left coords) (2) render_canvas.py + slice_canvas.py ─► PNG bands for visual reference (3) build.js + config.json ─► output.docx + output.ir.json (IR for review)",
+   "tags": [
+    "pdf-salvage",
+    "pipeline-order"
+   ],
+   "source_refs": [
+    {
+     "path": "skills/salvage-pdf-to-word/SKILL.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 49,
+     "end": 101
+    },
+    {
+     "path": "skills/salvage-pdf-to-word/scripts/build.js",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 632,
+     "end": 640
+    },
+    {
+     "path": "skills/salvage-pdf-to-word/scripts/render_canvas.py",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 14,
+     "end": 17
+    },
+    {
+     "path": "skills/salvage-pdf-to-word/scripts/slice_canvas.py",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 14
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 1,
+   "type": "recall",
+   "level": 1,
+   "concept": "Probe ladder Level 5",
+   "question": "At which level of wkayaobama-skills' probe ladder does a live production write happen, and what does it require?",
+   "answer": "Level 5, the LAST: explicit human approval, no exceptions; levels are never skipped.",
+   "explanation": "Ascending risk: 1 local contract tests, 2 dry run or server start, 3 read-only live probe, 4 full staging run, 5 approved live. `execute_plan` runs levels 1 to 4 itself and stops before 5.",
+   "confusables": "cf. [private project] skills/pipeline-salvation Probe Discipline: also five steps ending in an approved live run, but its step 2 is GENERATED ARTIFACTS; here level 2 is a DRY RUN or server start.",
+   "source": [
+    "skills/pipeline-salvation/SKILL.md:174-184",
+    "commands/write_plan.md:102-112",
+    "commands/execute_plan.md:75"
+   ],
+   "evidence_quote": "| 5 | Approved live | Requires explicit human approval. No exceptions. |",
+   "tags": [
+    "per-docs",
+    "probe-ladder"
+   ],
+   "source_refs": [
+    {
+     "path": "skills/pipeline-salvation/SKILL.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 174,
+     "end": 184
+    },
+    {
+     "path": "commands/write_plan.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 102,
+     "end": 112
+    },
+    {
+     "path": "commands/execute_plan.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 75
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 0,
+   "type": "locate",
+   "level": 1,
+   "concept": "write_plan entry command",
+   "question": "Which command file of wkayaobama-skills do you ask Claude to read and follow first, before touching code on a multi-step task?",
+   "answer": "`commands/write_plan.md`: it writes a salvation plan and saves it under `~/.claude/plans/`.",
+   "explanation": "Trap: its Step 0 reads `${CLAUDE__ROOT}/dashboard/...` and `${CLAUDE__ROOT}/Workflowps/...`; neither directory exists in this repository, so that step only resolves inside the source project's layout.",
+   "example": "Read and follow `${CLAUDE__ROOT}/commands/write_plan.md`  # plan -> ~/.claude/plans/YYYY-MM-DD-<feature-name>.md",
+   "confusables": "`commands/execute_plan.md` — it EXECUTES an existing plan checkpoint by checkpoint; `write_plan.md` only WRITES the plan and touches no code.",
+   "source": [
+    "README.md:52",
+    "README.md:62-68",
+    "commands/write_plan.md:15-20",
+    "commands/write_plan.md:28-35"
+   ],
+   "evidence_quote": "| `commands/write_plan.md` | Before touching code on a multi-step task |",
+   "tags": [
+    "entry-point",
+    "drift"
+   ],
+   "source_refs": [
+    {
+     "path": "README.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 52
+    },
+    {
+     "path": "README.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 62,
+     "end": 68
+    },
+    {
+     "path": "commands/write_plan.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 15,
+     "end": 20
+    },
+    {
+     "path": "commands/write_plan.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 28,
+     "end": 35
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 1,
+   "type": "output",
+   "level": 3,
+   "concept": "classifyLine() banner priority",
+   "question": "wkayaobama-skills · `classifyLine` in `build.js`: predict the `kind` returned by the call below.",
+   "code_snippet": "// TH.bannerFontSize = 30 (default)\n// cfg.regex.formHeading = \"^(AA|BB)\\\\d+[a-z]?\\\\.\\\\s+\"\nfunction classifyLine(line) {\n  const t = line.text;\n  if (!t) return { kind: \"empty\" };\n  if (line.fontSize >= TH.bannerFontSize) {\n    return { kind: \"banner-heading\", text: t };\n  }\n  // ... formHeading, procSection, labels, procItem, body\n}\nclassifyLine({ text: \"AA12. Objectif\", fontSize: 32, items: [] }).kind",
+   "expected_output": "banner-heading",
+   "answer": "`banner-heading` — the font-size test runs BEFORE every regex, so a big line is a banner even when its text matches `formHeading`.",
+   "explanation": "(1) `t` is non-empty, so not `empty`. (2) 32 >= 30, so the function returns at once. (3) The `formHeading` test below is never reached. At font size 11 the same text would be `form-heading`.",
+   "confusables": "`form-heading` — decided by the `formHeading` REGEX on the text; `banner-heading` is decided by FONT SIZE alone and is tested first.",
+   "source": [
+    "skills/salvage-pdf-to-word/scripts/build.js:146-160",
+    "skills/salvage-pdf-to-word/scripts/build.js:63-66",
+    "skills/salvage-pdf-to-word/SKILL.md:114"
+   ],
+   "evidence_quote": "if (line.fontSize >= TH.bannerFontSize) {",
+   "tags": [
+    "grounded:logic",
+    "classification-order"
+   ],
+   "source_refs": [
+    {
+     "path": "skills/salvage-pdf-to-word/scripts/build.js",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 146,
+     "end": 160
+    },
+    {
+     "path": "skills/salvage-pdf-to-word/scripts/build.js",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 63,
+     "end": 66
+    },
+    {
+     "path": "skills/salvage-pdf-to-word/SKILL.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 114
+    }
+   ]
+  },
+  {
+   "category": 4,
+   "rank": 0,
+   "type": "compare",
+   "level": 2,
+   "concept": "Command file",
+   "question": "wkayaobama-skills: a command (`commands/*.md`) vs a skill (`skills/<name>/SKILL.md`): what is the ONE difference?",
+   "answer": "A command is what you ASK Claude to read and follow; a skill is a methodology reference that the command PULLS IN by its `${CLAUDE__ROOT}` path when needed.",
+   "explanation": "Hence the rule not to load all skills into every session. Breaks if undone: every session carries the whole library as context.",
+   "anchor": "You hand the cook one recipe card; the card itself sends him to fetch only the jars it names from the shelf.",
+   "confusables": "skill (`SKILL.md`) — it is REFERENCED from inside a command; a command is INVOKED directly by the owner.",
+   "source": [
+    "README.md:46-68"
+   ],
+   "evidence_quote": "**Do not load all skills into every session.** Each skill is referenced from within a command when needed.",
+   "tags": [
+    "command-vs-skill"
+   ],
+   "source_refs": [
+    {
+     "path": "README.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 46,
+     "end": 68
+    }
+   ]
+  },
+  {
+   "category": 5,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "UserPromptSubmit rigor hook",
+   "question": "Which Claude Code hook event runs wkayaobama-skills' `rigor-reminder.ps1`?",
+   "answer": "`UserPromptSubmit`: the seven-point checklist is injected BEFORE the assistant answers.",
+   "explanation": "The settings entry attaches a `matcher` regex of decision words (recommend, compare, vs, design ...) and a 5-second timeout; per the skill, only matching prompts get the checklist.",
+   "confusables": "`PreToolUse` (Option 2, not enabled) — it BLOCKS tool calls until sequential thinking has run; `UserPromptSubmit` only INJECTS a reminder.",
+   "source": [
+    "skills/production-discipline/hooks/rigor-reminder.ps1:1-4",
+    "skills/production-discipline/references/settings-snippet.json:3-12"
+   ],
+   "evidence_quote": "# Wired in ~/.claude/settings.json under \"hooks\" -> \"UserPromptSubmit\".",
+   "tags": [
+    "per-docs",
+    "hook-event"
+   ],
+   "source_refs": [
+    {
+     "path": "skills/production-discipline/hooks/rigor-reminder.ps1",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 1,
+     "end": 4
+    },
+    {
+     "path": "skills/production-discipline/references/settings-snippet.json",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 3,
+     "end": 12
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 0,
+   "type": "why",
+   "level": 2,
+   "concept": "Harness hook over memory rule",
+   "question": "Why does wkayaobama-skills enforce the rigor checklist with a harness hook rather than a memory or `CLAUDE.md` rule?",
+   "answer": "The memory rule already existed and the assistant still skipped it; a hook injects the checklist MECHANICALLY, whatever the assistant chooses to recall.",
+   "explanation": "Breaks if undone: back to the cycle where the owner pushes back, the assistant acknowledges the rule, and skips it again next session. The hook enforces the PROCESS only; the assistant may still ignore the injected text (see 99).",
+   "anchor": "A note pinned in the corridor that everyone walks past, replaced by a doorman who puts the note in your hand each time you come in.",
+   "confusables": "memory / `CLAUDE.md` rule — it depends on the assistant CHOOSING to apply it; the hook fires in the harness regardless.",
+   "source": [
+    "skills/production-discipline/SKILL.md:22-26",
+    "skills/production-discipline/references/settings-snippet.json:3-12"
+   ],
+   "evidence_quote": "Memory-only enforcement is insufficient — the rule existed in the project's `feedback_research_rigor.md` and the assistant still skipped it. The harness must enforce it mechanically.",
+   "tags": [
+    "rigor-gate"
+   ],
+   "source_refs": [
+    {
+     "path": "skills/production-discipline/SKILL.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 22,
+     "end": 26
+    },
+    {
+     "path": "skills/production-discipline/references/settings-snippet.json",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 3,
+     "end": 12
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 1,
+   "type": "why",
+   "level": 2,
+   "concept": "Rebuild from positions, not tags",
+   "question": "Why does wkayaobama-skills' salvage-pdf-to-word rebuild structure from positions and vector operators rather than trust the PDF's tags, as `pdf2docx` does?",
+   "answer": "In forms and flat PDFs the structure is VISUAL only (position, font size, proximity); a tag-trusting converter returns flat paragraphs in scan order.",
+   "explanation": "`pdfjs-dist` exposes both `getTextContent()` and `getOperatorList()`, enough to rebuild lines and blocks. Breaks if undone: two-column form rows and checkbox lists are flattened. For a clean, tagged PDF the cheap converter is still tried first.",
+   "anchor": "A form shredded on the floor: you ignore the label on its folder and rebuild the page from where each scrap landed and how big its letters are.",
+   "confusables": "`pdf2docx` / Acrobat export — they ASSUME the PDF carries tagged structure; the salvage scripts IGNORE tags.",
+   "source": [
+    "skills/salvage-pdf-to-word/references/methodology.md:3-12",
+    "skills/salvage-pdf-to-word/SKILL.md:194",
+    "skills/salvage-pdf-to-word/scripts/parse.js:92-120"
+   ],
+   "evidence_quote": "Salvage flips the strategy: ignore tags, rebuild structure from positions.",
+   "tags": [
+    "pdf-salvage"
+   ],
+   "source_refs": [
+    {
+     "path": "skills/salvage-pdf-to-word/references/methodology.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 3,
+     "end": 12
+    },
+    {
+     "path": "skills/salvage-pdf-to-word/SKILL.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 194
+    },
+    {
+     "path": "skills/salvage-pdf-to-word/scripts/parse.js",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 92,
+     "end": 120
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 0,
+   "type": "recall",
+   "level": 2,
+   "concept": "Hook smoke check",
+   "question": "After installing wkayaobama-skills' rigor hook, how do you check that it fires, and what is the passing sign?",
+   "answer": "Restart Claude Code and send a prompt containing a trigger word such as \"recommend\"; the status line briefly shows `Injecting rigor discipline reminder...`.",
+   "explanation": "Hooks are loaded at startup, hence the restart. No automated test is committed; for the PDF scripts the check is visual: the preview against the slices.",
+   "confusables": "cf. [private project] claude/settings.json: the INSTALLED hook entry with the same matcher; this repository holds only the SNIPPET to merge.",
+   "source": [
+    "skills/production-discipline/references/settings-snippet.json:9-11",
+    "skills/production-discipline/SKILL.md:96-98"
+   ],
+   "evidence_quote": "\"statusMessage\": \"Injecting rigor discipline reminder...\"",
+   "tags": [
+    "per-docs",
+    "smoke-check"
+   ],
+   "source_refs": [
+    {
+     "path": "skills/production-discipline/references/settings-snippet.json",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 9,
+     "end": 11
+    },
+    {
+     "path": "skills/production-discipline/SKILL.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 96,
+     "end": 98
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 1,
+   "type": "locate",
+   "level": 3,
+   "concept": "pendingRects ReferenceError",
+   "question": "wkayaobama-skills · stage 1 of the PDF salvage stops with `ReferenceError: pendingRects is not defined`. Which statement raised it, and what is the fix?",
+   "answer": "`pendingRects = [];` in the `OPS.endPath` case of `parse()` in `parse.js` — the declared variable is `pendingPaths`; an ES module is strict, so assigning an undeclared name THROWS. Fix: `pendingPaths = [];`.",
+   "explanation": "Derived by reading, not by running: `scripts/package.json` sets `\"type\": \"module\"`, and the only declaration is `let pendingPaths = [];`. It fires the first time a no-paint (clipping) path reaches `endPath`.",
+   "code_snippet": "case OPS.endPath:\n  // discard pending rects (clipping/no-paint path)\n  pendingRects = [];\n  break;",
+   "source": [
+    "skills/salvage-pdf-to-word/scripts/parse.js:229-232",
+    "skills/salvage-pdf-to-word/scripts/parse.js:128",
+    "skills/salvage-pdf-to-word/scripts/package.json:5"
+   ],
+   "evidence_quote": "pendingRects = [];",
+   "tags": [
+    "trap",
+    "inferred"
+   ],
+   "source_refs": [
+    {
+     "path": "skills/salvage-pdf-to-word/scripts/parse.js",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 229,
+     "end": 232
+    },
+    {
+     "path": "skills/salvage-pdf-to-word/scripts/parse.js",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 128
+    },
+    {
+     "path": "skills/salvage-pdf-to-word/scripts/package.json",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 5
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 2,
+   "type": "recall",
+   "level": 2,
+   "concept": "First page only",
+   "question": "wkayaobama-skills' salvage-pdf-to-word SKILL.md accepts single- or multi-page PDFs; how many pages does `parse.js` actually read?",
+   "answer": "ONE: `pdf.getPage(1)`. Later pages are silently ignored, and `render_canvas.py` likewise renders only `pdf[0]`.",
+   "explanation": "The scripts were written for one very tall canvas page (`slice_canvas.py` even uncaps Pillow's pixel limit), which hides the gap. Fix: loop over pages with a per-page y offset.",
+   "source": [
+    "skills/salvage-pdf-to-word/scripts/parse.js:80-83",
+    "skills/salvage-pdf-to-word/scripts/render_canvas.py:15-16",
+    "skills/salvage-pdf-to-word/SKILL.md:39"
+   ],
+   "evidence_quote": "const page = await pdf.getPage(1);",
+   "tags": [
+    "drift"
+   ],
+   "source_refs": [
+    {
+     "path": "skills/salvage-pdf-to-word/scripts/parse.js",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 80,
+     "end": 83
+    },
+    {
+     "path": "skills/salvage-pdf-to-word/scripts/render_canvas.py",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 15,
+     "end": 16
+    },
+    {
+     "path": "skills/salvage-pdf-to-word/SKILL.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 39
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 9,
+   "type": "scenario",
+   "level": 4,
+   "concept": "Escalating to Option 2",
+   "question": "wkayaobama-skills: the soft rigor reminder (Option 1) keeps being ignored and you decide to escalate to the blocking `PreToolUse` hook (Option 2). What do you verify first, what is the risk, and how do you roll back?",
+   "answer": "Verify the hook's stdin JSON BEFORE enforcing. (1) The blocking script ASSUMES fields `tool_name` and `tool_use_history`; first run the diagnostic variant that only logs the JSON. (2) Risk: if the allowlist check fails, the sequential-thinking call itself is blocked, a deadlock. (3) Rollback: remove the `PreToolUse` and `Stop` blocks from `~/.claude/settings.json`; Option 1 keeps firing.",
+   "explanation": "This is the documented next step of the rigor gate: Option 2 costs three scripts, three settings entries and a marker-file lifecycle, so it stays deferred until Option 1 is shown to be insufficient. See 60.",
+   "confusables": "Option 1 (`UserPromptSubmit` reminder) — SOFT: the reminder is injected and may be ignored; Option 2 is HARD: the tool call is blocked.",
+   "source": [
+    "skills/production-discipline/hooks/RIGOR_HOOK_OPTION_2.md:141-150",
+    "skills/production-discipline/hooks/RIGOR_HOOK_OPTION_2.md:130-139",
+    "skills/production-discipline/hooks/RIGOR_HOOK_OPTION_2.md:3-11",
+    "skills/production-discipline/SKILL.md:102-116"
+   ],
+   "evidence_quote": "The exact shape of the JSON delivered to PreToolUse hooks via stdin should be verified against the Claude Code hook documentation before enabling.",
+   "tags": [
+    "per-docs",
+    "resume",
+    "rigor-gate"
+   ],
+   "source_refs": [
+    {
+     "path": "skills/production-discipline/hooks/RIGOR_HOOK_OPTION_2.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 141,
+     "end": 150
+    },
+    {
+     "path": "skills/production-discipline/hooks/RIGOR_HOOK_OPTION_2.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 130,
+     "end": 139
+    },
+    {
+     "path": "skills/production-discipline/hooks/RIGOR_HOOK_OPTION_2.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 3,
+     "end": 11
+    },
+    {
+     "path": "skills/production-discipline/SKILL.md",
+     "branch": "master",
+     "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+     "line": 102,
+     "end": 116
+    }
+   ]
+  }
+ ]
+}

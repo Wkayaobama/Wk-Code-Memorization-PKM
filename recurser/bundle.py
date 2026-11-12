@@ -76,9 +76,10 @@ def build_bundle(edition: dict, *, generated_at: str | None = None) -> dict:
 
 
 def js_literal(data) -> str:
-    """JSON that is safe inside an inline <script> block."""
+    """JSON that is safe inside an inline <script> block: no ``<`` survives, so card text can neither close
+    the script (``</script``), open an HTML comment (``<!--``) nor imitate the page's section markers."""
     text = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
-    return text.replace("</", "<\\/").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
+    return text.replace("<", "\\u003c").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
 
 
 def bundle_js(bundle: dict) -> str:
@@ -134,6 +135,8 @@ def as_fragment(inlined_html: str) -> str:
     """Keep only what sits between the HEAD and BODY markers (for self-wrapping hosts)."""
     parts = []
     for name in ("HEAD", "BODY"):
+        if inlined_html.count(f"<!--{name}-->") != 1 or inlined_html.count(f"<!--/{name}-->") != 1:
+            raise ValueError(f"index.html must hold exactly one <!--{name}--> ... <!--/{name}--> pair")
         m = re.search(_SECTION.format(name), inlined_html, re.S)
         if not m:
             raise ValueError(f"index.html is missing the <!--{name}--> ... <!--/{name}--> markers")

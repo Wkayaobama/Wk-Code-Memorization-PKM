@@ -1,0 +1,500 @@
+{
+ "slug": "ghost-crm",
+ "repo": "Wkayaobama/Ghost-CRM",
+ "title": "Ghost-CRM: Skhokho docs import + 16-skill Django rebuild contract",
+ "one_liner": "Docs-only repo: a VuePress 1.8.2 site imported from Skhokho Business Management Software plus a 16-skill library that specifies how to rebuild the product as a modular Django app.",
+ "purpose": "Ghost-CRM holds no application code. It contains the 45-page, 169-screenshot user documentation of Skhokho (a real Django-built SMB suite: CRM, HR/payroll, accounting, projects, OKR, client portal), imported wholesale and only partially rebranded, plus one provenance script (rewrite_links.py) that flattened every skhokho.io link to the repo URL and archived the originals in per-page References blocks. The mission is to rebuild the documented product as a production Django application, with the docs as product ground truth. The analysed branch adds a knowledge-transfer library of 16 skills under .claude/skills/: an architecture contract (17-app map, invariants I1-I6, rulings R1-R10), a gated campaign plan (G0-G6), change control (classes C1-C5, rules N1-N8), five domain specs, and five read-only diagnostics that certify the corpus baseline. It exists so a zero-context engineer or agent can start the rebuild without re-deciding what the docs left ambiguous.",
+ "domain": "CRM / SMB business-suite rebuild spec (docs + knowledge transfer)",
+ "status": "docs-only",
+ "stack": [
+  "VuePress 1.8.2",
+  "webpack 4.46.0 (pinned by lockfileVersion 1)",
+  "Node 14/16 or NODE_OPTIONS=--openssl-legacy-provider",
+  "Markdown",
+  "Python 3 stdlib scripts",
+  "Claude Code skills (.claude/skills)",
+  "Django 5.2 LTS + pytest-django (planned, not present)",
+  "Celery + Redis (planned default, not present)"
+ ],
+ "aliases": [
+  "Ghost CRM",
+  "the Skhokho docs rebuild",
+  "the Skhokho import",
+  "the Django rebuild campaign",
+  "ghost-crm skill library"
+ ],
+ "entry_points": [
+  {
+   "command": "npm ci && npm run docs:dev",
+   "what": "Install the pinned 2021 tree and serve the docs site with hot reload at localhost:8080/documentation/ (on Node >= 17 export NODE_OPTIONS=--openssl-legacy-provider first).",
+   "path": "package.json:8"
+  },
+  {
+   "command": "npm run docs:build",
+   "what": "Static build into docs/.vuepress/dist/ (gitignored); only works when served under the /documentation/ subpath.",
+   "path": "package.json:9"
+  },
+  {
+   "command": "python3 rewrite_links.py [--apply] [--docs PATH]",
+   "what": "Dry run by default: reports the skhokho.io markdown links it would flatten; --apply rewrites files and regenerates the References blocks.",
+   "path": "rewrite_links.py:54"
+  },
+  {
+   "command": "python3 .claude/skills/diagnostics-and-tooling/scripts/audit_branding.py [--repo PATH]",
+   "what": "S1 rebrand meter: counts 'skhokho' per file split into body vs immutable References; exits 1 at baseline because the rebrand is incomplete."
+  },
+  {
+   "command": "python3 .claude/skills/diagnostics-and-tooling/scripts/check_references_integrity.py",
+   "what": "S3 provenance tripwire: every References block must be byte-intact machine output (one header, exact separator, well-formed entries)."
+  },
+  {
+   "command": "python3 .claude/skills/diagnostics-and-tooling/scripts/docs_inventory.py",
+   "what": "S5 drift dashboard: compares corpus counts against the embedded 2026-08-30 baseline; any DEVIATION exits 1."
+  },
+  {
+   "command": "npm test",
+   "what": "Hardcoded failure (echo + exit 1). There are no tests and no CI; the failure is kept as an honest red.",
+   "path": "package.json:7"
+  }
+ ],
+ "architecture": [
+  {
+   "component": "Docs corpus (the product spec)",
+   "path": "docs",
+   "responsibility": "45 markdown pages in 9 modules (guide, personal, manager, okr, hr, project, client, accounting, sales) plus 169 screenshots. Product ground truth for the rebuild; code must conform to it, never the reverse.",
+   "talks_to": [
+    "VuePress config",
+    "References blocks"
+   ]
+  },
+  {
+   "component": "VuePress site config",
+   "path": "docs/.vuepress/config.js",
+   "responsibility": "The whole site behaviour in 34 lines: base '/documentation/', favicon head link, still-Skhokho title/description, 10 nav entries (Home points at the live skhokho.io), and 9 sidebar arrays that must mirror the 45 md files 1:1.",
+   "talks_to": [
+    "Docs corpus",
+    "check_sidebar_sync.py"
+   ]
+  },
+  {
+   "component": "Link rewriter / provenance tool",
+   "path": "rewrite_links.py",
+   "responsibility": "Flattens every markdown link whose URL contains skhokho.io to the bare repo URL and appends a '## References (original links)' block with the deduped originals. Those blocks are the only record of the original app's routes.",
+   "talks_to": [
+    "Docs corpus"
+   ]
+  },
+  {
+   "component": "architecture-contract skill",
+   "path": ".claude/skills/architecture-contract/SKILL.md",
+   "responsibility": "Single home of design decisions: candidate 17-app Django map and layered dependency graph, shared-schema tenancy contract, invariants I1-I6, ruling register R1-R10, legacy route reconstruction method, known weak points.",
+   "talks_to": [
+    "domain-* skills",
+    "campaign-django-rebuild",
+    "change-control"
+   ]
+  },
+  {
+   "component": "campaign-django-rebuild skill",
+   "path": ".claude/skills/campaign-django-rebuild/SKILL.md",
+   "responsibility": "Executable rebuild runbook: phases G0 spec freeze, G1 skeleton, G2 tenancy + permission engine, G3 clients + projects, G4 money + HR, G5 CRM + collab, G6 portal; ranked solution menus; fenced wrong paths W1-W8; promotion protocol.",
+   "talks_to": [
+    "architecture-contract",
+    "change-control",
+    "diagnostics scripts"
+   ]
+  },
+  {
+   "component": "change-control skill",
+   "path": ".claude/skills/change-control/SKILL.md",
+   "responsibility": "Classifies every change (C1 docs-content, C2 docs-infra, C3 skill-library, C4 future-app-code, C5 provenance-touching) and holds the non-negotiable register N1-N8 with reviewer checklists and the skill promotion path.",
+   "talks_to": [
+    "all skills"
+   ]
+  },
+  {
+   "component": "Diagnostics battery (S1-S5)",
+   "path": ".claude/skills/diagnostics-and-tooling/scripts",
+   "responsibility": "Five read-only stdlib scripts (branding audit, image cross-check, References integrity, sidebar sync, inventory) with exit contract 0 pass / 1 findings / 2 cannot run. They certify the corpus baseline before and after every phase.",
+   "talks_to": [
+    "Docs corpus",
+    "VuePress config",
+    "git log"
+   ]
+  },
+  {
+   "component": "validation-and-qa skill",
+   "path": ".claude/skills/validation-and-qa/SKILL.md",
+   "responsibility": "Evidence tiers (command output, docs citation, ruling, labelled inference), golden inventory G1-G14, acceptance thresholds per change class, and the four planned test tiers for the rebuild.",
+   "talks_to": [
+    "diagnostics-and-tooling",
+    "change-control"
+   ]
+  },
+  {
+   "component": "Domain spec skills (5)",
+   "path": ".claude/skills/domain-tenancy-and-access/SKILL.md",
+   "responsibility": "domain-tenancy-and-access, -hr-and-payroll, -accounting, -sales-and-marketing, -projects-okr-collab: documented behaviour fact by fact with citations, open registers, and candidate Django model sketches. Tenancy holds the permission matrix.",
+   "talks_to": [
+    "architecture-contract"
+   ]
+  },
+  {
+   "component": "Operations skills",
+   "path": ".claude/skills/build-and-operate/SKILL.md",
+   "responsibility": "build-and-operate (clone, Node trap, npm ci, serve under /documentation/), config-and-flags (every config axis with status PROD/STALE/BUG), debugging-and-archaeology (triage T1-T8, experiments E1-E4, chronicle A1-A7).",
+   "talks_to": [
+    "VuePress config",
+    "rewrite_links.py"
+   ]
+  },
+  {
+   "component": "Standards and writing skills",
+   "path": ".claude/skills/engineering-standards/SKILL.md",
+   "responsibility": "engineering-standards (modularity rules D1-D6 with grep checks, SOLID examples, idea lifecycle, frontier register F1-F5), docs-and-writing (house style, rebrand checklist, attribution rule), reference (domain glossary).",
+   "talks_to": [
+    "change-control",
+    "architecture-contract"
+   ]
+  }
+ ],
+ "data_flow": [
+  "1. Origin: Skhokho's VuePress docs were imported; rewrite_links.py ran BEFORE the first commit, so the pre-rewrite text exists nowhere in git (import commit is an orphan root later merged with the GitHub README root).",
+  "2. rewrite_file() matches each [label](...skhokho.io...) link, swaps the URL for the bare repo URL and collects (label, url) pairs deduped in order.",
+  "3. If the file already has a References header, the text is split on the exact separator '\\n\\n---\\n\\n## References (original links)' and the old block dropped; a fresh block is appended. Result: 43 of 45 pages carry a block, 69 archived entries.",
+  "4. VuePress reads docs/ plus config.js (base /documentation/, nav, 9 sidebar arrays) and builds the static site into docs/.vuepress/dist/.",
+  "5. Skill library layer: the docs were read into 16 skills; contradictions became rulings R1-R10, gaps became [open] items, and every count was certified as a golden inventory dated 2026-08-30.",
+  "6. Planned G0: run the five diagnostics to prove the corpus is at baseline, mine screenshot-only schemas (items A1-A7) into rulings, classify every [open] item as ruling or deferral.",
+  "7. Planned G1: create app/ at the repo root, startproject config, apps accounts/tenants/core, set AUTH_USER_MODEL = 'accounts.User' BEFORE the first migrate.",
+  "8. Planned G2: tenancy + three-layer permission engine (package gating, five member grants, line-manager row scoping), proven by the permission matrix as parametrized pytest cells.",
+  "9. Planned G3-G6: clients + projects slice with route parity (3 of 7 legacy routes built, 4 deferred), accounting then payroll with idempotency proofs, CRM + unified collab models, finally portal + calendar aggregation.",
+  "10. Every phase exit is a C4 change through change-control: diagnostics still at baseline, gate numbers quoted, full pytest tally, rulings ledger delta, no file under docs/ modified."
+ ],
+ "key_functions": [
+  {
+   "name": "rewrite_file",
+   "path": "rewrite_links.py:24",
+   "signature": "def rewrite_file(path: Path, apply: bool) -> tuple[int, list[tuple[str, str]]]",
+   "does": "Core of the provenance tool: regex-substitutes skhokho.io links with NEW_URL, harvests the original (label, url) pairs, strips any previous References block by exact-separator split, appends a regenerated block, and writes only when apply is true. Returns (match count, originals).",
+   "input_example": "rewrite_file(Path('docs/guide/index.md'), apply=False)",
+   "expected_output": "Returns (0, []) and leaves the file untouched when it contains no skhokho.io markdown link (early return at lines 38-39)."
+  },
+  {
+   "name": "main (rewrite_links.py)",
+   "path": "rewrite_links.py:54",
+   "signature": "def main() -> int",
+   "does": "CLI: --apply (default is dry run) and --docs (default is <script dir>/docs, not cwd). Walks docs/**/*.md, prints one line per touched file and a summary. Returns 1 when the docs directory is missing.",
+   "input_example": "python3 rewrite_links.py",
+   "expected_output": "[DRY RUN] 69 link(s) across 43 file(s) of 45 scanned.  (documented baseline on the committed tree; the same 69/43 is printed on every re-run)"
+  },
+  {
+   "name": "LINK_RE / REFERENCES_HEADER",
+   "path": "rewrite_links.py:20-21",
+   "signature": "LINK_RE = re.compile(r\"\\[([^\\]]+)\\]\\((https?://[^)\\s]*skhokho\\.io[^)\\s]*)\\)\")",
+   "does": "Load-bearing constants. LINK_RE only sees markdown inline links, which is why the nav Home link in config.js and all prose mentions escaped the rewrite. REFERENCES_HEADER plus the '\\n\\n---\\n\\n' separator is the strip-and-regenerate anchor."
+  },
+  {
+   "name": "split_md",
+   "path": ".claude/skills/diagnostics-and-tooling/scripts/audit_branding.py:31",
+   "signature": "def split_md(text: str)",
+   "does": "Splits a markdown page at the References header so branding hits can be counted separately as actionable body debt versus immutable archive.",
+   "input_example": "split_md('intro text with no header')",
+   "expected_output": "('intro text with no header', '') - the refs part is an empty string when no header exists."
+  },
+  {
+   "name": "main (audit_branding.py, S1)",
+   "path": ".claude/skills/diagnostics-and-tooling/scripts/audit_branding.py:39",
+   "signature": "def main() -> int",
+   "does": "Counts case-insensitive 'skhokho' in every non-PNG file under docs/, plus package.json, plus skhokho.io URLs in md bodies and config.js. Findings = body + package.json + body URLs + config links; References occurrences never count.",
+   "expected_output": "Documented baseline: body 59, refs 73, grand=132; package.json 3; 0 body URLs; 1 live link at config.js:10; 'FINDINGS: 63 stale-branding item(s)'; exit 1."
+  },
+  {
+   "name": "main (check_references_integrity.py, S3)",
+   "path": ".claude/skills/diagnostics-and-tooling/scripts/check_references_integrity.py:37",
+   "signature": "def main() -> int",
+   "does": "For each md file: at most one References header, the byte-exact MACHINE_SEP before it, no skhokho.io URL above it, every block line shaped '- [label](url)', block ends the file with one newline. Any violation exits 1.",
+   "expected_output": "Documented baseline: 45 scanned, 43 with a block, 2 without (docs/client/portal.md, docs/okr/keyresults.md), 69 entries, 0 violations, 'PASS: all References blocks are byte-intact machine output.'"
+  },
+  {
+   "name": "main (check_sidebar_sync.py, S4)",
+   "path": ".claude/skills/diagnostics-and-tooling/scripts/check_sidebar_sync.py:29",
+   "signature": "def main() -> int",
+   "does": "Regex-parses the sidebar arrays out of config.js (JS, not JSON), maps '' to index.md, and compares each section with the md files on disk in both directions; also flags module dirs with no sidebar section.",
+   "expected_output": "Documented baseline: 'PASS: sidebar and disk agree (45:45).'"
+  },
+  {
+   "name": "main (check_images.py, S2)",
+   "path": ".claude/skills/diagnostics-and-tooling/scripts/check_images.py:28",
+   "signature": "def main() -> int",
+   "does": "Set-compares image references in md against files in docs/.vuepress/public/img/. Missing images exit 1; orphans are informational, and an orphan named in config.js is flagged as not a true orphan.",
+   "expected_output": "Documented baseline: 169 on disk, 156 unique refs, 0 missing, 13 unreferenced (favicon.png is used by config.js, so 12 true orphans); exit 0."
+  },
+  {
+   "name": "main / EXPECTED (docs_inventory.py, S5)",
+   "path": ".claude/skills/diagnostics-and-tooling/scripts/docs_inventory.py:23",
+   "signature": "EXPECTED = {'md_total': 45, 'images_total': 169, 'references_blocks': 43, 'github_links_md': 73, 'skhokho_urls_md': 69, 'skhokho_occurrences_docs': 132, ...}",
+   "does": "Embedded baseline dict and the main() that re-measures each number, printing 'ok' or 'DEVIATION' per row. Only script that shells out, and only to git log -1 (informational).",
+   "expected_output": "Documented baseline: 'PASS: corpus matches the 2026-08-30 baseline exactly.'"
+  },
+  {
+   "name": "default_repo",
+   "path": ".claude/skills/diagnostics-and-tooling/scripts/audit_branding.py:26",
+   "signature": "def default_repo() -> Path",
+   "does": "Self-location shared by all five scripts: Path(__file__).resolve().parents[4] climbs scripts -> diagnostics-and-tooling -> skills -> .claude -> repo root, so the scripts work from any cwd; --repo overrides it."
+  },
+  {
+   "name": "requires_app_grant [candidate sketch, no code exists]",
+   "path": ".claude/skills/domain-tenancy-and-access/SKILL.md:571",
+   "signature": "def requires_app_grant(app: str)",
+   "does": "Planned layer-2 permission decorator in core/permissions.py: raises PermissionDenied when the request has no membership; passes when the member is owner or holds grant_<app>. Views declare a named capability instead of writing if-statements (wrong path W2)."
+  },
+  {
+   "name": "direct_reports / hr_visible_memberships [candidate sketch]",
+   "path": ".claude/skills/domain-tenancy-and-access/SKILL.md:586-596",
+   "signature": "def direct_reports(membership); def hr_visible_memberships(membership)",
+   "does": "Planned layer-3 row scoping. direct_reports returns only memberships whose line_manager is the caller (not recursive, invariant I2). hr_visible_memberships returns the whole company for owner or HR-grant holders (I3), else the direct reports.",
+   "input_example": "Mr-X case: 12 employees, 3 report to X",
+   "expected_output": "X's HR-file list returns exactly 3 (the gate test prescribed for G2, from docs/manager/hr.md:6)."
+  },
+  {
+   "name": "TenantManager.for_company / CompanyMiddleware [candidate sketch]",
+   "path": ".claude/skills/domain-tenancy-and-access/SKILL.md:539-560",
+   "signature": "def for_company(self, company)",
+   "does": "Planned tenancy plumbing in core: abstract TenantModel carries the company FK, the manager filters by company, and the middleware resolves request.company from the user's Membership; portal accounts get company None and reach only portal views (I1, I5)."
+  },
+  {
+   "name": "grantable_apps [candidate sketch]",
+   "path": ".claude/skills/domain-tenancy-and-access/SKILL.md:498",
+   "signature": "def grantable_apps(company) -> set[str]",
+   "does": "Planned billing service that implements ruling R1 and invariant I4: the subscription package bounds which of the five grants may be issued, checked at invite time and at grant-edit time. The one declared coupling point between tenancy and billing."
+  }
+ ],
+ "infra": [
+  {
+   "topic": "Docs site build",
+   "detail": "VuePress 1.8.2 via 'vuepress dev docs' and 'vuepress build docs'. package-lock.json is lockfileVersion 1 and pins webpack 4.46.0, which hashes with MD4; Node >= 17 (OpenSSL 3) fails with ERR_OSSL_EVP_UNSUPPORTED unless Node 14/16 is used or NODE_OPTIONS=--openssl-legacy-provider is exported. Install with npm ci, never npm install. Runbook: skill build-and-operate, sections 1.2-1.3.",
+   "path": "package-lock.json:10692-10693"
+  },
+  {
+   "topic": "Serving path",
+   "detail": "config.js sets base '/documentation/'. Dev server lives at localhost:8080/documentation/; a built dist/ must be mounted under a path literally named 'documentation' or every asset and router link 404s. No deployment exists in the repo.",
+   "path": "docs/.vuepress/config.js:2"
+  },
+  {
+   "topic": "Tests and CI",
+   "detail": "None. npm test is a hardcoded exit 1, there is no .github/ directory, no workflow, no Dockerfile. The five diagnostics plus the reviewer are the only safety net ('you are the CI').",
+   "path": "package.json:7"
+  },
+  {
+   "topic": "Git ignore / artifacts",
+   "detail": "Eight lines: node_modules/, docs/.vuepress/dist/, .cache/, .temp/, __pycache__/, *.pyc, .DS_Store, Thumbs.db. Nothing build-related is committed, so a fresh clone renders nothing until install + build. (File: .gitignore at the repo root.)"
+  },
+  {
+   "topic": "Planned Django baseline (not present)",
+   "detail": "app/ at the repo root, venv, Django LTS (5.2.x noted on 2026-08-30) + pytest-django, 'django-admin startproject config .', first apps accounts, tenants, core. Planned root .gitignore additions: app/.venv/, app/db.sqlite3, app/staticfiles/. Source: skill campaign-django-rebuild, Phase 1."
+  },
+  {
+   "topic": "Planned background jobs (not present)",
+   "detail": "Default choice Celery + Redis for bulk SMTP sends and asynchronous CSV import; cron-style management commands acceptable only for the payroll trigger and recurring documents; Django's built-in Tasks framework ranked third because it is outside the pinned LTS. Source: skill campaign-django-rebuild, solution menu 3; the cited docs line is the 'running in the background' evidence.",
+   "path": "docs/sales/groups.md:98"
+  },
+  {
+   "topic": "Branches / history",
+   "detail": "main holds the docs baseline (three commits, two parentless roots joined by a merge: GitHub README root + orphan docs-import root). The analysed branch claude/ghost-crm-skill-library-x37l4e sits above it and touches only .claude/ (21 files, about 8,700 lines). Source: skill debugging-and-archaeology, chronicle A1."
+  }
+ ],
+ "decisions": [
+  {
+   "decision": "One Django app per bounded context (17-app map), no cross-app model imports outside declared interfaces",
+   "why": "The maintainer's costliest past failure was a monolith where multiple languages blurred functionality boundaries. Modularity is therefore doctrine: apps interact via FKs in the dependency direction, signals (hr to accounting) or exported service functions (billing.grantable_apps). Source: skill architecture-contract section 7 and change-control N8 (maintainer testimony, 2026-08-30).",
+   "alternative_rejected": "One mega-app or a shared models.py dumping ground (wrong path W3)"
+  },
+  {
+   "decision": "References blocks are immutable provenance (N1) and git history is never rewritten (N5)",
+   "why": "The link rewrite ran before the first commit, so the blocks are the only surviving record of the original app's deep links and route structure; they are the raw material for the rebuild's URL design. The exact separator is also what the script splits on, so hand edits corrupt files. Rule home: skill change-control, N1 and N5.",
+   "alternative_rejected": "Cleaning up or grep-replacing 'skhokho' across docs/",
+   "evidence": "rewrite_links.py:44-45"
+  },
+  {
+   "decision": "Shared-schema tenancy with a company FK (TenantModel + TenantManager + middleware)",
+   "why": "Matches the documented product: single database, invite-only membership (one user, one company) and portal accounts that accumulate per-project grants keyed by email, trivially expressible when tenants share tables. Leakage risk is carried by the G2/G3 isolation tests. Home: skill campaign-django-rebuild, solution menu 1.",
+   "alternative_rejected": "django-tenants schema-per-tenant, or a database per tenant",
+   "evidence": "docs/client/portal.md:26"
+  },
+  {
+   "decision": "Permission engine = decorators + scoped managers in core, rules computed from current FKs",
+   "why": "Visibility is relationship-computed (line-manager tree, org-wide HR overlay, creator/assignee), so nothing must be kept in sync when a line manager changes, and the engine is testable as one matrix. Stored per-object rows would need a bulk rewrite on every reassignment. Home: skill campaign-django-rebuild, solution menu 2.",
+   "alternative_rejected": "django-guardian object-permission rows; per-view if-statements (W2)",
+   "evidence": "docs/manager/hr.md:6"
+  },
+  {
+   "decision": "Custom AUTH_USER_MODEL = 'accounts.User' set before the first migrate",
+   "why": "Django's auth, admin, contenttypes and sessions migrations bake a foreign key to whatever user model exists at first apply; switching later is unsupported without dropping the database. It is the only irreversible decision of the campaign, so it is made in the first hour. Home: skill campaign-django-rebuild, Phase 1 step 1.3.",
+   "alternative_rejected": "Migrating on the default auth.User and repairing django_migrations afterwards (W1)"
+  },
+  {
+   "decision": "Docs contradictions are resolved by numbered rulings, never by code or by editing docs: R1 tiers (Starter=T1, Business=T2, Business Pro=T3), R2 'Concerted' means CONVERTED",
+   "why": "There is no original team or running system to consult; docs plus the ruling register are the only arbiter. A ruling is cited as a ruling, never as documented fact, and each becomes a pinning test when its code lands. Register: skill architecture-contract section 4; the R2 typo is at docs/sales/hustle.md:60.",
+   "alternative_rejected": "Codifying the doc bug, or whichever engineer gets there first deciding",
+   "evidence": "docs/guide/company.md:76-77"
+  },
+  {
+   "decision": "Unify the duplicated systems: one Client (R4, superset schema), one Task enum TODO/IN_PROGRESS/DONE (R3), one Meeting/Note/Document/Task model each with nullable scope FKs (R9)",
+   "why": "The docs state the client list is shared by project, sales and accounting, and the sales pages reuse the project module's screenshots, so the original served one component in several scopes. Four task tables would still have to union onto the personal kanban and calendar. Register: skill architecture-contract R3, R4, R9.",
+   "alternative_rejected": "A Client or Task table per module (W4)",
+   "evidence": "docs/project/clients.md:9"
+  },
+  {
+   "decision": "Leave accrual is a side effect of the payroll run (R5); a run is unique per (company, month)",
+   "why": "hr/index.md says leave is credited every month, hr/payroll.md says when payroll is run; the payroll statement is more specific and two accrual paths would double-credit. The run moves money and leave with no documented double-run protection, so idempotency is a gate (byte-identical second run). Register: skill architecture-contract R5; transaction design in domain-hr-and-payroll Part 3.",
+   "alternative_rejected": "Calendar-monthly accrual independent of payroll",
+   "evidence": "docs/hr/payroll.md:12"
+  },
+  {
+   "decision": "manager and personal doc modules are view layers, not Django apps; ExpenseClaim lives in accounting, LeaveApplication in hr",
+   "why": "Manager approves what personal requests, so separate model apps would import each other. Keeping claim approval and Expense creation inside accounting makes the approval atomic within one boundary; payroll reaches accounting only through a payroll_run_completed signal. Home: skill architecture-contract, 'the two cycles to break'.",
+   "alternative_rejected": "personal / manager apps with their own models; claims in a personal app signalling into accounting",
+   "evidence": "docs/hr/payroll.md:13"
+  },
+  {
+   "decision": "Logs are not evidence; success at every gate is a number from a command",
+   "why": "rewrite_links.py --apply prints 'wrote 69 link(s)' on every run even when the bytes are identical, because the References entries re-match the regex. Only git diff / diff -r proves change, so the same rule governs the whole campaign. Home: skills validation-and-qa 1.2 and diagnostics-and-tooling doctrine.",
+   "alternative_rejected": "Trusting tool output or eyeball review",
+   "evidence": "rewrite_links.py:72-75"
+  }
+ ],
+ "gotchas": [
+  {
+   "issue": "Hand-editing the References separator (even removing one blank line) and then running rewrite_links.py --apply",
+   "consequence": "The header check at line 44 passes but the split at line 45 finds nothing: the old block's skhokho.io URLs are flattened in place and a duplicate block is appended. The file ends with two References headers and damaged provenance.",
+   "fix_or_guard": "Never touch the blocks (N1); dry-run first on a clean tree (N6); check_references_integrity.py flags a non-byte-exact separator before any apply; restore the file from git.",
+   "path": "rewrite_links.py:44-45"
+  },
+  {
+   "issue": "npm run docs:dev / docs:build die on modern Node with ERR_OSSL_EVP_UNSUPPORTED",
+   "consequence": "The site cannot be served or built; webpack 4.46.0 uses MD4, which OpenSSL 3 disables.",
+   "fix_or_guard": "Use Node 14/16, or export NODE_OPTIONS=--openssl-legacy-provider before any docs script. Noted as inferred from the lockfile pins; a live build was not run when the skills were written.",
+   "path": "package-lock.json:10692-10693"
+  },
+  {
+   "issue": "npm install with npm >= 7 silently rewrites the lockfileVersion 1 lockfile",
+   "consequence": "An unreviewed multi-thousand-line diff to a file treated as part of the imported snapshot.",
+   "fix_or_guard": "Always npm ci; if the lockfile changed, git checkout -- package-lock.json and reinstall.",
+   "path": "package-lock.json:4"
+  },
+  {
+   "issue": "The site only works under /documentation/, and the favicon 404s even then",
+   "consequence": "Root URL is blank; serving dist/ at a web root 404s every asset. VuePress 1 does not prefix head hrefs with base, while themeConfig.logo (same path string) is resolved correctly.",
+   "fix_or_guard": "Open /documentation/; stage dist under a directory named documentation. The favicon is a known cosmetic bug (hand-write the prefixed href through change control).",
+   "path": "docs/.vuepress/config.js:2-3"
+  },
+  {
+   "issue": "rewrite_links.py reports 69 links / 43 files on every run",
+   "consequence": "Easy to misread as 'it changed 69 links again'; --apply also rewrites all 43 files (mtime churn) with identical bytes.",
+   "fix_or_guard": "Byte-idempotency was proven on a scratch copy (two applies, empty diff -r). Use git status / git diff as the instrument, never the log.",
+   "path": "rewrite_links.py:72-75"
+  },
+  {
+   "issue": "Rebrand is incomplete: 132 'skhokho' occurrences in 46 files, config.js title/description, nav Home pointing at the live skhokho.io, package.json name, three branded image filenames",
+   "consequence": "The repo claims Ghost-CRM but reads Skhokho; a blunt find-and-replace would also rewrite the archived URLs inside References blocks.",
+   "fix_or_guard": "Rebrand prose and metadata only, above each References header, via the docs-and-writing checklist; attribution to Skhokho must stay visible (N2). Progress metric is the body count from audit_branding.py.",
+   "path": "docs/.vuepress/config.js:4-10"
+  },
+  {
+   "issue": "Docs contain bugs that look like spec: both Business and Business Pro labelled 'Tier 3', hustle status 'Concerted', quote described as 'black', task status spelled four ways",
+   "consequence": "Copying them literally would bake typos and contradictions into models and enums.",
+   "fix_or_guard": "Use the ruling register (R1, R2, R3) and add a code comment citing the source typo; the G5 gate greps app/ for zero 'Concerted'.",
+   "path": "docs/guide/company.md:76"
+  },
+  {
+   "issue": "Load-bearing schemas exist only in screenshots or nowhere: funnel intermediate stages, sales contact form, invite access-rights list, quote/invoice/expense status values, payment recording, recurring schedules, UIF default, net-pay composition",
+   "consequence": "Starting to code these means inventing product behaviour silently.",
+   "fix_or_guard": "G0 screenshot-archaeology pass (items A1-A7) and an [open]-register sweep: every gap gets a ruling or a named deferral before its phase starts.",
+   "path": "docs/sales/index.md:39"
+  },
+  {
+   "issue": "Two-root git history, and two pages (client/portal.md, okr/keyresults.md) have no References block",
+   "consequence": "rebase / bisect / merge-base can misbehave; portal and key-result detail routes are unrecoverable and must be designed fresh and labelled as inventions.",
+   "fix_or_guard": "Never rewrite published history (N5); fix forward with new commits; mark invented portal URLs in code comments.",
+   "path": "docs/client/portal.md"
+  }
+ ],
+ "glossary": [
+  {
+   "term": "Skhokho",
+   "meaning": "Skhokho Business Management Software, the real Django-built South-African SMB suite whose documentation was imported. When a page says 'Skhokho does X', read 'the product being rebuilt does X'. Its origin must stay visibly attributed."
+  },
+  {
+   "term": "References block",
+   "meaning": "The trailing '## References (original links)' section appended by rewrite_links.py to 43 of 45 pages; a bullet list of the original skhokho.io links (69 entries, 54 unique URLs). Immutable provenance and the only route map of the original app."
+  },
+  {
+   "term": "Machine separator",
+   "meaning": "The exact bytes blank line, '---', blank line, then the References header. The rewriter splits on it to strip and regenerate a block; a single changed blank line breaks that."
+  },
+  {
+   "term": "Ruling (R1-R10)",
+   "meaning": "A recorded design decision dated 2026-08-30 where the docs are silent or contradictory, homed in architecture-contract and cited as a ruling, never as documented fact."
+  },
+  {
+   "term": "Invariants I1-I6",
+   "meaning": "I1 every tenant queryset filters by company; I2 managers see direct reports only; I3 the HR grant is org-wide; I4 the package bounds issuable grants; I5 portal users get read-only projections of granted projects and invoices; I6 References blocks are immutable."
+  },
+  {
+   "term": "Gate (G0-G6)",
+   "meaning": "Measurable exit condition of a rebuild phase: spec freeze, skeleton, tenancy + permissions, clients + projects, money + HR, CRM + collab, portal + integrations. Note validation-and-qa also uses G1-G14 for golden-inventory rows."
+  },
+  {
+   "term": "Change classes C1-C5 / register N1-N8",
+   "meaning": "C1 docs-content, C2 docs-infra + toolchain, C3 skill-library, C4 future-app-code, C5 provenance-touching (presumption of no). N1-N8 are rules no change may violate, e.g. N3 docs are ground truth, N4 no app code inside docs/, N8 one bounded context per app."
+  },
+  {
+   "term": "Wrong paths W1-W8",
+   "meaning": "Fenced mistakes: migrate before custom user, scattered per-view authorization, mega-app, duplicate Client per module, codifying 'Concerted', trusting logs, editing docs to match code, float for money."
+  },
+  {
+   "term": "App grant",
+   "meaning": "One of five per-member booleans on Membership (Manager, HR, Project, Accounting, Sales) that gate module access. In the docs an 'app' is a permission-gated product module, not a Django app."
+  },
+  {
+   "term": "Line manager",
+   "meaning": "Membership self-FK forming the org tree; the docs also call the same person team leader and leave manager. LM-scoped means visible only over members whose line_manager is the acting user."
+  },
+  {
+   "term": "Company / space",
+   "meaning": "The tenancy root; one company is one tenant and 'space' is the docs' and the legacy routes' word for it (e.g. /space/settings)."
+  },
+  {
+   "term": "Hustle",
+   "meaning": "The docs' word for a sales lead or opportunity; it moves down the funnel by status change and ends as CONVERTED or Lost."
+  },
+  {
+   "term": "Three person-records",
+   "meaning": "ClientContact (client-org people, portal invitees), SalesContact (CRM contacts attached to hustles) and GroupMember (mailing-list rows). They must never be merged, unlike Client, which is one shared entity."
+  },
+  {
+   "term": "Screenshot archaeology",
+   "meaning": "Recovering form fields, enum values or KPIs from the 169 PNGs when prose is silent, then freezing each recovery as a ruling. Precedence is prose over screenshot over inference."
+  },
+  {
+   "term": "Golden inventory / S1-S5",
+   "meaning": "The certified baseline numbers (45 md, 169 images, 43 blocks, 69 archived URLs, 132 occurrences) and the five diagnostic scripts that re-measure them: branding, images, References integrity, sidebar sync, inventory."
+  }
+ ],
+ "relations": [
+  {
+   "project": "GPT3.5_VBA",
+   "relation": "Its apilogicserver-* skill library follows the same contract / change-control / campaign / validation-and-qa structure. Shared documentation method only."
+  }
+ ],
+ "directions": [
+  "Execute G0 of the campaign: run the five diagnostics, transcribe the screenshot-only schemas (funnel stages, sales contact form, invite form, payroll screens) into rulings. Nothing else can start cleanly before this spec freeze.",
+  "Create app/ with the custom user model and reach G1/G2: the permission matrix as parametrized pytest cells is the load-bearing gate and cannot be retrofitted later.",
+  "Finish the rebrand without losing provenance (frontier F4): extend the rewrite-with-archive pattern to prose and config.js behind a dry-run default, and anchor the References block by header regex instead of the fragile exact separator.",
+  "Add an explicit Skhokho attribution section to README.md (currently one line) so the origin statement has a designated home before any rebrand sweep.",
+  "Wire the diagnostics into a first CI workflow (the repo has none): the four passing scripts as hard gates and the rewriter dry run as a golden-number check; replace the npm test placeholder only when a real runner exists.",
+  "Resolve the money-path open items before G4: status enums for quote/invoice/expense, what 'paid' means, recurring semantics, UIF default and net-pay composition all need rulings because they have financial consequences."
+ ],
+ "confidence": "high",
+ "coverage_notes": "Read in full: rewrite_links.py, package.json, config.js, .gitignore, the five diagnostics scripts and the skills architecture-contract, campaign-django-rebuild, build-and-operate, config-and-flags, debugging-and-archaeology; most of change-control, validation-and-qa, engineering-standards, diagnostics-and-tooling. Sampled: the five domain-* skills, reference, docs-and-writing and the 45 docs pages. Images and lockfile body not opened. Nothing was executed: script outputs are the baselines documented in the skills (2026-08-30); the counts 45/169/132/46/43/69/54 were re-checked with read-only grep. Shallow clone, so the two-root history comes from the skills. PATH CAVEAT: the validator drops the leading dot of dot-directories, so files under .claude/ cannot be cited; such entries carry path '.' and the real location in [brackets] at the start of the text. 'Candidate sketch' functions exist only as code blocks in skill files; no Django code exists. One line of work only."
+}

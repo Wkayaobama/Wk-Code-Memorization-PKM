@@ -55,6 +55,19 @@ def _write(path: str, data) -> None:
         fh.write("\n")
 
 
+def _digest(pmap: dict, pcards: dict) -> str:
+    import hashlib
+
+    return hashlib.sha1(json.dumps([pmap, pcards], sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+def _remove(path: str) -> bool:
+    if os.path.exists(path):
+        os.remove(path)
+        return True
+    return False
+
+
 def tier_dir(root: str, tier: str) -> str:
     return os.path.join(root, "data", tier)
 
@@ -66,19 +79,31 @@ def present_tiers(root: str) -> list[str]:
 # --------------------------------------------------------------------------
 # Privacy gate: nothing about a private repository may enter the public tier
 # --------------------------------------------------------------------------
-VERBATIM_FIELDS = {"evidence_quote", "code_snippet", "expected_output", "source", "source_refs", "path", "evidence"}
+# Only what was checked against the checkout is exempt from rewriting: a citation must keep matching the
+# code.  Snippets, expected outputs and examples are composed by the card writer and are gated like prose.
+CITATION_FIELDS = {"evidence_quote", "source", "source_refs", "path", "evidence"}
+VERBATIM_FIELDS = CITATION_FIELDS   # kept as an alias for callers
+MIN_NAME = 4                        # a shorter private name cannot be matched safely and is reported instead
 REDACTED = "[private project]"   # a bracketed placeholder reads correctly after any article or adjective
 UNREDACTED = "unredacted"  # data/private/unredacted/<slug>.json: full wording of a public deck that was redacted
 
 
-def _name_pattern(names):
+def _name_pattern(names, strict: bool = False):
+    """One expression for a list of names, tolerant of - _ and space between their parts.
+
+    Loose (the gate): bounded by non-alphanumerics, so ``acme-load-bridge`` still gives ``acme-load`` away.
+    Strict (the whitelist of names a public repository already spells out): additionally not glued to a
+    longer hyphenated name, so ``acme-load-bridge`` is NOT a mention of ``acme-load``."""
     import re
 
     parts = []
-    for name in sorted({n for n in names if n and len(n) >= 4}, key=len, reverse=True):
+    for name in sorted({n for n in names if n and len(n) >= MIN_NAME}, key=len, reverse=True):
         tokens = [re.escape(t) for t in re.split(r"[-_ ]+", name) if t]
         parts.append(r"[-_ ]?".join(tokens))
-    return re.compile(r"(?<![A-Za-z0-9])(?:" + "|".join(parts) + r")(?![A-Za-z0-9])", re.I) if parts else None
+    if not parts:
+        return None
+    edge = r"A-Za-z0-9_\-" if strict else r"A-Za-z0-9"
+    return re.compile(r"(?<![" + edge + r"])(?:" + "|".join(parts) + r")(?![" + edge + r"])", re.I)
 
 
 def _norm_name(text: str) -> str:
@@ -94,7 +119,7 @@ def public_vocabulary(private_names, repo_dirs, max_bytes: int = 2_000_000) -> s
     Such a name is already public through that repository, so its own deck may keep using it
     (a public fork that carries a directory named like a later private project, for instance).
     """
-    pattern = _name_pattern(private_names)
+    pattern = _name_pattern(private_names, strict=True)
     seen: set[str] = set()
     if pattern is None:
         return seen
@@ -159,27 +184,36 @@ def privacy_gate(obj, private_names, keep=()):
 
 
 SCRUBBED = "[id]"
-CITATION_FIELDS = {"evidence_quote", "source", "source_refs", "path", "evidence"}   # checked against the code: never rewritten
 
 
 def scrub_terms(obj, terms, placeholder: str = SCRUBBED):
-    """Return (clean copy, count).  Exact identifier strings (a portal number, a cloud project id...) are
-    replaced everywhere except in the citation fields, which must keep matching the code.  The list is
-    supplied by whoever runs the ingest: an account identifier has no rehearsal value and should not
-    travel with the cards."""
+    """Return (clean copy, count).  Exact strings (a portal number, a cloud project id, a customer name,
+    a revenue figure...) are replaced everywhere except in the citation fields, which must keep matching
+    the code.  The list is supplied by whoever runs the ingest; an entry is either a string (replaced by
+    ``[id]``) or ``{"term": "...", "as": "[account]"}`` for another placeholder ("" removes the text)."""
     import re
 
-    terms = sorted({str(t) for t in (terms or []) if str(t).strip()}, key=len, reverse=True)
-    if not terms:
+    table: dict[str, str] = {}
+    for entry in terms or []:
+        term, repl = (entry.get("term"), entry.get("as", placeholder)) if isinstance(entry, dict) else (entry, placeholder)
+        if term is not None and str(term).strip():
+            table[str(term)] = str(repl)
+    if not table:
         return obj, 0
     # A number is bounded by non-digits (it also hides inside names such as "p<portal>_object");
-    # a word is bounded by non-alphanumerics.
-    numbers = [re.escape(t) for t in terms if t.isdigit()]
-    words = [re.escape(t) for t in terms if not t.isdigit()]
-    parts = ([r"(?<![0-9])(?:" + "|".join(numbers) + r")(?![0-9])"] if numbers else []) + \
-            ([r"(?<![A-Za-z0-9])(?:" + "|".join(words) + r")(?![A-Za-z0-9])"] if words else [])
-    pattern = re.compile("|".join(parts))
+    # anything else is bounded by non-alphanumerics on the sides where it starts or ends with one.
+    def bounded(term: str) -> str:
+        if term.isdigit():
+            return r"(?<![0-9])" + re.escape(term) + r"(?![0-9])"
+        left = r"(?<![A-Za-z0-9])" if term[0].isalnum() else ""
+        right = r"(?![A-Za-z0-9])" if term[-1].isalnum() else ""
+        return left + re.escape(term) + right
+
+    pattern = re.compile("|".join(bounded(t) for t in sorted(table, key=len, reverse=True)))
     count = 0
+
+    def swap(match):
+        return table[match.group(0)]
 
     def walk(node, key=""):
         nonlocal count
@@ -192,9 +226,9 @@ def scrub_terms(obj, terms, placeholder: str = SCRUBBED):
                 return kept
             return [walk(v, key) for v in node]
         if isinstance(node, str) and key not in CITATION_FIELDS:
-            new, n = pattern.subn(placeholder, node)
+            new, n = pattern.subn(swap, node)
             count += n
-            return new
+            return re.sub(r" {2,}", " ", new).strip() if n else new
         return node
 
     return walk(obj), count
@@ -265,112 +299,162 @@ def ingest(
 ) -> dict:
     """Validate analysis output against the checkouts and file it into the tiers.
 
-    A project is filed only when its map AND its cards pass every check
-    (shape, grounding against the checkout, safety).  Returns a report.
+    A project is filed only when its map AND its cards pass every check (shape, grounding against an
+    existing checkout, safety), before and after the privacy rewriting.  Everything is planned first and
+    written last: a run either files its projects or leaves the tiers as they were.  Projects that are not
+    part of this run stay filed; a project whose visibility changed leaves its old tier.
+    Only a repository whose visibility is exactly "public" is public.
     """
     manifest = _read(manifest_path)
     projects = manifest["projects"] if isinstance(manifest, dict) else manifest
     snapshot = inventory.load_snapshot(snapshot_path) if snapshot_path else []
     aliases = aliases or {}
-    private = [p for p in projects if p.get("visibility") == "private"]
+    private = [p for p in projects if not inventory.is_public(p.get("visibility"))]
     # Repository names, slugs, and any product name the manifest marks as private ("private_terms").
     # Nicknames are left out on purpose: they are generic words ("the loader") that a public deck may use.
-    private_names = sorted({r["name"] for r in snapshot if r.get("visibility") == "private"}
+    private_names = sorted({r["name"] for r in snapshot if not inventory.is_public(r.get("visibility"))}
                            | {p["repo"] for p in private} | {p["slug"] for p in private}
                            | {t for p in private for t in (p.get("private_terms") or [])})
     as_of = as_of or (manifest.get("as_of") if isinstance(manifest, dict) else None) or date.today().isoformat()
     owner = owner or (manifest.get("owner") if isinstance(manifest, dict) else "") or ""
-    tiers: dict[str, list[dict]] = {t: [] for t in TIERS}
-    report = {"filed": [], "skipped": []}
+    report = {"filed": [], "skipped": [], "moved": [], "unmatched_private_names": sorted(n for n in private_names if len(n) < MIN_NAME)}
+    planned: list[dict] = []     # {"tier", "slug", "entry", "map", "cards", "overlay"}
+
+    def skip(slug, why, errors=None):
+        report["skipped"].append({"slug": slug, "why": why, **({"errors": errors[:8]} if errors else {})})
 
     for p in projects:
         slug = p["slug"]
         map_path = os.path.join(maps_dir, f"{slug}.json")
         cards_path = os.path.join(cards_dir, f"{slug}.json")
         if not (os.path.exists(map_path) and os.path.exists(cards_path)):
-            report["skipped"].append({"slug": slug, "why": "map or cards file missing"})
+            skip(slug, "map or cards file missing")
             continue
         if slug not in codes:
-            report["skipped"].append({"slug": slug, "why": "no project code assigned"})
+            skip(slug, "no project code assigned")
+            continue
+        listed = [p.get("dir") or ""] + [a.get("dir") or "" for a in p.get("alts", [])]
+        missing = [d for d in listed if not os.path.isdir(d)]
+        if missing:   # no checkout, no grounding: never file a deck that could not be checked
+            skip(slug, "checkout not found: " + ", ".join(repr(d) for d in missing))
             continue
         dirs = [(p["dir"], p.get("branch", ""), head_commit(p["dir"]))]
         dirs += [(a["dir"], a.get("branch", ""), head_commit(a["dir"])) for a in p.get("alts", [])]
-        repo_dirs = [d for d, _, _ in dirs if os.path.isdir(d)]
+        repo_dirs = [d for d, _, _ in dirs]
         pmap, pcards = _read(map_path), _read(cards_path)
+        if not (isinstance(pmap, dict) and isinstance(pcards, dict)):
+            skip(slug, "map and cards must be JSON objects")
+            continue
         promote_bracket_paths(pmap, repo_dirs)
         m_rep = schema.validate_map(pmap, repo_dirs)
         c_rep = schema.validate_cards(pcards, repo_dirs)
         if not (m_rep.ok and c_rep.ok):
-            report["skipped"].append({"slug": slug, "why": "validation failed", "errors": (m_rep.errors + c_rep.errors)[:8]})
+            skip(slug, "validation failed", m_rep.errors + c_rep.errors)
             continue
-        tier = "private" if p.get("visibility") == "private" else "public"
+        tier = "public" if inventory.is_public(p.get("visibility")) else "private"
         for card in pcards["cards"]:
             card["source_refs"] = _resolve_refs(card, dirs)
         redactions: list[str] = []
         pmap["slug"] = slug
         pcards["slug"] = slug
         merged_aliases = list(dict.fromkeys([*(aliases.get(slug) or []), *(pmap.get("aliases") or [])]))
+        notes = [a.get("note", "") for a in p.get("alts", [])]
         scrubbed = 0
         if scrub and scrub.get("all"):     # identifiers that travel nowhere, private tier included
             pmap, n_m = scrub_terms(pmap, scrub["all"])
             pcards, n_c = scrub_terms(pcards, scrub["all"])
-            wrapped, n_a = scrub_terms({"aliases": merged_aliases}, scrub["all"])
-            merged_aliases, scrubbed = wrapped["aliases"], n_m + n_c + n_a
+            wrapped, n_a = scrub_terms({"aliases": merged_aliases, "notes": notes}, scrub["all"])
+            merged_aliases, notes, scrubbed = wrapped["aliases"], wrapped["notes"], n_m + n_c + n_a
+        overlay = None
         if tier == "public":
             full = {"map": pmap, "cards": pcards, "aliases": merged_aliases}
             if scrub and scrub.get("public"):   # identifiers the owner may keep but a public deck may not repeat
                 pmap, n_m = scrub_terms(pmap, scrub["public"])
                 pcards, n_c = scrub_terms(pcards, scrub["public"])
-                wrapped, n_a = scrub_terms({"aliases": merged_aliases}, scrub["public"])
-                merged_aliases = wrapped["aliases"]
+                wrapped, n_a = scrub_terms({"aliases": merged_aliases, "notes": notes}, scrub["public"])
+                merged_aliases, notes = wrapped["aliases"], wrapped["notes"]
                 if n_m + n_c + n_a:
                     redactions.append(f"scrubbed {n_m + n_c + n_a} identifier(s)")
             own = public_vocabulary(private_names, repo_dirs)   # names this public repository already spells out
             pmap, found_m = privacy_gate(pmap, private_names, own)
             pcards, found_c = privacy_gate(pcards, private_names, own)
             merged_aliases, found_a = privacy_gate(merged_aliases, private_names, own)
-            redactions += found_m + found_c + found_a
-            # The owner's private edition keeps the full wording; the public tier never sees it.
-            overlay = os.path.join(tier_dir(root, "private"), UNREDACTED, f"{slug}.json")
+            notes, found_n = privacy_gate(notes, private_names, own)
+            redactions += found_m + found_c + found_a + found_n
             if redactions:
-                _write(overlay, full)
-            elif os.path.exists(overlay):
-                os.remove(overlay)
-        _write(os.path.join(tier_dir(root, tier), "maps", f"{slug}.json"), pmap)
-        _write(os.path.join(tier_dir(root, tier), "cards", f"{slug}.json"), pcards)
-        tiers[tier].append(
-            {
-                "slug": slug,
-                "repo": p["repo"],
-                "code": codes[slug],
-                "visibility": p.get("visibility", "public"),
-                "fork": bool(p.get("fork")),
-                "pushed_at": p.get("pushed_at", ""),
-                "branch": p.get("branch", ""),
-                "commit": dirs[0][2],
-                "alts": [{"branch": a.get("branch", ""), "note": a.get("note", ""), "commit": sha}
-                         for a, (_, _, sha) in zip(p.get("alts", []), dirs[1:])],
-                "aliases": merged_aliases,
-                "analyzed_at": as_of,
-            }
-        )
-        report["filed"].append({"slug": slug, "tier": tier, "cards": len(pcards["cards"]), "warnings": len(c_rep.warnings),
-                                "redactions": len(redactions), "scrubbed": scrubbed})
-        log(f"filed {slug:<32} -> {tier:<7} {len(pcards['cards'])} cards" + (f"  ({len(redactions)} private mentions removed)" if redactions else "")
-            + (f"  ({scrubbed} identifiers scrubbed)" if scrubbed else ""))
+                # The rewritten copy must still honour the contract (a placeholder can lengthen a field).
+                m2, c2 = schema.validate_map(pmap), schema.validate_cards(pcards)
+                if not (m2.ok and c2.ok):
+                    skip(slug, "the redacted public copy no longer fits the contract: shorten these fields in the source deck", m2.errors + c2.errors)
+                    continue
+                overlay = {**full, "public_sha": _digest(pmap, pcards)}   # full wording, for the owner's edition only
+        entry = {
+            "slug": slug,
+            "repo": p["repo"],
+            "code": str(codes[slug]),
+            "visibility": tier,
+            "fork": bool(p.get("fork")),
+            "pushed_at": p.get("pushed_at", ""),
+            "branch": p.get("branch", ""),
+            "commit": dirs[0][2],
+            "alts": [{"branch": a.get("branch", ""), "note": note, "commit": sha}
+                     for a, note, (_, _, sha) in zip(p.get("alts", []), notes, dirs[1:])],
+            "aliases": merged_aliases,
+            "analyzed_at": as_of,
+        }
+        planned.append({"tier": tier, "slug": slug, "entry": entry, "map": pmap, "cards": pcards, "overlay": overlay,
+                        "line": {"slug": slug, "tier": tier, "cards": len(pcards["cards"]), "warnings": len(c_rep.warnings),
+                                 "redactions": len(redactions), "scrubbed": scrubbed}})
 
-    address.check_registry([e for t in TIERS for e in tiers[t]])
+    # ---- plan the manifests: what is already filed stays, except where this run replaces or moves it
+    filed_now = {item["slug"]: item["tier"] for item in planned}
+    manifests: dict[str, list[dict]] = {}
     for tier in TIERS:
-        if tiers[tier]:
-            tiers[tier].sort(key=lambda e: e["code"])
-            _write(os.path.join(tier_dir(root, tier), "projects.json"), {"as_of": as_of, "owner": owner, "projects": tiers[tier]})
+        current = _read(os.path.join(tier_dir(root, tier), "projects.json"), {"projects": []}).get("projects", [])
+        kept = [e for e in current if e["slug"] not in filed_now]
+        for e in current:
+            if e["slug"] in filed_now and filed_now[e["slug"]] != tier:
+                report["moved"].append({"slug": e["slug"], "from": tier, "to": filed_now[e["slug"]]})
+        manifests[tier] = sorted(kept + [item["entry"] for item in planned if item["tier"] == tier], key=lambda e: e["code"])
+    address.check_registry([e for t in TIERS for e in manifests[t]])   # raises before anything is written
+
+    # ---- write
+    for item in planned:
+        slug, tier = item["slug"], item["tier"]
+        other = "private" if tier == "public" else "public"
+        _write(os.path.join(tier_dir(root, tier), "maps", f"{slug}.json"), item["map"])
+        _write(os.path.join(tier_dir(root, tier), "cards", f"{slug}.json"), item["cards"])
+        for kind in ("maps", "cards"):   # a project lives in exactly one tier
+            _remove(os.path.join(tier_dir(root, other), kind, f"{slug}.json"))
+        overlay_path = os.path.join(tier_dir(root, "private"), UNREDACTED, f"{slug}.json")
+        if item["overlay"]:
+            _write(overlay_path, item["overlay"])
+        else:
+            _remove(overlay_path)
+        report["filed"].append(item["line"])
+        line = item["line"]
+        log(f"filed {slug:<32} -> {tier:<7} {line['cards']} cards" + (f"  ({line['redactions']} private mentions removed)" if line["redactions"] else "")
+            + (f"  ({line['scrubbed']} identifiers scrubbed)" if line["scrubbed"] else ""))
+    for tier in TIERS:
+        path = os.path.join(tier_dir(root, tier), "projects.json")
+        if manifests[tier] or os.path.exists(path):
+            _write(path, {"as_of": as_of, "owner": owner, "projects": manifests[tier]})
+        stale_path = os.path.join(tier_dir(root, tier), "stale.json")
+        stale = _read(stale_path)
+        if stale:   # a refreshed deck starts clean; a project that left the tier takes its marks with it
+            here = {e["slug"] for e in manifests[tier]}
+            _write(stale_path, {k: v for k, v in stale.items() if k in here and k not in filed_now})
 
     if snapshot_path:
-        repos = snapshot
         for tier in TIERS:
-            subset = [r for r in repos if (r["visibility"] == "private") == (tier == "private")]
-            if subset:
-                _write(os.path.join(tier_dir(root, tier), "inventory.json"), {"as_of": as_of, "owner": owner, "repos": subset})
+            subset = [r for r in snapshot if inventory.is_public(r.get("visibility")) == (tier == "public")]
+            path = os.path.join(tier_dir(root, tier), "inventory.json")
+            if subset or os.path.exists(path):
+                _write(path, {"as_of": as_of, "owner": owner, "repos": subset})
+    for item in report["moved"]:
+        log(f"moved {item['slug']} from the {item['from']} tier to the {item['to']} tier")
+    if report["unmatched_private_names"]:
+        log("private names too short to match safely, check the public decks by hand: " + ", ".join(report["unmatched_private_names"]))
     return report
 
 
@@ -383,6 +467,10 @@ def load_edition(root: str, tiers: list[str] | None = None, today: date | None =
     today = today or datetime.now(timezone.utc).date()
     projects, cards, repos = [], [], []
     owner, as_of = "", ""
+    warnings: list[str] = []
+    unknown = [t for t in tiers if t not in TIERS]
+    if unknown:
+        raise ValueError(f"unknown tier(s) {unknown}: the tiers are {list(TIERS)}")
     for tier in tiers:
         base = tier_dir(root, tier)
         manifest = _read(os.path.join(base, "projects.json"), {"projects": []})
@@ -398,8 +486,10 @@ def load_edition(root: str, tiers: list[str] | None = None, today: date | None =
             if pmap is None or pcards is None:
                 raise FileNotFoundError(f"tier {tier}: map or cards missing for {slug}")
             full = _read(os.path.join(tier_dir(root, "private"), UNREDACTED, f"{slug}.json")) if tier == "public" and "private" in tiers else None
-            if full:
+            if full and full.get("public_sha") == _digest(pmap, pcards):
                 pmap, pcards, entry = full["map"], full["cards"], {**entry, "aliases": full.get("aliases") or entry.get("aliases")}
+            elif full:   # the public deck was edited since: the edited deck wins over the stale full wording
+                warnings.append(f"{slug}: the public deck changed after its last ingest; its unredacted copy is ignored until the next ingest")
             m_rep, c_rep = schema.validate_map(pmap), schema.validate_cards(pcards)
             if not (m_rep.ok and c_rep.ok):
                 raise ValueError(f"tier {tier}: {slug} is invalid — " + "; ".join((m_rep.errors + c_rep.errors)[:4]))
@@ -443,7 +533,8 @@ def load_edition(root: str, tiers: list[str] | None = None, today: date | None =
         "as_of": as_of or today.isoformat(),
         "today": today.isoformat(),
         "tiers": tiers,
-        "edition": "private" if "private" in tiers else "public",
+        "edition": "public" if list(tiers) == ["public"] and all(inventory.is_public(p.get("visibility")) for p in projects) else "private",
+        "warnings": warnings,
         "projects": projects,
         "cards": cards,
         "inventory": analyzed,
@@ -487,12 +578,17 @@ def find_stale(root: str, sources_root: str, tiers: list[str] | None = None) -> 
 
 
 def write_stale(root: str, report: dict, tiers: list[str] | None = None) -> None:
-    """Record the stale addresses per tier; the next build marks those cards."""
+    """Record the stale addresses per tier; the next build marks those cards.  A project that could not be
+    checked this time (no checkout) keeps the marks it had."""
+    unchecked = set(report.get("unchecked") or [])
     for tier in tiers or present_tiers(root):
         base = tier_dir(root, tier)
         manifest = _read(os.path.join(base, "projects.json"), {"projects": []})
         slugs = {e["slug"] for e in manifest.get("projects", [])}
-        _write(os.path.join(base, "stale.json"), {slug: keys for slug, keys in sorted(report["stale"].items()) if slug in slugs})
+        previous = _read(os.path.join(base, "stale.json"), {}) or {}
+        merged = {slug: keys for slug, keys in previous.items() if slug in slugs and slug in unchecked}
+        merged.update({slug: keys for slug, keys in report["stale"].items() if slug in slugs})
+        _write(os.path.join(base, "stale.json"), dict(sorted(merged.items())))
 
 
 def edition_stats(edition: dict) -> dict:

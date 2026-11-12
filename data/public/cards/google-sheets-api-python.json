@@ -1,0 +1,737 @@
+{
+ "slug": "google-sheets-api-python",
+ "cards": [
+  {
+   "category": 0,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "revenue_plan_line custom object",
+   "question": "What does the `revenue_model/` work in google-sheets-api-python build in HubSpot for the 20 manual-input revenue lines?",
+   "answer": "A HubSpot custom object `revenue_plan_line`: one record per line, bound to its canonical Company where a binding exists.",
+   "explanation": "The repository is a fork of a Google Sheets API tutorial; the owner's own work is `revenue_model/`: a design document, the S0-S9 runbook, the schema payload and three scripts. Before it, the 20 lines existed only as sheet rows with no CRM identity and no company relationship.",
+   "anchor": "Twenty loose sticky notes peel off a spreadsheet; each lands on an index card of its own, tied by one string to a company's doorplate.",
+   "example": "curl -X POST https://api.hubapi.com/crm-object-schemas/v3/schemas -H \"Authorization: Bearer $HUBSPOT_PRIVATE_APP_TOKEN\" -H \"Content-Type: application/json\" -d @revenue_model/schema_revenue_plan_line.json  # creates the object (S2)",
+   "tags": [
+    "custom-object"
+   ],
+   "source": [
+    "revenue_model/implementation_design.md:121-123",
+    "revenue_model/implementation_design.md:15-19",
+    "revenue_model/schema_revenue_plan_line.json:1-8"
+   ],
+   "evidence_quote": "One new custom object: `revenue_plan_line` (label \"Revenue Plan Line\"), one record per model line item (20 records)",
+   "source_refs": [
+    {
+     "path": "revenue_model/implementation_design.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 121,
+     "end": 123
+    },
+    {
+     "path": "revenue_model/implementation_design.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 15,
+     "end": 19
+    },
+    {
+     "path": "revenue_model/schema_revenue_plan_line.json",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 1,
+     "end": 8
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 1,
+   "type": "recall",
+   "level": 1,
+   "concept": "system-of-record split",
+   "question": "Which system-of-record split does google-sheets-api-python's making layer rest on?",
+   "answer": "HubSpot owns a line's identity and company link; the Sheet owns its values, mirrored Sheet -> CRM ONE way.",
+   "explanation": "Planners edit the Sheet, never the mirror; the upsert is the only writer of `amount_*` and re-running it reconciles the copy. Breaks if undone: values drift silently between the CRM mirror and the Sheet (DFMEA RPN 175). see 70",
+   "anchor": "Planners write on a whiteboard and a camera copies it to the lobby screen; scribbling on the lobby screen changes nothing upstream and is wiped at the next copy.",
+   "confusables": "two-way sync — values would be editable on BOTH sides; here the CRM copy is read-only by rule and overwritten by the next upsert.",
+   "tags": [
+    "one-way-mirror"
+   ],
+   "source": [
+    "revenue_model/implementation_design.md:248-249",
+    "revenue_model/implementation_design.md:33-36",
+    "revenue_model/crm_upsert_plan_lines.py:16-17",
+    "revenue_model/implementation_design.md:211-214"
+   ],
+   "evidence_quote": "system of record for values = Sheet; for identity/relationship = CRM",
+   "source_refs": [
+    {
+     "path": "revenue_model/implementation_design.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 248,
+     "end": 249
+    },
+    {
+     "path": "revenue_model/implementation_design.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 33,
+     "end": 36
+    },
+    {
+     "path": "revenue_model/crm_upsert_plan_lines.py",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 16,
+     "end": 17
+    },
+    {
+     "path": "revenue_model/implementation_design.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 211,
+     "end": 214
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "one record per line",
+   "question": "google-sheets-api-python: a plan line has one value per year. How many `revenue_plan_line` records does it get, and where do the years live?",
+   "answer": "ONE record per line item (20 in all); its years are six number properties `amount_2025`..`amount_2030` in $M.",
+   "explanation": "Rejected: one record per line x year (120 records), which would flood a company sidebar with year-records and multiply association upkeep by six. Cost accepted: adding a year is a schema change, done once a year.",
+   "confusables": "`li_values.csv` row — the CSV is LONG (one row per line x year, 120 rows); the CRM record is WIDE (one per line, six amount properties).",
+   "tags": [
+    "granularity"
+   ],
+   "source": [
+    "revenue_model/implementation_design.md:127-133",
+    "revenue_model/crm_upsert_plan_lines.py:68-70",
+    "revenue_model/schema_revenue_plan_line.json:32-37"
+   ],
+   "evidence_quote": "1 record = 1 model line** (not 1 per line×year, not 1 per pursuit)",
+   "source_refs": [
+    {
+     "path": "revenue_model/implementation_design.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 127,
+     "end": 133
+    },
+    {
+     "path": "revenue_model/crm_upsert_plan_lines.py",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 68,
+     "end": 70
+    },
+    {
+     "path": "revenue_model/schema_revenue_plan_line.json",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 32,
+     "end": 37
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 1,
+   "type": "cloze",
+   "level": 1,
+   "concept": "bindable binding modes",
+   "question": "google-sheets-api-python · `crm_associate_companies.py`: complete the two `company_binding_mode` values whose lines get a company edge.",
+   "cloze": "`bindable_lines()` keeps a catalog row only when its `company_binding_mode` is {{c1::VERIFIED}} or {{c1::VERIFIED_WITH_DUPES}} and its company id is not empty.",
+   "answer": "VERIFIED · VERIFIED_WITH_DUPES",
+   "explanation": "This is the governance gate in code: a line whose account is not pinned to one canonical record stays unassociated rather than wrongly associated. With the committed catalog it keeps 15 lines and skips 5.",
+   "confusables": "`PROSPECTIVE` / `AGGREGATE` — valid enum values too, but SKIPPED: those lines stay unassociated by design.",
+   "tags": [
+    "binding-gate"
+   ],
+   "source": [
+    "revenue_model/crm_associate_companies.py:37",
+    "revenue_model/crm_associate_companies.py:55-61",
+    "revenue_model/schema_revenue_plan_line.json:38-45"
+   ],
+   "evidence_quote": "BINDABLE = {\"VERIFIED\", \"VERIFIED_WITH_DUPES\"}",
+   "source_refs": [
+    {
+     "path": "revenue_model/crm_associate_companies.py",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 37
+    },
+    {
+     "path": "revenue_model/crm_associate_companies.py",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 55,
+     "end": 61
+    },
+    {
+     "path": "revenue_model/schema_revenue_plan_line.json",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 38,
+     "end": 45
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 0,
+   "type": "trace",
+   "level": 3,
+   "concept": "runbook S0 to S5 order",
+   "question": "google-sheets-api-python · WORKFLOW runbook: recite the 6 steps S0 to S5, from preflight to verified company associations.",
+   "steps": [
+    "S0 preflight -> Enterprise tier, a free custom-object slot and a token confirmed",
+    "S1 dedup -> duplicate company records merged INTO the canonical record (irreversible)",
+    "S2 POST `schema_revenue_plan_line.json` -> the `revenue_plan_line` object exists",
+    "S3 create the `Plan line` association label -> edges to companies can carry the name",
+    "S4 `crm_upsert_plan_lines.py --execute` -> 20 records upserted by `li_key`",
+    "S5 `crm_associate_companies.py --execute`, then `--verify` -> 15/15 edges correct"
+   ],
+   "answer": "preflight · dedup · schema · label · upsert · associate + verify",
+   "explanation": "The order is by dependency and each step has a Verify gate. The load-bearing constraint: S5 runs strictly after S1 and S4, so every edge lands on a canonical company that still exists and on a record that is already loaded. S6-S9 (permissions, Sheet re-sync, acceptance, DFMEA re-score) follow.",
+   "anchor": "A registry clerk checks her licence, glues twin company folders into one, prints a blank form, inks a stamp, fills 20 forms, then staples 15 of them to folders and recounts.",
+   "tags": [
+    "runbook-order"
+   ],
+   "source": [
+    "revenue_model/WORKFLOW.md:159-168",
+    "revenue_model/WORKFLOW.md:3-5",
+    "revenue_model/WORKFLOW.md:32-48",
+    "revenue_model/WORKFLOW.md:52-62",
+    "revenue_model/WORKFLOW.md:91-102",
+    "revenue_model/WORKFLOW.md:120-149"
+   ],
+   "evidence_quote": "Runs strictly **after S1 (dedup) and S4 (records exist)**",
+   "source_refs": [
+    {
+     "path": "revenue_model/WORKFLOW.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 159,
+     "end": 168
+    },
+    {
+     "path": "revenue_model/WORKFLOW.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 3,
+     "end": 5
+    },
+    {
+     "path": "revenue_model/WORKFLOW.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 32,
+     "end": 48
+    },
+    {
+     "path": "revenue_model/WORKFLOW.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 52,
+     "end": 62
+    },
+    {
+     "path": "revenue_model/WORKFLOW.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 91,
+     "end": 102
+    },
+    {
+     "path": "revenue_model/WORKFLOW.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 120,
+     "end": 149
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 0,
+   "type": "locate",
+   "level": 1,
+   "concept": "upsert script entry point",
+   "question": "Which script in google-sheets-api-python loads the 20 plan-line records into HubSpot (runbook step S4)?",
+   "answer": "`revenue_model/crm_upsert_plan_lines.py --object-type <fullyQualifiedName>`: `--dry-run` first, then `--execute`.",
+   "explanation": "`--dry-run` prints the count and the first input and returns BEFORE the token is read; `--execute` POSTs slices of 100 inputs to the batch upsert endpoint. Exactly one of the two flags is required. Records ONLY, no associations.",
+   "example": "python revenue_model/crm_upsert_plan_lines.py --object-type <fullyQualifiedName> --dry-run  # '20 records to upsert into ...' then the first input as JSON",
+   "confusables": "`crm_associate_companies.py` — same flags plus `--verify`, but it creates EDGES to companies, never records.",
+   "tags": [
+    "cli"
+   ],
+   "source": [
+    "revenue_model/crm_upsert_plan_lines.py:90-95",
+    "revenue_model/crm_upsert_plan_lines.py:74-88"
+   ],
+   "evidence_quote": "res = call(token, \"POST\", f\"/crm/v3/objects/{args.object_type}/batch/upsert\",",
+   "source_refs": [
+    {
+     "path": "revenue_model/crm_upsert_plan_lines.py",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 90,
+     "end": 95
+    },
+    {
+     "path": "revenue_model/crm_upsert_plan_lines.py",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 74,
+     "end": 88
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 1,
+   "type": "output",
+   "level": 3,
+   "concept": "build_inputs() amounts as strings",
+   "question": "google-sheets-api-python · `build_inputs`: predict the exact value of the expression on the last line of the snippet below.",
+   "code_snippet": "# li_catalog.csv, first row: li_cat_new_sealsq_prospects\n# li_values.csv: li_cat_new_sealsq_prospects,11,...,2026,0.2,...\nfor row in csv.DictReader(f):\n    values.setdefault(row[\"li_key\"], {})[int(row[\"year\"])] = row[\"value_musd\"]\n# ...\nfor y in YEARS:\n    props[f\"amount_{y}\"] = values[c[\"li_key\"]].get(y, \"0\")\ninputs.append({\"idProperty\": \"li_key\", \"id\": c[\"li_key\"], \"properties\": props})\n# ...\nbuild_inputs()[0][\"properties\"][\"amount_2026\"]",
+   "expected_output": "'0.2'",
+   "answer": "`'0.2'` — a STRING: `csv.DictReader` yields text and `build_inputs()` forwards `value_musd` verbatim, pivoting one CSV row per year into one `amount_<year>` property.",
+   "explanation": "(1) The 2026 row of the first catalog line holds `0.2`. (2) It is stored as text under the int key 2026. (3) `.get(y, \"0\")` returns that text; only a MISSING year falls back to `\"0\"`. No float conversion happens anywhere, so the model's figures reach the API exactly as typed.",
+   "tags": [
+    "grounded:fixture",
+    "long-to-wide"
+   ],
+   "source": [
+    "revenue_model/li_values.csv:3",
+    "revenue_model/crm_upsert_plan_lines.py:46-71",
+    "revenue_model/li_catalog.csv:2"
+   ],
+   "evidence_quote": "li_cat_new_sealsq_prospects,11,Catalog Product Customers,New SEALSQ Prospects,2026,0.2,Line item manual input,None",
+   "source_refs": [
+    {
+     "path": "revenue_model/li_values.csv",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 3
+    },
+    {
+     "path": "revenue_model/crm_upsert_plan_lines.py",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 46,
+     "end": 71
+    },
+    {
+     "path": "revenue_model/li_catalog.csv",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 2
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 0,
+   "type": "why",
+   "level": 2,
+   "concept": "plan line as custom object",
+   "question": "Why does google-sheets-api-python model plan lines as a custom object `revenue_plan_line` rather than as HubSpot native line items?",
+   "answer": "Native line items have NO association type to companies: they hang only on deals, quotes and other commerce objects, with a single parent, and are cascade-deleted with it.",
+   "explanation": "The plan lines must hang on Companies and outlive any deal. Breaks if undone: every line needs a parent deal, enters deal analytics and vanishes when that deal is deleted. The products catalog was ruled out too: products cannot be associated with other objects. see 61",
+   "anchor": "A price tag sewn into one coat: sell or burn the coat and the tag goes with it, and nobody can pin that tag onto the customer's own file.",
+   "confusables": "native `line_items` — a child of ONE deal or quote with no company edge; the custom object is a standalone record whose only edge IS the company.",
+   "tags": [
+    "per-docs",
+    "custom-object"
+   ],
+   "source": [
+    "revenue_model/implementation_design.md:109",
+    "revenue_model/implementation_design.md:119-123",
+    "revenue_model/schema_revenue_plan_line.json:1-8"
+   ],
+   "evidence_quote": "no line_item↔company association type exists",
+   "source_refs": [
+    {
+     "path": "revenue_model/implementation_design.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 109
+    },
+    {
+     "path": "revenue_model/implementation_design.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 119,
+     "end": 123
+    },
+    {
+     "path": "revenue_model/schema_revenue_plan_line.json",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 1,
+     "end": 8
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 1,
+   "type": "why",
+   "level": 2,
+   "concept": "company as the only edge",
+   "question": "Why does google-sheets-api-python's `revenue_plan_line` schema list `COMPANY` as its ONLY associated object rather than also linking plan lines to deals?",
+   "answer": "With NO join path to deals, plan values cannot leak into pipelines, forecast tools or win-rate reports: isolation rule R1 makes R3 structural instead of a matter of discipline.",
+   "explanation": "It is the reason a second 'planning' deal pipeline was rejected: deals always feed forecast analytics. The S2 gate checks that COMPANY is the only entry. Breaks if undone: planning figures get counted as live sales pipeline.",
+   "anchor": "A planner's wish list kept in a room with one door, opening onto the company shelves; the sales scoreboard hangs in another building with no corridor between them.",
+   "confusables": "a 'planning' deal pipeline — the lines would BE deals and appear in forecasts; the custom object has no deal edge at all.",
+   "tags": [
+    "isolation-rules"
+   ],
+   "source": [
+    "revenue_model/implementation_design.md:174-180",
+    "revenue_model/schema_revenue_plan_line.json:8",
+    "revenue_model/WORKFLOW.md:115-116"
+   ],
+   "evidence_quote": "Prevents any join path that could leak plan values into sales analytics.",
+   "source_refs": [
+    {
+     "path": "revenue_model/implementation_design.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 174,
+     "end": 180
+    },
+    {
+     "path": "revenue_model/schema_revenue_plan_line.json",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 8
+    },
+    {
+     "path": "revenue_model/WORKFLOW.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 115,
+     "end": 116
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 2,
+   "type": "recall",
+   "level": 1,
+   "concept": "rule R5 one feed",
+   "question": "google-sheets-api-python: what does isolation rule R5 demand of every dollar in the revenue model?",
+   "answer": "It enters through exactly ONE feed: a pursuit covered by a plan line is excluded from the weighted-pipe scope.",
+   "explanation": "It answers the top DFMEA risk, double counting (RPN 216 = 9 x 6 x 4). R4 keeps the deal weighted-pipe layer (`weighted_amount_calculated`, cf. [private project]) read-only, and that pipe feeds only the Catalog segment line. The audit is quarterly and manual: no script exists for it.",
+   "confusables": "R1 — R1 forbids any EDGE from the object to deals; R5 forbids the same MONEY arriving twice, even when no edge exists.",
+   "tags": [
+    "per-docs",
+    "isolation-rules"
+   ],
+   "source": [
+    "revenue_model/implementation_design.md:184-190",
+    "revenue_model/implementation_design.md:181-183",
+    "revenue_model/implementation_design.md:52"
+   ],
+   "evidence_quote": "every dollar enters the model through exactly one feed",
+   "source_refs": [
+    {
+     "path": "revenue_model/implementation_design.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 184,
+     "end": 190
+    },
+    {
+     "path": "revenue_model/implementation_design.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 181,
+     "end": 183
+    },
+    {
+     "path": "revenue_model/implementation_design.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 52
+    }
+   ]
+  },
+  {
+   "category": 7,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "li_key idempotent upsert key",
+   "question": "google-sheets-api-python: which property makes re-running the plan-line upsert safe?",
+   "answer": "`li_key`: unique-value text sent as `idProperty`, so each run is create-or-update with no record-id bookkeeping.",
+   "explanation": "No plan-line record id is stored anywhere in the repository (the ids in `li_catalog.csv` are COMPANY ids); the key is also the join column between the CRM record, `LI_CATALOG` and `LI_VALUES`. The association script resolves record ids from it at run time. The schema marks it `hasUniqueValue` and says never to rename it.",
+   "anchor": "A cloakroom ticket: hand in the same number twice and the attendant walks to the same hook; a second coat never appears.",
+   "confusables": "`label` — the display name, which may change FREELY; the key never does.",
+   "tags": [
+    "idempotency"
+   ],
+   "source": [
+    "revenue_model/crm_upsert_plan_lines.py:70",
+    "revenue_model/crm_upsert_plan_lines.py:16-17",
+    "revenue_model/schema_revenue_plan_line.json:10-11",
+    "revenue_model/crm_associate_companies.py:92-97"
+   ],
+   "evidence_quote": "inputs.append({\"idProperty\": \"li_key\", \"id\": c[\"li_key\"], \"properties\": props})",
+   "source_refs": [
+    {
+     "path": "revenue_model/crm_upsert_plan_lines.py",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 70
+    },
+    {
+     "path": "revenue_model/crm_upsert_plan_lines.py",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 16,
+     "end": 17
+    },
+    {
+     "path": "revenue_model/schema_revenue_plan_line.json",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 10,
+     "end": 11
+    },
+    {
+     "path": "revenue_model/crm_associate_companies.py",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 92,
+     "end": 97
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 0,
+   "type": "recall",
+   "level": 2,
+   "concept": "Sheet deploy authentication",
+   "question": "What makes google-sheets-api-python's `deploy_line_items.py` able to write to a Google Sheet?",
+   "answer": "The fork's `pygs.Pygs` wrapper, which authenticates with a service-account key JSON at the repository root. In this fork that file is a PLACEHOLDER: put a real key there and share the spreadsheet with the service account as editor.",
+   "explanation": "`pygs.py` builds its credentials at IMPORT time, so the deploy script imports `Pygs` inside `main()` rather than at module level. Until the key is real, the Sheet re-sync (S7) cannot run.",
+   "example": "python revenue_model/deploy_line_items.py <spreadsheet_id>  # clears and rewrites LI_CATALOG and LI_VALUES, appends the checksum block",
+   "confusables": "the HubSpot side — the two CRM scripts need only the env var `HUBSPOT_PRIVATE_APP_TOKEN` and the standard library; ONLY the Sheet deploy needs the key file and the Google packages.",
+   "tags": [
+    "service-account",
+    "late-import"
+   ],
+   "source": [
+    "revenue_model/deploy_line_items.py:29",
+    "revenue_model/deploy_line_items.py:3-5",
+    "pygs.py:13",
+    "revenue_model/WORKFLOW.md:213-214"
+   ],
+   "evidence_quote": "from pygs import Pygs # imported late: module-level auth needs a real key file",
+   "source_refs": [
+    {
+     "path": "revenue_model/deploy_line_items.py",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 29
+    },
+    {
+     "path": "revenue_model/deploy_line_items.py",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 3,
+     "end": 5
+    },
+    {
+     "path": "pygs.py",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 13
+    },
+    {
+     "path": "revenue_model/WORKFLOW.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 213,
+     "end": 214
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 0,
+   "type": "recall",
+   "level": 2,
+   "concept": "association verify gate",
+   "question": "google-sheets-api-python: which command proves the line-to-company associations are right, and what is its passing sign?",
+   "answer": "`python revenue_model/crm_associate_companies.py --object-type <fullyQualifiedName> --verify` — last line `verify: 15/15 correct; expected total = 15`, exit code 0.",
+   "explanation": "A line is OK only when its associated companies equal EXACTLY the one canonical id, so a leftover second edge is a MISMATCH and the exit code is 1. The repository has no test suite: this gate and the Sheet checksum block are the proofs.",
+   "example": "python revenue_model/crm_associate_companies.py --object-type <fullyQualifiedName> --verify; echo $?  # 0 only when every bindable line matches",
+   "tags": [
+    "verify-gate"
+   ],
+   "source": [
+    "revenue_model/crm_associate_companies.py:125-137",
+    "revenue_model/WORKFLOW.md:181-182"
+   ],
+   "evidence_quote": "sys.exit(0 if ok == len(lines) else 1)",
+   "source_refs": [
+    {
+     "path": "revenue_model/crm_associate_companies.py",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 125,
+     "end": 137
+    },
+    {
+     "path": "revenue_model/WORKFLOW.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 181,
+     "end": 182
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 1,
+   "type": "compare",
+   "level": 2,
+   "concept": "li_catalog.csv source of truth",
+   "question": "google-sheets-api-python: `li_catalog.csv` vs the deployed `LI_CATALOG` Sheet tab: what is the ONE difference?",
+   "answer": "`li_catalog.csv` in the repository is the source of truth and holds the canonical company ids; the deployed `LI_CATALOG` tab is a STALE copy, published before the canonical designation.",
+   "explanation": "All three scripts read the CSV, never the tab. Fix: `python revenue_model/deploy_line_items.py <spreadsheet_id>` (S7) clears the tab and rewrites it from the CSV.",
+   "anchor": "A master ledger locked in the office and a photocopy pinned in the corridor weeks ago: corrections go into the ledger while the corridor copy keeps last month's entries.",
+   "confusables": "`LI_CATALOG` tab — shows the pre-canonical binding modes until S7 is re-run; reading it instead of the CSV gives the WRONG association targets.",
+   "tags": [
+    "drift",
+    "per-docs"
+   ],
+   "source": [
+    "revenue_model/WORKFLOW.md:207-216",
+    "revenue_model/crm_associate_companies.py:7-8",
+    "revenue_model/deploy_line_items.py:20"
+   ],
+   "evidence_quote": "`li_catalog.csv` in this repo is the source of truth.",
+   "source_refs": [
+    {
+     "path": "revenue_model/WORKFLOW.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 207,
+     "end": 216
+    },
+    {
+     "path": "revenue_model/crm_associate_companies.py",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 7,
+     "end": 8
+    },
+    {
+     "path": "revenue_model/deploy_line_items.py",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 20
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 2,
+   "type": "scenario",
+   "level": 4,
+   "concept": "active flag reset trap",
+   "question": "google-sheets-api-python: you retire a plan line by setting `active=false` in HubSpot, as the design prescribes, and leave its row in `li_catalog.csv`. What does the next `crm_upsert_plan_lines.py --execute` do to it, and what is the smallest fix?",
+   "answer": "It UN-RETIRES the line. (1) `build_inputs()` hard-codes `\"active\": \"true\"` for every catalog row. (2) `li_catalog.csv` has NO `active` column, so no row can say otherwise. (3) Smallest fix: add an `active` column to the catalog and read it in `build_inputs()`; until then, remove the row from the catalog before retiring the record.",
+   "explanation": "Drift between design and code: the design says retirement is `active=false`, never delete; the code resets the flag on every run. Inputs are built ONLY from catalog rows, so a record whose row was removed is left untouched by the upsert.",
+   "tags": [
+    "trap",
+    "drift",
+    "hard-coded-flag"
+   ],
+   "source": [
+    "revenue_model/crm_upsert_plan_lines.py:54-67",
+    "revenue_model/implementation_design.md:215-216",
+    "revenue_model/li_catalog.csv:1",
+    "revenue_model/schema_revenue_plan_line.json:46"
+   ],
+   "evidence_quote": "\"active\": \"true\",",
+   "source_refs": [
+    {
+     "path": "revenue_model/crm_upsert_plan_lines.py",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 54,
+     "end": 67
+    },
+    {
+     "path": "revenue_model/implementation_design.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 215,
+     "end": 216
+    },
+    {
+     "path": "revenue_model/li_catalog.csv",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 1
+    },
+    {
+     "path": "revenue_model/schema_revenue_plan_line.json",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 46
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 9,
+   "type": "recall",
+   "level": 2,
+   "concept": "next step Phase D export",
+   "question": "What is the next planned step for google-sheets-api-python's revenue_model, the one designed phase that has no code yet?",
+   "answer": "The Phase D export — DESIGN TARGET: search the `active=true` records, batch-read their company associations, write `LI_VALUES` staging and compare checksums. It is the detector for Sheet/CRM drift.",
+   "explanation": "The CRM search API does not return associations, so the export needs a SECOND call or it silently drops the line-to-company mapping. `revenue_model/` holds three scripts (upsert, associate, Sheet deploy) and none for the export.",
+   "tags": [
+    "per-docs",
+    "export"
+   ],
+   "source": [
+    "revenue_model/implementation_design.md:278-282",
+    "revenue_model/implementation_design.md:92-94"
+   ],
+   "evidence_quote": "checksum against the sheet block; alert on mismatch (detects drift, risk #2)",
+   "source_refs": [
+    {
+     "path": "revenue_model/implementation_design.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 278,
+     "end": 282
+    },
+    {
+     "path": "revenue_model/implementation_design.md",
+     "branch": "claude/workflow-design-framework-hg4q2l",
+     "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+     "line": 92,
+     "end": 94
+    }
+   ]
+  }
+ ]
+}

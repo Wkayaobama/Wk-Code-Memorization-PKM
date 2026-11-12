@@ -1,0 +1,648 @@
+{
+ "slug": "deep-seek-harness",
+ "cards": [
+  {
+   "category": 0,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Launcher for upstream dsh",
+   "question": "What is deep-seek-harness, and what does one launch of it produce?",
+   "answer": "A launcher: one command runs the pinned upstream `@deepseek-ai/dsh` and opens its Web UI at `http://127.0.0.1:3080`.",
+   "explanation": "The repository holds NO agent code of its own: two launcher scripts, a `package.json` with the pinned dependency and a README runbook. The agent harness is downloaded at launch.",
+   "anchor": "An ignition key with no car attached: turn it and the same rented car is delivered to your driveway, engine running, doors open.",
+   "example": "./start-harness.sh  # browser opens the harness Web UI on loopback port 3080",
+   "tags": [
+    "launcher"
+   ],
+   "source": [
+    "package.json:5",
+    "README.md:3-5",
+    "start-harness.sh:2"
+   ],
+   "evidence_quote": "\"description\": \"Local launcher for the DeepSeek Harness (dsh) Web UI at http://127.0.0.1:3080\"",
+   "source_refs": [
+    {
+     "path": "package.json",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 5
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 3,
+     "end": 5
+    },
+    {
+     "path": "start-harness.sh",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 2
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 1,
+   "type": "recall",
+   "level": 1,
+   "concept": "Run the verified release",
+   "question": "Which one-sentence rule does deep-seek-harness enforce about the upstream release it launches?",
+   "answer": "It launches the release the setup was last VERIFIED against (the pin), never the newest one by default.",
+   "explanation": "Upstream is a fast-moving developer preview, so a newer release may change flags or first-run steps. Breaks if undone: a launch that worked yesterday fails without any change here. The newest release is an explicit opt-in, see 10.",
+   "confusables": "`@latest` — tracks whatever upstream published last; the pin tracks what was TESTED here.",
+   "tags": [
+    "version-pin"
+   ],
+   "source": [
+    "start-harness.sh:17-18",
+    "README.md:9"
+   ],
+   "evidence_quote": "# Version this setup was verified against; override with DSH_VERSION=latest for the newest release.",
+   "source_refs": [
+    {
+     "path": "start-harness.sh",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 17,
+     "end": 18
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 9
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "DSH_VERSION per-run override",
+   "question": "Which environment variable makes deep-seek-harness launch another upstream release for a single run?",
+   "answer": "`DSH_VERSION`, e.g. `DSH_VERSION=latest ./start-harness.sh`; left unset, each script uses its pinned default.",
+   "explanation": "Both launcher scripts read it and fall back to their own hard-coded default. Nothing is edited on disk, so the next plain launch is back on the pin.",
+   "confusables": "the `package.json` dependency version — `DSH_VERSION` steers ONLY the two launcher scripts; `pnpm start` never reads it.",
+   "example": "DSH_VERSION=latest ./start-harness.sh  # newest upstream release, this run only",
+   "tags": [
+    "version-pin",
+    "env-override"
+   ],
+   "source": [
+    "start-harness.sh:18",
+    "start-harness.cmd:12",
+    "README.md:101-105"
+   ],
+   "evidence_quote": "DSH_VERSION=\"${DSH_VERSION:-0.1.1-rc.2}\"",
+   "source_refs": [
+    {
+     "path": "start-harness.sh",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 18
+    },
+    {
+     "path": "start-harness.cmd",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 12
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 101,
+     "end": 105
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 0,
+   "type": "trace",
+   "level": 3,
+   "concept": "start-harness.sh launch chain",
+   "question": "deep-seek-harness · `start-harness.sh`: recite the 5 steps from the call to the process that replaces the shell.",
+   "answer": "node present · major at least 22 · resolve `DSH_VERSION` · first-run notice · `pnpm dlx`, else `npx -y`",
+   "steps": [
+    "`command -v node` -> missing: error on stderr and `exit 1`",
+    "`node -p` extracts the Node major -> below 22: error on stderr and `exit 1`",
+    "`DSH_VERSION` -> kept when set, otherwise the pinned default",
+    "`echo` -> notice that the first run downloads the package",
+    "`command -v pnpm` -> found: `exec pnpm dlx`; missing: hint, then `exec npx -y`"
+   ],
+   "explanation": "Both guards run BEFORE anything is downloaded, so a missing or old Node fails fast with a readable message. The last step uses `exec`, so the package manager takes over the shell's process and Ctrl+C in the terminal stops the server.",
+   "anchor": "A launch-pad countdown: is there an engine, is it a recent enough model, load the flight number, announce a long fuelling, then light the fast booster or, failing that, the slow one.",
+   "tags": [
+    "launch-flow"
+   ],
+   "source": [
+    "start-harness.sh:6-29",
+    "README.md:39"
+   ],
+   "evidence_quote": "NODE_MAJOR=$(node -p 'process.versions.node.split(\".\")[0]')",
+   "source_refs": [
+    {
+     "path": "start-harness.sh",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 6,
+     "end": 29
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 39
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 0,
+   "type": "locate",
+   "level": 1,
+   "concept": "Entry point and launch directory",
+   "question": "Which script do you run first to open the deep-seek-harness Web UI on macOS or Linux, and from which directory?",
+   "answer": "`start-harness.sh`, run FROM the project the agent should work in: that directory becomes the default workspace root.",
+   "explanation": "Windows uses `start-harness.cmd` the same way. Launched from inside the launcher's own checkout, the agent's default workspace is the launcher itself, not your project.",
+   "example": "cd ~/my-project && /path/to/deep-seek-harness/start-harness.sh  # my-project becomes the default workspace root",
+   "tags": [
+    "entry-point",
+    "per-docs"
+   ],
+   "source": [
+    "README.md:18-30",
+    "start-harness.sh:1-3"
+   ],
+   "evidence_quote": "From the directory you want the agent to work in (that directory becomes the default workspace root):",
+   "source_refs": [
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 18,
+     "end": 30
+    },
+    {
+     "path": "start-harness.sh",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 1,
+     "end": 3
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 1,
+   "type": "output",
+   "level": 3,
+   "concept": "Argument forwarding after web",
+   "question": "deep-seek-harness · `start-harness.sh`: predict the exact command that replaces the shell for the call below.",
+   "code_snippet": "# pnpm is installed; DSH_VERSION is not set\n# call: ./start-harness.sh --port 4000 --no-open\nDSH_VERSION=\"${DSH_VERSION:-0.1.1-rc.2}\"\n# ...\nif command -v pnpm >/dev/null 2>&1; then\n  exec pnpm dlx \"@deepseek-ai/dsh@${DSH_VERSION}\" web \"$@\"\nelse\n  # ...\n  exec npx -y \"@deepseek-ai/dsh@${DSH_VERSION}\" web \"$@\"\nfi",
+   "expected_output": "pnpm dlx @deepseek-ai/dsh@0.1.1-rc.2 web --port 4000 --no-open",
+   "answer": "`pnpm dlx @deepseek-ai/dsh@0.1.1-rc.2 web --port 4000 --no-open` — the default fills the unset variable and every script argument is APPENDED after `web`.",
+   "explanation": "(1) `DSH_VERSION` is unset, so `:-` yields the default. (2) pnpm is found, so the first branch runs. (3) `\"$@\"` expands to the two flags, placed after the `web` subcommand, which is where upstream expects its flags.",
+   "confusables": "the `npx -y` branch — same package, same `web` and the same forwarded flags; it runs ONLY when pnpm is absent.",
+   "tags": [
+    "grounded:doc",
+    "arg-forwarding"
+   ],
+   "source": [
+    "start-harness.sh:18-28",
+    "README.md:35",
+    "README.md:61-70"
+   ],
+   "evidence_quote": "exec pnpm dlx \"@deepseek-ai/dsh@${DSH_VERSION}\" web \"$@\"",
+   "source_refs": [
+    {
+     "path": "start-harness.sh",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 18,
+     "end": 28
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 35
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 61,
+     "end": 70
+    }
+   ]
+  },
+  {
+   "category": 4,
+   "rank": 0,
+   "type": "compare",
+   "level": 2,
+   "concept": "sh launcher vs cmd launcher",
+   "question": "deep-seek-harness: `start-harness.sh` vs `start-harness.cmd`: what is the ONE difference in what they verify before launching?",
+   "answer": "`start-harness.sh` checks that Node exists and that its major is at least 22; `start-harness.cmd` checks ONLY that `node` is on PATH.",
+   "explanation": "The batch file runs `where node` and nothing more, so on Windows the launcher stops no Node version at all. For how loose the sh guard itself is, see 92.",
+   "confusables": "`start-harness.cmd` — NO version guard: any Node that is on PATH gets through the Windows launcher.",
+   "anchor": "Two doormen: one reads the birth year on your card, the other only checks that you are holding a card.",
+   "tags": [
+    "node-guard"
+   ],
+   "source": [
+    "start-harness.sh:11-15",
+    "start-harness.cmd:5-9"
+   ],
+   "evidence_quote": "if [ \"$NODE_MAJOR\" -lt 22 ]; then",
+   "source_refs": [
+    {
+     "path": "start-harness.sh",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 11,
+     "end": 15
+    },
+    {
+     "path": "start-harness.cmd",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 5,
+     "end": 9
+    }
+   ]
+  },
+  {
+   "category": 4,
+   "rank": 1,
+   "type": "locate",
+   "level": 1,
+   "concept": "Installed-dependency launch path",
+   "question": "Which deep-seek-harness command runs the harness from an INSTALLED dependency instead of a download-and-run?",
+   "answer": "`pnpm start`, after `pnpm install`: the `package.json` script `\"start\": \"dsh web\"`.",
+   "explanation": "It runs the `dsh` binary of the dependency declared in `package.json`, so its release is whatever that file pins, independent of the launcher scripts (see 91).",
+   "confusables": "`./start-harness.sh` — runs `@deepseek-ai/dsh@$DSH_VERSION` EPHEMERALLY through dlx or npx; `pnpm start` runs the copy in `node_modules`.",
+   "example": "pnpm install / pnpm start  # runs: dsh web",
+   "tags": [
+    "npm-scripts"
+   ],
+   "source": [
+    "package.json:6-13",
+    "README.md:41-46"
+   ],
+   "evidence_quote": "\"start\": \"dsh web\"",
+   "source_refs": [
+    {
+     "path": "package.json",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 6,
+     "end": 13
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 41,
+     "end": 46
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 0,
+   "type": "why",
+   "level": 2,
+   "concept": "pnpm dlx preferred over npx",
+   "question": "Why does deep-seek-harness launch through `pnpm dlx` whenever pnpm is installed rather than always using `npx -y`?",
+   "answer": "npm's resolver can stall for a very long time on the package's large release-candidate dependency graph; pnpm resolves the same graph in seconds.",
+   "explanation": "Breaks if undone: the first launch sits on 'resolving dependencies' and looks frozen. `npx -y` survives ONLY as the fallback, and the scripts print a hint to install pnpm before taking it.",
+   "confusables": "`npx -y` — the same download-and-run idea, but through npm's resolver; kept as the FALLBACK only.",
+   "anchor": "Two couriers are handed the same enormous parts list: one sorts it at the counter in seconds, the other stands chewing his pencil until closing time.",
+   "tags": [
+    "package-manager",
+    "trap"
+   ],
+   "source": [
+    "start-harness.sh:22-28",
+    "start-harness.cmd:16-23",
+    "README.md:109"
+   ],
+   "evidence_quote": "resolver can grind for a very long time, so prefer pnpm when it is available.",
+   "source_refs": [
+    {
+     "path": "start-harness.sh",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 22,
+     "end": 28
+    },
+    {
+     "path": "start-harness.cmd",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 16,
+     "end": 23
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 109
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 1,
+   "type": "why",
+   "level": 2,
+   "concept": "SSH forward, never a tunnel",
+   "question": "Why does deep-seek-harness reach a harness on a remote machine through an SSH port-forward rather than a public tunnel such as ngrok?",
+   "answer": "Nothing authenticates the Web UI, and its API tells an agent to run shell commands in the workspace: ANYONE who reaches the port can execute code on the machine.",
+   "explanation": "Breaks if undone: a published port is an open shell on your workspace. The server therefore stays on `127.0.0.1`, and the README notes that upstream itself refuses `--host 0.0.0.0`. The forward command: see 81.",
+   "confusables": "a public tunnel or a reverse proxy on a public interface — it publishes the port to EVERYONE; an SSH forward opens it only to the holder of the SSH login.",
+   "anchor": "A workshop with no lock and an obedient robot inside that does whatever a visitor tells it: it is kept in a windowless back room reached only by your own private corridor.",
+   "tags": [
+    "per-docs",
+    "loopback",
+    "security"
+   ],
+   "source": [
+    "README.md:84-85",
+    "README.md:74"
+   ],
+   "evidence_quote": "its API drives an agent that can execute shell commands in your workspace",
+   "source_refs": [
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 84,
+     "end": 85
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 74
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 0,
+   "type": "recall",
+   "level": 2,
+   "concept": "DeepSeek API key supply",
+   "question": "What makes the Web UI launched by deep-seek-harness able to call the DeepSeek API, and through which two routes is it supplied?",
+   "answer": "A DeepSeek API key: pasted under Settings -> Models in the Web UI, or set as `DEEPSEEK_API_KEY` in a `.env` in the directory you LAUNCH from.",
+   "explanation": "The key never lives in the repository: `.gitignore` excludes `.env` and only the empty template `.env.example` is tracked. Because the file is read from the invoking directory, a `.env` beside the script is missed when you launch from another project.",
+   "confusables": "cf. [private project] `DEEPSEEK_API_KEY`: there it is ONE provider key among several for a Hermes agent; here it is the only secret the setup needs.",
+   "example": "cp .env.example .env  # then fill in DEEPSEEK_API_KEY",
+   "tags": [
+    "auth",
+    "env-file"
+   ],
+   "source": [
+    ".env.example:1-3",
+    "README.md:52-53",
+    ".gitignore:3"
+   ],
+   "evidence_quote": "# Copied to .env (git-ignored), this is picked up by dsh from the invoking directory.",
+   "source_refs": [
+    {
+     "path": ".env.example",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 1,
+     "end": 3
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 52,
+     "end": 53
+    },
+    {
+     "path": ".gitignore",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 3
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 1,
+   "type": "cloze",
+   "level": 1,
+   "concept": "SSH local port-forward command",
+   "question": "deep-seek-harness: complete the SSH command that brings a harness running on a remote box to your local browser.",
+   "cloze": "ssh -L {{c1::3080:127.0.0.1:3080}} user@remote-host",
+   "answer": "3080:127.0.0.1:3080",
+   "explanation": "Local port 3080 is forwarded to loopback port 3080 on the remote box, where the server listens; you then open `http://127.0.0.1:3080` locally. Why this route and not a tunnel: see 61.",
+   "tags": [
+    "per-docs",
+    "remote-access"
+   ],
+   "source": [
+    "README.md:74-80"
+   ],
+   "evidence_quote": "ssh -L 3080:127.0.0.1:3080 user@remote-host",
+   "source_refs": [
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 74,
+     "end": 80
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Manual launch verification",
+   "question": "deep-seek-harness has no test suite: which manual check proves a launch works, and what is its passing sign?",
+   "answer": "Launch with `--no-open`, then request `http://127.0.0.1:3080`: HTTP 200 and the app renders.",
+   "explanation": "This is the only verification the repository records: one end-to-end run on a clean Linux container. Nothing automated guards a broken upstream release.",
+   "example": "./start-harness.sh --no-open  # then fetch http://127.0.0.1:3080 and expect HTTP 200",
+   "tags": [
+    "per-docs",
+    "smoke-check"
+   ],
+   "source": [
+    "README.md:48"
+   ],
+   "evidence_quote": "served the Web UI at http://127.0.0.1:3080 (HTTP 200, app renders)",
+   "source_refs": [
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 48
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 1,
+   "type": "scenario",
+   "level": 3,
+   "concept": "update:dsh moves one pin",
+   "question": "deep-seek-harness: you run `npm run update:dsh` to move to a newer upstream release. Which launch path now runs the new release, and which still runs the old one?",
+   "answer": "ONLY `pnpm start` moves, because the script rewrites the `package.json` dependency. `start-harness.sh` and `start-harness.cmd` still launch the old release: each carries its own hard-coded `DSH_VERSION` default.",
+   "explanation": "The pin lives in THREE files and the update script touches one. Fix: edit both script defaults in the same change, or use `DSH_VERSION=latest` for a one-off run. Note that the script goes through npm, the resolver the launchers avoid (see 60).",
+   "confusables": "`DSH_VERSION=latest` — changes ONE run of the launcher scripts and writes nothing; `update:dsh` rewrites `package.json` and leaves the scripts alone.",
+   "example": "npm run update:dsh  # package.json dependency changes; the two script defaults do not",
+   "tags": [
+    "trap",
+    "drift",
+    "version-pin"
+   ],
+   "source": [
+    "package.json:9-12",
+    "start-harness.sh:18",
+    "start-harness.cmd:12",
+    "README.md:101"
+   ],
+   "evidence_quote": "\"update:dsh\": \"npm install @deepseek-ai/dsh@latest\"",
+   "source_refs": [
+    {
+     "path": "package.json",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 9,
+     "end": 12
+    },
+    {
+     "path": "start-harness.sh",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 18
+    },
+    {
+     "path": "start-harness.cmd",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 12
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 101
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 2,
+   "type": "recall",
+   "level": 2,
+   "concept": "Node guard looser than docs",
+   "question": "deep-seek-harness documents Node 22.19+ or 24+ as its requirement. Which Node versions does `start-harness.sh` actually refuse to launch with?",
+   "answer": "ONLY majors below 22. The guard compares the major number alone, so 22.0 to 22.18 pass it although they sit below the documented 22.19 minimum.",
+   "explanation": "The script extracts the first component of the Node version and tests it with `-lt 22`; the minor is never read (23.x passes too). Check `node --version` by hand against the documented rule. The Windows launcher has no version test at all, see 40.",
+   "confusables": "the documented requirement `22.19+ or 24+` — it constrains the minor as well; the guard reads the MAJOR only.",
+   "tags": [
+    "drift",
+    "node-guard"
+   ],
+   "source": [
+    "start-harness.sh:11-15",
+    "README.md:13"
+   ],
+   "evidence_quote": "if [ \"$NODE_MAJOR\" -lt 22 ]; then",
+   "source_refs": [
+    {
+     "path": "start-harness.sh",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 11,
+     "end": 15
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 13
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 9,
+   "type": "scenario",
+   "level": 4,
+   "concept": "Resume: re-verify then bump",
+   "question": "deep-seek-harness pins a release candidate of a fast-moving developer preview. You return after months: what is the first step, and what must change together if it passes?",
+   "answer": "Re-verify against the newest upstream before trusting the runbook. (1) Run `DSH_VERSION=latest ./start-harness.sh --no-open` and expect HTTP 200 on `http://127.0.0.1:3080`. (2) If it passes, move the pin in ALL three files: both script defaults and the `package.json` dependency. (3) If it fails, stay on the pin: the documented flags and first-run steps are only known to hold for that release.",
+   "explanation": "The repository records no roadmap; this step follows from its own statements: the pin is the last verified release, upstream changes fast, and the override exists to try the newest release without editing anything. Why all three files: see 91.",
+   "tags": [
+    "inferred",
+    "resume",
+    "version-pin"
+   ],
+   "source": [
+    "README.md:9",
+    "README.md:99-105",
+    "README.md:48",
+    "start-harness.sh:17-18",
+    "start-harness.cmd:12",
+    "package.json:12"
+   ],
+   "evidence_quote": "DeepSeek Harness is in _developer preview_ and changes fast.",
+   "source_refs": [
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 9
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 99,
+     "end": 105
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 48
+    },
+    {
+     "path": "start-harness.sh",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 17,
+     "end": 18
+    },
+    {
+     "path": "start-harness.cmd",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 12
+    },
+    {
+     "path": "package.json",
+     "branch": "main",
+     "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+     "line": 12
+    }
+   ]
+  }
+ ]
+}

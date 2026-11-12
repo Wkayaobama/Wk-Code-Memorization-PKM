@@ -1,0 +1,465 @@
+{
+ "slug": "rsync_hubspot",
+ "repo": "Wkayaobama/rsync_hubspot",
+ "title": "mr-load scaffold: Miraex -> HubSpot loading plan (inside an rsync fork)",
+ "one_liner": "Plan, binding questions and skeleton scripts (rclone Drive mirror, path indexer, staging DDL, ontology YAML) for loading the Miraex estate into HubSpot; precursor of [private project].",
+ "purpose": "The repository is a fork of upstream rsync whose only owner-added content is the mr-load/ directory (13 files, 1137 lines, one commit dated 2026-08-06). mr-load replicates the proven icalps loading system for a new source estate, Miraex: legacy CRM entities (companies, fair contacts, Odoo deals) plus a document library that exists only as a Google Drive account with no index. Where icalps had a legacy database supplying per-file metadata, mr-load first mirrors the Drive folder tree to local disk with rclone, derives a hierarchical path index by walking it, then links each file to its company through the top-level folder name. The directory holds the sanitized memory of the prior project (RETRIEVAL.md), a seven-phase gated plan, the agent-team scaffold, the binding questions with four dated answers, and runnable skeletons for Phase 5 only. No loader, uploader or FK resolver exists here; the work continued in the separate [private project] repository.",
+ "domain": "CRM data migration planning (Google Drive / Odoo -> HubSpot)",
+ "status": "scaffold",
+ "stack": [
+  "Markdown plan docs",
+  "Bash + rclone (Google Drive backend, drive.readonly)",
+  "Python 3 stdlib (argparse, csv, hashlib, pathlib)",
+  "PostgreSQL DDL (staging_miraex schema)",
+  "YAML ontology for the ontology_substrate package",
+  "HubSpot CRM: Files API, Notes, v4 associations (planned)",
+  "Sync-provider mirrored Postgres (planned, hybrid write path)",
+  "DuckDB bronze with md5 row-hash watermark (planned)",
+  "Odoo CSV / Drive spreadsheet exports (source)",
+  "C (upstream rsync sources, unrelated)"
+ ],
+ "aliases": [
+  "mr-load",
+  "the rsync fork",
+  "the Miraex plan",
+  "mr-load scaffold",
+  "rsync hubspot",
+  "the rclone Drive mirror plan"
+ ],
+ "entry_points": [
+  {
+   "command": "./mr-load/scripts/rclone/sync_miraex_drive.sh [--tree companies|opportunities|tradeshows] [--live]",
+   "what": "rclone sync of each configured Drive tree to $MRLOAD_LOCAL_ROOT/<tree>. Dry-run diff unless --live is passed; writes one timestamped log per tree.",
+   "path": "mr-load/scripts/rclone/sync_miraex_drive.sh:59"
+  },
+  {
+   "command": "python mr-load/scripts/indexer/walk_index.py --root /srv/mr-load/drive/companies --tree companies -o artifacts/index_companies.csv",
+   "what": "Walks the local mirror in sorted order and writes one CSV row per file (synthetic id, path, segments, depth, company key, size, mtime, exclusion flag), then prints a one-line count summary.",
+   "path": "mr-load/scripts/indexer/walk_index.py:90"
+  },
+  {
+   "command": "python -m ontology_substrate probe --ontology miraex_ontology.yaml --dry-run",
+   "what": "Validation of the filled ontology YAML with the external ontology_substrate package (the Phase 0 gate). The package is not in this repository.",
+   "path": "mr-load/ontology/miraex_ontology.skeleton.yaml:10"
+  }
+ ],
+ "architecture": [
+  {
+   "component": "README (system overview)",
+   "path": "mr-load/README.md",
+   "responsibility": "States what mr-load is, the seven-phase sequential flow, why rclone is used, the repository map and the non-negotiable safety model inherited from icalps.",
+   "talks_to": [
+    "PLAN.md",
+    "RETRIEVAL.md"
+   ]
+  },
+  {
+   "component": "RETRIEVAL.md (past-project memory)",
+   "path": "mr-load/RETRIEVAL.md",
+   "responsibility": "Sanitized synthesis of what ten retrieval agents reconstructed from five prior repos, the live portal and Drive: library pattern, dedup scoring, association mechanisms, deal failure catalog, sync architecture, ontology substrate, live findings, and what has no prior art.",
+   "talks_to": [
+    "ic-load",
+    "ic-ontology",
+    "icalps_pipeline"
+   ]
+  },
+  {
+   "component": "PLAN.md (phase plan)",
+   "path": "mr-load/PLAN.md",
+   "responsibility": "Phase 0-6 execution plan. Each phase lists objective, prior art to reuse, steps and gates; nothing writes to the live portal without passing its gates.",
+   "talks_to": [
+    "BINDING-QUESTIONS.md",
+    "AGENTS.md"
+   ]
+  },
+  {
+   "component": "BINDING-QUESTIONS.md",
+   "path": "mr-load/BINDING-QUESTIONS.md",
+   "responsibility": "Open requirements that bind the ETL design. Four starred questions (Q1-Q4) carry dated answers; the rest are grouped by phase and still open (including Q5 dedup mode and Q6 event properties).",
+   "talks_to": [
+    "PLAN.md"
+   ]
+  },
+  {
+   "component": "AGENTS.md (agent teams)",
+   "path": "mr-load/AGENTS.md",
+   "responsibility": "One agent team per plan phase (Team 0 retrieval done, Teams 1-6), each agent with a mission and a reviewable output artifact, plus the blocking contract between teams. Phase 0 is operator-executed.",
+   "talks_to": [
+    "PLAN.md"
+   ]
+  },
+  {
+   "component": "rclone sync script",
+   "path": "mr-load/scripts/rclone/sync_miraex_drive.sh",
+   "responsibility": "Phase 5 step 1. Mirrors three Drive trees (one rclone remote each) to local disk with checksum comparison and Office export of native Google files; dry-run by default.",
+   "talks_to": [
+    "Google Drive",
+    "local disk",
+    "Path indexer"
+   ]
+  },
+  {
+   "component": "rclone config templates",
+   "path": "mr-load/scripts/rclone/rclone.conf.example",
+   "responsibility": "Example remotes miraex-companies, miraex-opportunities, miraex-tradeshows (type drive, read-only scope, own root_folder_id), plus .env.example and exclude.txt. Real config files are git-ignored.",
+   "talks_to": [
+    "rclone sync script"
+   ]
+  },
+  {
+   "component": "Path indexer",
+   "path": "mr-load/scripts/indexer/walk_index.py",
+   "responsibility": "Phase 5 step 2. Stdlib-only walker that turns the local mirror into the hierarchical path index CSV; replaces the legacy-database metadata the icalps library relied on.",
+   "talks_to": [
+    "local disk",
+    "stg_library_normalised"
+   ]
+  },
+  {
+   "component": "Staging DDL",
+   "path": "mr-load/scripts/indexer/init_silver_library.sql",
+   "responsibility": "Creates the path-index table, the curated folder-to-company mapping table, the two upload ledgers and the blast-radius exemptions table in a {schema} placeholder schema.",
+   "talks_to": [
+    "PostgreSQL"
+   ]
+  },
+  {
+   "component": "Ontology skeleton",
+   "path": "mr-load/ontology/miraex_ontology.skeleton.yaml",
+   "responsibility": "Declares layers, four entities (company, contact, deal, document) and four edges with miraex_* keys for the ontology_substrate ProbeEngine. Portal constants are null / FILL_ME.",
+   "talks_to": [
+    "ontology_substrate",
+    "HubSpot"
+   ]
+  }
+ ],
+ "data_flow": [
+  "1. Phase 0 (operator, not agents): fix the write path, create unique miraex_company_id / miraex_contact_id / miraex_deal_id properties, discover association type IDs and pipeline/stage IDs, install staging_miraex.*, confirm the sandbox portal.",
+  "2. Phase 1: build the company universe (Odoo export + Drive folder names + summary sheet), bronze row-hash watermark, silver normalisation (+41 phones), dedup probe against a fresh portal export, gated upsert keyed on miraex_company_id.",
+  "3. Phase 2: harvest fair/exhibition contact lists, mint a deterministic key (Odoo id, else evt:<sha1(event|email|name)[:12]>), batch upsert; no dedup, the key is the only duplicate protection.",
+  "4. Phase 3: measure cardinality per entity pair, probe per-edge FK readiness, enumerate the blast radius by BFS and give each edge a verdict (sandbox-required, prod-safe-gated, deferred) before any association write.",
+  "5. Phase 4: replicate the minimal deal property set and pipeline first, then load deals from the existing Drive exports with a synthetic frozen miraex_deal_id; stages mapped by ID through a fail-loud two-field mapper.",
+  "6. Phase 5 step 1: sync_miraex_drive.sh mirrors the Drive tree to $MRLOAD_LOCAL_ROOT/<tree> (dry-run diff reviewed before --live).",
+  "7. Phase 5 step 2: walk_index.py emits one CSV row per file; the CSV is COPYed with an explicit column list into staging_miraex.stg_library_normalised.",
+  "8. Phase 5 step 3: the top-level folder (company_key_raw) is resolved to miraex_company_id through map_folder_company; unresolved folders are skipped and reported; the ProbeEngine fill rate is the go/no-go metric.",
+  "9. Phase 5 step 5: two-phase upload per file (Files API upload, then a Note carrying the attachment and the original relative path, attached via the v4 default association), tracked in fct_files_uploaded and fct_file_notes_posted.",
+  "10. Phase 6: only after Phase 5 acceptance, generalise into an internal two-way sync coded against SyncProviderAdapter, in shadow (log-only) mode first."
+ ],
+ "key_functions": [
+  {
+   "name": "synthetic_id",
+   "path": "mr-load/scripts/indexer/walk_index.py:57",
+   "signature": "def synthetic_id(relpath: str) -> str",
+   "does": "Returns 'fs:' plus the first 12 hex characters of the SHA-1 of the UTF-8 string. The caller passes '<tree>/<relative posix path>', so the id is deterministic across re-runs and unique across trees. It becomes miraex_doc_id, the primary key of the index and of both ledgers.",
+   "input_example": "synthetic_id('companies/Acme/Contracts/nda.pdf')",
+   "expected_output": "'fs:dd0a94aa93c5' (15 characters; the same relative path under 'opportunities/' gives 'fs:ed36b2eee116')"
+  },
+  {
+   "name": "walk",
+   "path": "mr-load/scripts/indexer/walk_index.py:61",
+   "signature": "def walk(root: Path, tree: str)",
+   "does": "Generator over sorted(root.rglob('*')), files only. Yields one dict per file with the ten FIELDS: id, tree, parent directory path, file name, '|'-joined directory segments, depth, top-level segment as company key, size, UTC ISO mtime, exclusion flag.",
+   "input_example": "file <root>/Acme/Contracts/nda.pdf with tree='companies'",
+   "expected_output": "relative_path='Acme/Contracts', file_name='nda.pdf', path_segments='Acme|Contracts', depth=2, company_key_raw='Acme', excluded=''"
+  },
+  {
+   "name": "exclusion rule (EXCLUDED_EXTS / EXCLUDED_NAMES / MAX_UPLOAD_BYTES)",
+   "path": "mr-load/scripts/indexer/walk_index.py:37-41",
+   "signature": "EXCLUDED_EXTS = {'.ini', '.db', '.lnk', '.tmp'}; EXCLUDED_NAMES = {'.ds_store', 'desktop.ini', 'thumbs.db'}; MAX_UPLOAD_BYTES = 100 * 1024 * 1024",
+   "does": "A file is flagged excluded='ext' when its lower-cased suffix or name matches, else 'oversize' when larger than 100 MiB, else '' (loadable). Excluded files still get an index row. Junk dotfiles are matched by name because pathlib gives them no suffix.",
+   "input_example": "a file named .DS_Store; a 150 MiB .zip",
+   "expected_output": "'ext'; 'oversize'"
+  },
+  {
+   "name": "FIELDS",
+   "path": "mr-load/scripts/indexer/walk_index.py:43-54",
+   "signature": "FIELDS = [miraex_doc_id, tree, relative_path, file_name, path_segments, depth, company_key_raw, file_size, modified_at, excluded]",
+   "does": "The CSV header and column order written by the indexer. It is the contract with the staging table, which has three more columns (miraex_company_id, resolution_method, _indexed_at), hence the explicit COPY column list."
+  },
+  {
+   "name": "main (walk_index CLI)",
+   "path": "mr-load/scripts/indexer/walk_index.py:90",
+   "signature": "def main() -> int  # --root PATH --tree {companies,opportunities,tradeshows} -o OUTPUT",
+   "does": "Parses the three required arguments, errors if --root is not a directory, materialises all rows, writes the CSV with a header, prints the summary line and returns 0.",
+   "expected_output": "'<N> files indexed (<loadable> loadable, <excluded> excluded), <K> distinct top-level company keys -> <output>'"
+  },
+  {
+   "name": "TREES map",
+   "path": "mr-load/scripts/rclone/sync_miraex_drive.sh:24-28",
+   "signature": "declare -A TREES=([companies]=\"miraex-companies:\" [opportunities]=\"miraex-opportunities:\" [tradeshows]=\"miraex-tradeshows:\")",
+   "does": "Maps a tree name to its rclone remote. Each remote is defined in rclone.conf with its own root_folder_id. --tree must be one of these keys or the script exits with status 2."
+  },
+  {
+   "name": "FLAGS and the dry-run gate",
+   "path": "mr-load/scripts/rclone/sync_miraex_drive.sh:44-52",
+   "signature": "FLAGS=(--checksum --create-empty-src-dirs --drive-export-formats \"docx,xlsx,pptx\" --exclude-from exclude.txt --transfers 4 --checkers 8 --log-level INFO); [ \"$LIVE\" -eq 1 ] || FLAGS+=(--dry-run)",
+   "does": "The rclone options for every tree. --checksum compares content on re-runs, --create-empty-src-dirs keeps empty folders as part of the hierarchy, native Google files are exported to Office formats, and --dry-run is appended unless --live was given.",
+   "input_example": "./sync_miraex_drive.sh --tree companies",
+   "expected_output": "a dry-run diff for the companies tree only; nothing is copied"
+  },
+  {
+   "name": "rclone sync loop",
+   "path": "mr-load/scripts/rclone/sync_miraex_drive.sh:54-61",
+   "signature": "rclone sync \"${TREES[$tree]}\" \"$MRLOAD_LOCAL_ROOT/$tree\" \"${FLAGS[@]}\" --log-file $MRLOAD_LOCAL_ROOT/logs/sync_<tree>_<UTC timestamp>.log",
+   "does": "For every tree (or only the --tree one) creates the destination directory and runs rclone sync from the remote to it. MRLOAD_LOCAL_ROOT is mandatory (the script aborts if unset); RCLONE_CONFIG defaults to rclone.conf next to the script."
+  },
+  {
+   "name": "stg_library_normalised",
+   "path": "mr-load/scripts/indexer/init_silver_library.sql:18-32",
+   "signature": "CREATE TABLE IF NOT EXISTS {schema}.stg_library_normalised (miraex_doc_id TEXT PRIMARY KEY, tree, relative_path, file_name, path_segments, depth, company_key_raw, miraex_company_id, resolution_method, file_size, modified_at, excluded, _indexed_at)",
+   "does": "The hierarchical path index: one row per mirrored file. miraex_company_id and resolution_method (mapping|exact|fuzzy_reviewed|NULL) are filled later by the FK resolver; excluded gains a fourth value 'no_company'. Indexed on miraex_company_id and company_key_raw."
+  },
+  {
+   "name": "map_folder_company",
+   "path": "mr-load/scripts/indexer/init_silver_library.sql:41-49",
+   "signature": "CREATE TABLE IF NOT EXISTS {schema}.map_folder_company (tree, company_key_raw, miraex_company_id, confidence DEFAULT 'curated', reviewed_by, reviewed_at, PRIMARY KEY (tree, company_key_raw))",
+   "does": "Curated, human-reviewed mapping from a folder name to a company key. Needed because folder names alias across trees (YYYY_ prefixes, trailing spaces). confidence is 'curated' or 'fuzzy_reviewed'."
+  },
+  {
+   "name": "fct_files_uploaded",
+   "path": "mr-load/scripts/indexer/init_silver_library.sql:54-62",
+   "signature": "CREATE TABLE IF NOT EXISTS {schema}.fct_files_uploaded (miraex_doc_id TEXT PRIMARY KEY, hs_file_id, status DEFAULT 'pending', error, attempts, first_seen_at, last_attempt_at)",
+   "does": "Phase-1 upload ledger (file to HubSpot Files). Status values: pending|uploaded|failed|dry_run. Re-runs skip rows that already succeeded."
+  },
+  {
+   "name": "fct_file_notes_posted",
+   "path": "mr-load/scripts/indexer/init_silver_library.sql:65-75",
+   "signature": "CREATE TABLE IF NOT EXISTS {schema}.fct_file_notes_posted (miraex_doc_id TEXT PRIMARY KEY, hs_note_id, idempotency_key NOT NULL, status DEFAULT 'pending', error, attempts, first_seen_at, last_attempt_at)",
+   "does": "Phase-2 ledger (note + association). idempotency_key is 'miraex_libfile_' || miraex_doc_id. Status: pending|attached|partial|failed|dry_run|unattached_via_unmigrate; unmigrate reads status='attached' as its rollback index."
+  },
+  {
+   "name": "fct_cleanup_exemptions",
+   "path": "mr-load/scripts/indexer/init_silver_library.sql:78-87",
+   "signature": "CREATE TABLE IF NOT EXISTS {schema}.fct_cleanup_exemptions (object_type, hubspot_id, legacy_id, label, reason, source, created_at, PRIMARY KEY (object_type, hubspot_id))",
+   "does": "Blast-radius exemptions for Phase 3: records protected from any bulk operation (the pre-existing Miraex records and the companies flagged by the in-flight duplicate cleanup)."
+  },
+  {
+   "name": "document_company edge",
+   "path": "mr-load/ontology/miraex_ontology.skeleton.yaml:122-128",
+   "signature": "edge document_company: source document, target company, cardinality \"N:1\", silver_source_fk miraex_company_id, expected_from bronze, types []",
+   "does": "Declares the library FK for the ProbeEngine: resolved from the path via map_folder_company, denominator is the filesystem file count, and no type IDs are needed because the note carrier uses the v4 default association."
+  }
+ ],
+ "infra": [
+  {
+   "topic": "Where it runs",
+   "detail": "Planned for a local or dedicated Ubuntu server holding the Drive mirror under MRLOAD_LOCAL_ROOT (example /srv/mr-load/drive). There is no CI, container or deployment file for mr-load; the .github directory at the repository root belongs to upstream rsync.",
+   "path": "mr-load/README.md:32-34"
+  },
+  {
+   "topic": "rclone configuration",
+   "detail": "One remote per tree (miraex-companies, miraex-opportunities, miraex-tradeshows), type drive, scope drive.readonly, each with its own root_folder_id because trees shared item by item have no visible parent. A dedicated service/ops Google account is required. Env var names: MRLOAD_LOCAL_ROOT (mandatory), RCLONE_CONFIG (defaults to rclone.conf beside the script).",
+   "path": "mr-load/scripts/rclone/rclone.conf.example"
+  },
+  {
+   "topic": "Secrets and private material",
+   "detail": "Git-ignored: scripts/rclone/.env, scripts/rclone/rclone.conf, logs, bronze_layer/, artifacts/, index*.csv, the filled ontology/miraex_ontology.yaml, *recon*.json and *digest*. The fork is public, so portal IDs, Drive folder IDs, record IDs and contact data stay in the operator's private digest.",
+   "path": "mr-load/.gitignore"
+  },
+  {
+   "topic": "Staging database",
+   "detail": "PostgreSQL schema staging_miraex.* created from init_silver_library.sql with {schema} substituted by a loader (allowlist-validated replace). Which Postgres instance hosts it is still an open binding question.",
+   "path": "mr-load/scripts/indexer/init_silver_library.sql:1-9"
+  },
+  {
+   "topic": "HubSpot access",
+   "detail": "Same portal as the prior icalps load, sandbox-first. Planned token names MIRAEX_SANDBOX_TOKEN and MIRAEX_PROD_TOKEN, sandbox wins when both are set. A Private App token with crm.schemas.*, crm.objects.* and files scopes is needed; the MCP connection used for recon cannot create schemas, notes or files.",
+   "path": "mr-load/PLAN.md:31-33"
+  },
+  {
+   "topic": "rclone exclusions",
+   "detail": "exclude.txt drops desktop.ini, Thumbs.db, .DS_Store, Office lock files (~$*), *.tmp and *.lnk; to be extended after the first dry-run diff is reviewed.",
+   "path": "mr-load/scripts/rclone/exclude.txt"
+  }
+ ],
+ "decisions": [
+  {
+   "decision": "Mirror the Drive tree to local disk with rclone before indexing, even though a bidirectionally synced Postgres exists",
+   "why": "Downloading the Drive directly would not preserve parts of the folder hierarchy that must be kept, and precision would be lower than the icalps load. A local replica is also a safety net for messy data and the seedbed for the later internal two-way sync.",
+   "alternative_rejected": "Direct Drive download, or relying only on the synced Postgres",
+   "evidence": "mr-load/README.md:38-42"
+  },
+  {
+   "decision": "Q1: hybrid write path, like icalps",
+   "why": "Mirror-Postgres upserts for companies/contacts/deals (sync checkpoint, two-pass association bridge); direct API plus ledger for library files and notes. Consequence: a sync connection for the Miraex objects must exist and its mirror record-id columns are discovered in Phase 0.",
+   "alternative_rejected": "Pure mirror-Postgres, or pure direct HubSpot API for everything",
+   "evidence": "mr-load/BINDING-QUESTIONS.md:7-19"
+  },
+  {
+   "decision": "Q2: same portal as the prior loading, sandbox-first",
+   "why": "Every phase rehearses in the sandbox (round-trip, 1-row prod pilot, 10-row batch, full run). Because it is the same portal, the pre-existing Miraex records and the in-flight cleanup are dedup and blast-radius concerns from day one.",
+   "alternative_rejected": "A separate Miraex portal",
+   "evidence": "mr-load/BINDING-QUESTIONS.md:21-31"
+  },
+  {
+   "decision": "Q3: load deals from the existing Drive spreadsheets, with a synthetic miraex_deal_id",
+   "why": "No fresh ID-bearing Odoo export in v1. The key is a deterministic hash of normalised opportunity name + business line, frozen at first write; company FK resolved by name with mandatory fuzzy review; duplicates deduped keep-latest at silver; dates accepted as lossy. A later export reconciles onto these keys.",
+   "alternative_rejected": "Wait for a fresh Odoo export with database ids, dates and currency",
+   "evidence": "mr-load/BINDING-QUESTIONS.md:33-47"
+  },
+  {
+   "decision": "Q4: per-company tree only in v1, resolved through a curated folder-to-company mapping table",
+   "why": "Top-level folder segment is the company key. Known aliasing (YYYY_ prefixes, trailing spaces) makes pure fuzzy matching unsafe, so a reviewed table with fuzzy assist is used and unresolved folders are skipped and reported, never guessed.",
+   "alternative_rejected": "Mirroring all trees in v1; pure fuzzy matching of folder names",
+   "evidence": "mr-load/BINDING-QUESTIONS.md:49-61"
+  },
+  {
+   "decision": "Tree-prefixed synthetic id fs:<sha1(tree/relpath)[:12]> instead of the icalps fs:<sha1(relpath)[:12]>",
+   "why": "Identical relative paths in different trees must not collide, and the id must be stable across re-runs because it keys the index and both ledgers.",
+   "alternative_rejected": "Hashing the relative path alone (the prior walker.py idiom)",
+   "evidence": "mr-load/scripts/indexer/walk_index.py:4-9"
+  },
+  {
+   "decision": "One rclone remote per tree, each with its own root_folder_id",
+   "why": "The per-opportunity and tradeshow trees are shared item by item, so their parents are invisible; a single remote for the whole drive could not reach them.",
+   "alternative_rejected": "One remote for the whole Drive",
+   "evidence": "mr-load/scripts/rclone/sync_miraex_drive.sh:5-7"
+  },
+  {
+   "decision": "Library target is Files + Notes with the path in the note body, not a custom object or a folder replica",
+   "why": "It is the proven icalps pattern, and the portal is standard tier with no custom objects (entitlement must be verified). Files go flat into one folder; the hierarchy survives in Postgres and in the note body.",
+   "alternative_rejected": "A document custom object; replicating the folder tree in HubSpot Files",
+   "evidence": "mr-load/RETRIEVAL.md:26-30"
+  },
+  {
+   "decision": "Reconciliation properties always hold the source-system id, never the HubSpot record id",
+   "why": "In the prior project the legacy-id semantics drifted between load waves (external id vs own record id) and that drift was expensive. Properties are created once by a setup script or the UI, never inside the data pipeline.",
+   "alternative_rejected": "Reusing the property for HubSpot record ids in later waves",
+   "evidence": "mr-load/PLAN.md:20-24"
+  },
+  {
+   "decision": "Phase 0 is executed by the operator, with no autonomous agent team",
+   "why": "Schema-changing operations require per-operation human approval (the prior project's boundary rule). Agents may prepare scripts, checklists and probe read-outs, but the operator runs them; Phase 0 blocks every team.",
+   "alternative_rejected": "Delegating one-time setup to agents",
+   "evidence": "mr-load/AGENTS.md:20-27"
+  }
+ ],
+ "gotchas": [
+  {
+   "issue": "The ontology skeleton still documents the document key as fs:<sha1(relpath)[:12]> while the indexer hashes tree/relpath",
+   "consequence": "Anyone rebuilding ids from the YAML comment gets keys that do not match stg_library_normalised or the ledgers.",
+   "fix_or_guard": "Trust walk_index.py; correct the skeleton comment.",
+   "path": "mr-load/ontology/miraex_ontology.skeleton.yaml:87"
+  },
+  {
+   "issue": "sync_miraex_drive.sh without --tree loops over all three trees, although the v1 scope (Q4) is the per-company tree only",
+   "consequence": "A --live run without --tree would mirror the opportunities and tradeshow trees too.",
+   "fix_or_guard": "Always pass --tree companies in v1; the default run is a dry-run diff anyway.",
+   "path": "mr-load/scripts/rclone/sync_miraex_drive.sh:54-56"
+  },
+  {
+   "issue": "The indexer CSV has 10 columns but the staging table interposes resolver columns",
+   "consequence": "A COPY without a column list misaligns or fails.",
+   "fix_or_guard": "COPY with the explicit ten-column list given in both the script docstring and the DDL comment.",
+   "path": "mr-load/scripts/indexer/init_silver_library.sql:13-17"
+  },
+  {
+   "issue": "{schema} in the DDL is a placeholder and the loader that substitutes it is not in this repository",
+   "consequence": "The SQL cannot be run as is; using str.format would break on literal braces in SQL comments (a prior-project lesson).",
+   "fix_or_guard": "Substitute with an allowlist-validated string replace.",
+   "path": "mr-load/scripts/indexer/init_silver_library.sql:5-7"
+  },
+  {
+   "issue": "All four edges are declared with cardinality \"N:1\", but the substrate's documented vocabulary is 1:1 / 1:N / N:M",
+   "consequence": "The ontology may fail to parse.",
+   "fix_or_guard": "Check with the probe dry-run; if N:1 is rejected, flip source/target on the affected edges and use 1:N.",
+   "path": "mr-load/ontology/miraex_ontology.skeleton.yaml:12-14"
+  },
+  {
+   "issue": "Running association writes before the sync checkpoint has hydrated record ids",
+   "consequence": "The bridge silently matches nothing. The icalps checkpoint stage was only a stub.",
+   "fix_or_guard": "Hard ordering: gold upsert, then sync checkpoint, then associations; discover mirror record-id columns per connection.",
+   "path": "mr-load/RETRIEVAL.md:67-68"
+  },
+  {
+   "issue": "A file sitting directly at the tree root gets an empty company_key_raw, and folder names alias across trees",
+   "consequence": "Those files cannot be linked to a company.",
+   "fix_or_guard": "They stay unresolved: skipped and reported (excluded='no_company'), never guessed; the fill rate decides go/no-go.",
+   "path": "mr-load/scripts/indexer/walk_index.py:81"
+  },
+  {
+   "issue": "Several values are provisional placeholders: the 100 MiB size cap, the excluded-extension list and the docx/xlsx/pptx export formats",
+   "consequence": "They are not verified against the real HubSpot Files limit or an agreed policy.",
+   "fix_or_guard": "Answer the Library binding questions before the first live upload.",
+   "path": "mr-load/BINDING-QUESTIONS.md:109-117"
+  }
+ ],
+ "glossary": [
+  {
+   "term": "mr-load",
+   "meaning": "The Miraex-to-HubSpot loading system planned in this directory; it replicates the icalps loading system for a new source estate."
+  },
+  {
+   "term": "Miraex",
+   "meaning": "The source estate: legacy CRM entities, Odoo deal exports and a Google Drive document library with a numbered filing scheme."
+  },
+  {
+   "term": "icalps",
+   "meaning": "The prior loading project whose pattern, safety model and code (ic-load, ic-d-load, icalps_etl, ic-ontology, icalps_pipeline) mr-load reuses."
+  },
+  {
+   "term": "binding question",
+   "meaning": "An open requirement whose answer fixes a design decision; answers are recorded with a date in BINDING-QUESTIONS.md. Q1-Q4 are the starred critical path."
+  },
+  {
+   "term": "miraex_doc_id",
+   "meaning": "Synthetic stable file id fs:<sha1(tree/relpath)[:12]>; primary key of the path index and of both upload ledgers."
+  },
+  {
+   "term": "company_key_raw",
+   "meaning": "The top-level folder segment of a file's path, taken as the company key before resolution to miraex_company_id."
+  },
+  {
+   "term": "hierarchical path index",
+   "meaning": "One row per file where the hierarchy is carried by relative_path and '|'-joined path_segments (materialized-path style)."
+  },
+  {
+   "term": "two-phase upload",
+   "meaning": "Per file: (1) upload the binary to the HubSpot Files API, (2) create a Note carrier with the attachment and associate it to the company via the v4 default association."
+  },
+  {
+   "term": "ledger",
+   "meaning": "A Postgres table keyed by a deterministic source id that records every direct API write, so re-runs are no-ops and unmigrate can roll back."
+  },
+  {
+   "term": "blast radius",
+   "meaning": "The set of records an association load would touch, enumerated by BFS over the FK graph and classified as new-record-only or touching pre-existing portal records."
+  },
+  {
+   "term": "readiness probe",
+   "meaning": "Read-only measurement of the per-edge FK resolution rate against loaded parents; an edge below the gate is deferred, not half-loaded."
+  },
+  {
+   "term": "fill rate",
+   "meaning": "Fraction of files (or rows) resolved at a layer, computed by the ontology ProbeEngine; the go/no-go metric for the library FK."
+  },
+  {
+   "term": "exemptions table",
+   "meaning": "fct_cleanup_exemptions: records protected from any bulk operation."
+  },
+  {
+   "term": "FILL_ME",
+   "meaning": "Marker in the ontology skeleton for a portal constant (association type IDs, mirror columns) that must be probed from the live portal, never copied from icalps."
+  },
+  {
+   "term": "preview == execution",
+   "meaning": "Every write statement is composed from the same SELECT body as the read-only preview, so preview CSVs match what would land."
+  }
+ ],
+ "relations": [
+  {
+   "project": "ic-ontology",
+   "relation": "Provides the ontology_substrate package (ProbeEngine, LayerConnector, SyncProviderAdapter with StackSync and DirectAPI reference implementations) that the ontology skeleton targets and that Phase 6 is to be coded against."
+  }
+ ],
+ "directions": [
+  "Treat this directory as frozen history: the live Miraex work is in [private project], which dropped rclone as primary source because an rclone manifest flattens multi-parent Drive nodes. Decide whether to delete mr-load/ from the rsync fork or leave a pointer to [private project].",
+  "Fix the id drift in the ontology skeleton (document bronze_pk comment) so it states the tree-prefixed formula used by walk_index.py.",
+  "Close the remaining binding questions that are still open here: Q5 (dedup guard live-blocking vs probe-only), Q6 (reuse event_* contact properties), library cadence/export/exclusion policy, conflict policy for the two-way sync.",
+  "Write the pieces the plan names but the scaffold lacks: the folder-to-company FK resolver, the loader that renders {schema} and COPYs the index, and the FilesystemConnector (described as a roughly 30-line LayerConnector subclass).",
+  "Phase 6 remains the long-term direction: an internal two-way sync independent of the vendor mirror, built against SyncProviderAdapter and started in shadow mode.",
+  "The fork carries all upstream rsync C sources for no functional reason; a clean home for the plan documents would make the repository searchable and smaller."
+ ],
+ "confidence": "high",
+ "coverage_notes": "Read every owner-added file in full: the 13 files under mr-load/ (README, PLAN, RETRIEVAL, AGENTS, BINDING-QUESTIONS, both scripts, the DDL, exclude list, .gitignore, ontology skeleton; the two example config files only for key names). A diff against master confirms mr-load/ is the only difference from upstream rsync, so the rsync C sources were ignored as instructed. Nothing was executed. The plan describes much prior-art behaviour (dedup scoring, bridge SQL, uploader) that lives in other repositories; those statements are reported as the plan's claims, not verified here. The [private project] relation was checked by reading a few file headers in that checkout. The example id values were computed independently with SHA-1, not taken from a test. Status is 'scaffold': only Phase 5 steps 1-2 have code and there are no tests."
+}

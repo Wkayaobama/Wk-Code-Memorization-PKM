@@ -18,7 +18,7 @@ Typical questions:
 ## Start in one minute
 
 ```bash
-git clone https://github.com/Wkayaobama/Wk-Code-Memorization-PKM
+git clone -b claude/recurser-code-memorization https://github.com/Wkayaobama/Wk-Code-Memorization-PKM
 cd Wk-Code-Memorization-PKM
 python3 -m recurser serve          # http://127.0.0.1:8765
 ```

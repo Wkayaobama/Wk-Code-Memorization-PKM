@@ -79,30 +79,51 @@ CONFIDENCE = {"high", "medium", "low"}
 # Safety scanning
 # --------------------------------------------------------------------------
 SECRET_PATTERNS = [
-    ("AWS access key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
-    ("Anthropic key", re.compile(r"\bsk-ant-[A-Za-z0-9_\-]{16,}")),
-    ("OpenAI-style key", re.compile(r"\bsk-[A-Za-z0-9]{24,}\b")),
-    ("GitHub token", re.compile(r"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{30,}\b")),
-    ("GitHub fine-grained token", re.compile(r"\bgithub_pat_[A-Za-z0-9_]{30,}\b")),
-    ("Slack token", re.compile(r"\bxox[baprs]-[A-Za-z0-9\-]{10,}\b")),
-    ("Google API key", re.compile(r"\bAIza[0-9A-Za-z_\-]{35}\b")),
-    ("HubSpot private app token", re.compile(r"\bpat-(?:na|eu)\d-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b")),
-    ("private key block", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
-    ("JWT", re.compile(r"\beyJ[A-Za-z0-9_\-]{15,}\.[A-Za-z0-9_\-]{15,}\.[A-Za-z0-9_\-]{8,}")),
-    ("service-account private_key", re.compile(r"\"private_key\"\s*:\s*\"-----BEGIN")),
-    (
-        "hard-coded credential",
-        re.compile(
-            r"(?i)\b(?:password|passwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret)\b"
-            r"\s*[:=]\s*[\"'][A-Za-z0-9+/_\-]{16,}[\"']"
-        ),
-    ),
+    ("AWS access key", re.compile(r"(?<![A-Za-z0-9])(?:AKIA|ASIA)[0-9A-Z]{16}(?![A-Za-z0-9])")),
+    ("Anthropic key", re.compile(r"(?<![A-Za-z0-9])sk-ant-[A-Za-z0-9_\-]{16,}")),
+    ("OpenAI-style key", re.compile(r"(?<![A-Za-z0-9])sk-(?:(?:proj|svcacct|admin)-[A-Za-z0-9_\-]{20,}|[A-Za-z0-9]{24,})")),
+    ("Stripe key", re.compile(r"(?<![A-Za-z0-9])[sr]k_live_[A-Za-z0-9]{16,}")),
+    ("GitHub token", re.compile(r"(?<![A-Za-z0-9])(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{30,}")),
+    ("GitHub fine-grained token", re.compile(r"(?<![A-Za-z0-9])github_pat_[A-Za-z0-9_]{30,}")),
+    ("Slack token", re.compile(r"(?<![A-Za-z0-9])(?:xox[abeoprs]|xapp)-[A-Za-z0-9\-]{10,}")),
+    ("Slack webhook", re.compile(r"hooks\.slack\.com/services/[A-Za-z0-9/]{20,}")),
+    ("Google API key", re.compile(r"(?<![A-Za-z0-9])AIza[0-9A-Za-z_\-]{35}")),
+    ("Google OAuth secret", re.compile(r"(?<![A-Za-z0-9])(?:GOCSPX-[A-Za-z0-9_\-]{20,}|ya29\.[A-Za-z0-9_\-]{20,})")),
+    ("HubSpot private app token", re.compile(r"(?<![A-Za-z0-9])pat-[a-z]{2}\d-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")),
+    ("private key block", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY(?: BLOCK)?-----")),
+    ("JWT", re.compile(r"(?<![A-Za-z0-9])eyJ[A-Za-z0-9_\-]{15,}\.[A-Za-z0-9_\-]{15,}\.[A-Za-z0-9_\-]{8,}")),
+    ("bearer token", re.compile(r"(?i)\bbearer\s+(?=[A-Za-z0-9._~+/\-]*\d)(?=[A-Za-z0-9._~+/\-]*[A-Za-z])[A-Za-z0-9._~+/\-]{24,}=*")),
 ]
+
+# name [:=] value, where the name CONTAINS a credential word (DB_PASSWORD, hubspotApiKey, "client_secret": ...)
+_ASSIGNED = re.compile(
+    r"(?i)(?<![A-Za-z0-9])[A-Za-z0-9_.\-]*(?:password|passwd|pwd|secret|api[_\-]?key|access[_\-]?key|private[_\-]?key|token|credential)"
+    r"[A-Za-z0-9_\-]*[\"']?\s*(?::|=|=>)\s*[\"']?(?P<value>[^\s\"',;)}\]]{8,})"
+)
+# scheme://user:password@host
+_URL_PASSWORD = re.compile(r"(?i)\b[a-z][a-z0-9+.\-]*://[^/\s:@]+:(?P<value>[^@\s/]{3,})@[A-Za-z0-9.\-]+")
+_PLACEHOLDER = re.compile(
+    r"(?i)(?:^\$|\$\{|\$\(|^<|>$|^\{|\}$|^%|%$|\*{3}|\.{3}|x{4,}|^(?:none|null|true|false|undefined|string|str|bytes|secret|password|token|changeme|redacted)$"
+    r"|your|example|placeholder|dummy|fake|sample|redacted|environ|getenv|process\.env|settings\.|config\.|self\.|args\.|os\.|secrets?\.|vault|keyring|\(\)?$)"
+)
+
+
+def _looks_secret(value: str) -> bool:
+    """A literal that could be a real credential: long enough, mixed, and not a placeholder or a reference."""
+    value = value.strip("\"'`")
+    if len(value) < 8 or "(" in value or _PLACEHOLDER.search(value):      # a call such as Text.From(...) is code, not a literal
+        return False
+    digits = len(re.findall(r"\d", value))
+    if digits < 4 and (re.fullmatch(r"[A-Z][A-Z0-9_]*", value) or re.fullmatch(r"[a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)*", value)):
+        return False                      # another variable, an attribute path, a plain word
+    classes = sum(bool(re.search(p, value)) for p in (r"[a-z]", r"[A-Z]", r"\d", r"[^A-Za-z0-9]"))
+    return (len(value) >= 12 and classes >= 2 and bool(re.search(r"\d", value))) or (len(value) >= 20 and classes >= 3)
+
 
 EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b")
 EMAIL_ALLOW = re.compile(
-    r"(?i)(@example\.(?:com|org|net)$|@users\.noreply\.github\.com$|^noreply@|^git@|@localhost$|"
-    r"\.iam\.gserviceaccount\.com$|^(?:user|you|me|name|someone|email|admin|test|foo|bar)@)"
+    r"(?i)(@example\.(?:com|org|net)$|@(?:[a-z0-9\-]+\.)*(?:test|invalid|localhost|local)$|@users\.noreply\.github\.com$|^noreply@|^git@|"
+    r"\.iam\.gserviceaccount\.com$)"
 )
 
 
@@ -112,6 +133,13 @@ def scan_text(text: str) -> list[str]:
     for label, pat in SECRET_PATTERNS:
         if pat.search(text):
             out.append(f"possible secret ({label})")
+    if not out:
+        if any(_looks_secret(m.group("value")) for m in _ASSIGNED.finditer(text)):
+            out.append("possible secret (hard-coded credential)")
+        elif any(_looks_secret(m.group("value")) or len(m.group("value")) >= 6 and not _PLACEHOLDER.search(m.group("value"))
+                 and m.group("value").lower() not in ("password", "passwd", "pass", "secret", "pwd")
+                 for m in _URL_PASSWORD.finditer(text)):
+            out.append("possible secret (password inside a URL)")
     for m in EMAIL_RE.finditer(text):
         addr = m.group(0)
         if not EMAIL_ALLOW.search(addr):
@@ -174,17 +202,33 @@ def resolve_source(ref: str, repos: list[str]):
     rel, a, b = parts
     if rel.startswith("/") or ".." in rel.split("/"):
         return None, f"source {ref!r} must be a path relative to the repository root"
+    past_end = None
     for repo in repos:
         full = os.path.join(repo, rel)
-        if os.path.exists(full):
-            if a is not None and os.path.isfile(full):
-                text = _read(full)
-                if text is not None:
-                    n = text.count("\n") + 1
-                    if a < 1 or (b or a) > n + 1:
-                        return None, f"source {ref!r}: line {b or a} is past the end of the file ({n} lines)"
-            return full, repo
-    return None, f"source {ref!r}: path not found in the checkout(s)"
+        if not os.path.exists(full):
+            continue
+        root = os.path.realpath(repo)
+        if os.path.commonpath([root, os.path.realpath(full)]) != root:
+            return None, f"source {ref!r} leaves the checkout through a link"
+        if a is not None and os.path.isfile(full):
+            text = _read(full)
+            if text is not None:
+                n = len(text.splitlines())
+                if a < 1 or (b or a) > n:
+                    past_end = f"source {ref!r}: line {b or a} is past the end of the file ({n} lines)"
+                    continue          # another line of work may hold a longer version of the same path
+        return full, repo
+    return None, past_end or f"source {ref!r}: path not found in the checkout(s)"
+
+
+def resolve_all(ref: str, repos: list[str]) -> list[str]:
+    """Every checkout's copy of a cited path (a path shared by two lines of work exists in both)."""
+    out = []
+    for repo in repos:
+        full, _ = resolve_source(ref, [repo])
+        if full:
+            out.append(full)
+    return out
 
 
 def quote_found(quote: str, files: list[str]) -> bool:
@@ -477,7 +521,7 @@ def validate_cards(data: dict, repos: list[str] | None = None, *, min_cards=6, m
                 if not full:
                     rep.err(f"{where}: {why}")
                 else:
-                    resolved.append(full)
+                    resolved.extend(resolve_all(ref, repos))   # a shared path may differ between lines of work
             elif not split_source(ref):
                 rep.err(f"{where}: malformed source reference {ref!r}")
         quote = _str(rep, c, "evidence_quote", where, max_len=260, min_len=12)

@@ -1,0 +1,448 @@
+{
+ "slug": "gpt3.5_vba",
+ "repo": "Wkayaobama/GPT3.5_VBA",
+ "title": "GPT-in-a-cell VBA fork + API Logic Server skill library",
+ "one_liner": "Fork of a one-function Excel/VBA OpenAI caller, turned into the 'before picture' for an 18-skill Claude library on modernizing spreadsheet glue into a governed API Logic Server system.",
+ "purpose": "The fork starts from a 44-line VBA function, OpenAI(prompt), that lets an Excel cell call the chat-completions API (plus a binary workbook carrying the key). The owner's own work is everything under .claude/skills/: 18 dense SKILL.md runbooks (17 apilogicserver-* skills plus declarative-rules-reference) and three diagnostic shell scripts about API Logic Server (ALS, packaged as Genai-Logic) and its LogicBank rules engine. The library treats the VBA file as the canonical specimen of ungoverned, application-embedded glue and defines a gated P0-P7 campaign to replace it with a server where business logic is declared once as rules, enforced on every write path, secured by JWT, proven by Behave tests, and reachable by AI only through the governed API (MCP). It exists so that a future session (human or model) can rebuild, operate, debug and honestly position an ALS project without re-fighting settled questions: every fact is labeled either verified against a live Genai-Logic 17.03.19 install (2026-08-23 to 26) or 'per docs, not live-verified'.",
+ "domain": "LLM tooling / legacy Excel-VBA modernization to declarative rules",
+ "status": "docs-only",
+ "stack": [
+  "Excel VBA (MSXML2.ServerXMLHTTP)",
+  "OpenAI chat completions (gpt-3.5-turbo)",
+  "Claude Code skills (SKILL.md Markdown)",
+  "Bash + curl",
+  "Python 3 stdlib (inside the scripts)",
+  "Subject: API Logic Server / Genai-Logic 17.03.19",
+  "Subject: LogicBank 1.32.0 rules engine",
+  "Subject: Flask + SQLAlchemy + SAFRS JSON:API",
+  "Subject: safrs-react-admin, Behave, Alembic",
+  "Subject: Kafka, MCP, Docker (documented only)"
+ ],
+ "aliases": [
+  "the GPT VBA fork",
+  "GPT in a cell",
+  "the Excel OpenAI macro",
+  "the API Logic Server skill library",
+  "apilogicserver skills",
+  "the Genai-Logic runbooks",
+  "the spreadsheet modernization campaign"
+ ],
+ "entry_points": [
+  {
+   "command": "=OpenAI(\"some prompt\")  (Excel cell formula, after pasting the function into a VBA module)",
+   "what": "The whole legacy system: sends the prompt to the chat-completions endpoint synchronously and returns the reply text into the cell.",
+   "path": "turbo3.5_excel_vba:1"
+  },
+  {
+   "command": "HOST=localhost PORT=5656 ALS_USER=... ALS_PASS=... RESOURCE=Customer bash scripts/probe_health.sh",
+   "what": "Three-step health probe of a running ALS server: GET /api, login for a token, authorized GET of one row. Exit code N = step N failed.",
+   "path": ".claude/skills/apilogicserver-debugging-playbook/scripts/probe_health.sh:5"
+  },
+  {
+   "command": "scripts/extract_logic_log.sh logs/als.log",
+   "what": "Pulls each LogicBank transaction block (ROW LOGIC ... COMPLETE) out of a noisy server log, numbered, ANSI stripped, and flags blocks cut short by the logging bug.",
+   "path": ".claude/skills/apilogicserver-debugging-playbook/scripts/extract_logic_log.sh:5"
+  },
+  {
+   "command": "scripts/list_discovered_logic.sh   (from an ALS project root)",
+   "what": "Static mirror of ALS auto-discovery: lists which logic/api discovery files WILL LOAD, which are disabled by rename, and which have a bad shape.",
+   "path": ".claude/skills/apilogicserver-debugging-playbook/scripts/list_discovered_logic.sh:6"
+  },
+  {
+   "command": "Ask Claude Code about an ALS symptom or task; the matching skill under .claude/skills/ loads by its description",
+   "what": "Normal way the library is consumed: each skill's frontmatter description lists trigger symptoms, and its 'Do NOT use' section routes to the sibling that owns the topic.",
+   "path": ".claude/skills/apilogicserver-change-control/SKILL.md:287-294"
+  }
+ ],
+ "architecture": [
+  {
+   "component": "Legacy exhibit (VBA OpenAI function)",
+   "path": "turbo3.5_excel_vba",
+   "responsibility": "Upstream code kept untouched as the before-picture: hand-concatenated JSON request, synchronous POST with a key held in the macro, InStr-based response scraping. Never hardened, only analysed.",
+   "talks_to": [
+    "OpenAI chat completions API",
+    "Excel cell"
+   ]
+  },
+  {
+   "component": "Key-carrying workbook (binary)",
+   "path": "api_Key.xlsm",
+   "responsibility": "Macro-enabled workbook that in practice ships the key and the function per user copy. The skills record its role but say not to parse it; it was not opened for this map.",
+   "talks_to": [
+    "Legacy exhibit (VBA OpenAI function)"
+   ]
+  },
+  {
+   "component": "Modernization campaign (P0-P7)",
+   "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md",
+   "responsibility": "The spine of the library: gated runbook from legacy inventory to containerised ALS, with exact commands, expected outputs, failure branches, rollback notes, a ranked solution menu and fenced wrong paths.",
+   "talks_to": [
+    "Legacy exhibit (VBA OpenAI function)",
+    "Theory and contract skills",
+    "Practice runbooks",
+    "Change control and QA gates"
+   ]
+  },
+  {
+   "component": "Theory and contract skills",
+   "path": ".claude/skills/declarative-rules-reference/SKILL.md",
+   "responsibility": "declarative-rules-reference (why rules, watch/react/chain, phases, delta adjustment, pruning, Rete comparison) plus architecture-contract (stack, file ownership, 7 invariants, startup and write-request sequence, weak points).",
+   "talks_to": [
+    "Practice runbooks",
+    "Failure archaeology ledger"
+   ]
+  },
+  {
+   "component": "Practice runbooks",
+   "path": ".claude/skills/apilogicserver-logic-patterns/SKILL.md",
+   "responsibility": "How-to skills, one home per fact: logic-patterns, data-modeling, api-contract, security-model, integration-patterns, genai-development, cli-and-config, build-and-env, operate-and-deploy.",
+   "talks_to": [
+    "Theory and contract skills",
+    "Change control and QA gates"
+   ]
+  },
+  {
+   "component": "Change control and QA gates",
+   "path": ".claude/skills/apilogicserver-change-control/SKILL.md",
+   "responsibility": "change-control classifies every change, owns the rebuild/Alembic runbook, five non-negotiables (NN-1..5) and gates G0-G5; validation-and-qa defines Behave evidence and the golden suite counts.",
+   "talks_to": [
+    "Practice runbooks",
+    "Modernization campaign (P0-P7)"
+   ]
+  },
+  {
+   "component": "Debugging playbook + scripts",
+   "path": ".claude/skills/apilogicserver-debugging-playbook/SKILL.md",
+   "responsibility": "18-row symptom triage table, deep dives (where-clause pruning, undiscovered rule, logging bug), logic-log reading guide, and the three shipped diagnostic scripts.",
+   "talks_to": [
+    "Running ALS server on port 5656",
+    "logs/als.log",
+    "Failure archaeology ledger"
+   ]
+  },
+  {
+   "component": "Failure archaeology ledger",
+   "path": ".claude/skills/apilogicserver-failure-archaeology/SKILL.md",
+   "responsibility": "Entries A1-A10 in a strict format (symptom, investigation, root cause, evidence, status) so settled battles are not re-fought; A9 is the line-by-line autopsy of the VBA file.",
+   "talks_to": [
+    "Legacy exhibit (VBA OpenAI function)",
+    "Research skills"
+   ]
+  },
+  {
+   "component": "Research skills",
+   "path": ".claude/skills/apilogicserver-research-frontier/SKILL.md",
+   "responsibility": "research-frontier holds the Positioning Ledger (what may be claimed, in which words) and open problems F1-F6; research-methodology holds the evidence bar, predict-numbers-first template, idea lifecycle and assigned refutation.",
+   "talks_to": [
+    "Failure archaeology ledger",
+    "Change control and QA gates"
+   ]
+  }
+ ],
+ "data_flow": [
+  "LEGACY 1. A cell calls OpenAI(prompt); the function pastes the raw prompt into a JSON string with model gpt-3.5-turbo and temperature 0 (turbo3.5_excel_vba:10-12).",
+  "LEGACY 2. It POSTs synchronously through MSXML2.ServerXMLHTTP with a Bearer header built from the key variable; Excel is frozen until the reply arrives (lines 14-18).",
+  "LEGACY 3. It finds the literal \"content\": \" marker with InStr, walks forward to the first double quote not preceded by a backslash, and returns that substring to the cell (lines 28-41). No status check, no error handling, no logging.",
+  "CAMPAIGN P0. Inventory the legacy: one capability, a risk register, and the gate table mapping five defects to the ALS mechanism and owning skill that removes each.",
+  "P1-P2. Build a venv, pip install ApiLogicServer, confirm with `als welcome`; `als create` a project (basic_demo stands in for the workbook's domain), add customizations and auth, start the server on port 5656; gate = startup banner plus an authenticated GET returning rows.",
+  "P3. Translate spreadsheet constructs to rules (cell formula -> Rule.formula, SUM -> Rule.sum, SUMIF -> Rule.sum with where, VLOOKUP -> Rule.copy, validation -> Rule.constraint); predict numbers, fire a violating PATCH, expect HTTP 400 code 2001, then run the shipped-order control that must return 200.",
+  "P4. Prove security: exact 401 body without a token, a predicted row-count difference for a restricted role, and a written plan to replace the sample credentials.",
+  "P5. Behave suite green (0 failed) and the Behave Logic Report generated; every migrated behaviour traceable to a named scenario.",
+  "P6. Re-introduce AI through the governed door (MCP client or a thin read-mostly Excel bridge calling the JSON:API with a JWT); gate = a rule-violating write through the new channel is rejected with the same 400/2001 body as P3.",
+  "P7. Containerise with the project's devops scripts and re-run the same suite against the container. Labeled to-execute: no container was built in the authoring workspace.",
+  "Every phase lands through change-control (classify, respect regenerated vs owned files, pass gates G0-G5); surprises become failure-archaeology entries; the VBA file is retired, not deleted."
+ ],
+ "key_functions": [
+  {
+   "name": "OpenAI",
+   "path": "turbo3.5_excel_vba:1",
+   "signature": "Function OpenAI(prompt As String) As String",
+   "does": "The entire legacy system. Builds the request body by string concatenation, POSTs it synchronously, then scrapes the reply with InStr and a Do While loop. Its five defect classes are the justification for the whole campaign.",
+   "input_example": "=OpenAI(\"Say hello\") where the HTTP response text contains  \"content\": \"Hello\"",
+   "expected_output": "Hello  (the text between the marker \"content\": \" and the next unescaped double quote; escapes are returned un-decoded, and a response without that exact marker yields garbage rather than an error)"
+  },
+  {
+   "name": "content-extraction loop",
+   "path": "turbo3.5_excel_vba:28-37",
+   "signature": "ContentStart = InStr(json, \"\"\"content\"\": \"\"\") + Len(...) ; Do While True ... If Mid(json, ContentEnd - 1, 1) <> \"\\\" Then Exit Do",
+   "does": "Hand-rolled JSON 'parser'. Fails four ways per archaeology A9: content ending in a backslash overruns, compact JSON without the space breaks the marker, error bodies are parsed as success, escapes stay encoded. ContentStart/ContentEnd are 16-bit Integers (lines 24-25)."
+  },
+  {
+   "name": "probe_health.sh",
+   "path": ".claude/skills/apilogicserver-debugging-playbook/scripts/probe_health.sh:28-90",
+   "signature": "HOST PORT ALS_USER ALS_PASS RESOURCE (env vars, all defaulted) -> PASS/FAIL/SKIP lines, exit 0..3",
+   "does": "Step 1 GET /api expects 200; step 2 login expects access_token, but prints SKIP if an unauthenticated GET works (security off); step 3 authorized GET /api/RESOURCE/?page[limit]=1 expects 200 with a data key and prints meta.total.",
+   "input_example": "bash scripts/probe_health.sh against a healthy server with security on",
+   "expected_output": "Three PASS lines then 'OK    all probes passed against http://localhost:5656', exit 0. If nothing listens: 'FAIL  1. server up ... HTTP ...' and exit 1."
+  },
+  {
+   "name": "extract_logic_log.sh",
+   "path": ".claude/skills/apilogicserver-debugging-playbook/scripts/extract_logic_log.sh:23-75",
+   "signature": "extract_logic_log.sh <logfile>",
+   "does": "Embedded Python state machine: a block opens on a 'Logic Phase:' line containing ROW LOGIC, closes on COMPLETE, and is flagged when it ends in '--- Logging error ---' (the constraint-violation path of the 17.03.19 logging bug) or is truncated.",
+   "input_example": "a log file with no write transactions",
+   "expected_output": "No \"Logic Phase: ROW LOGIC\" blocks found in <path>. followed by a hint about logic_logger level; exit 0. Otherwise numbered 'Transaction n  (session=0x...)' blocks and a final count line."
+  },
+  {
+   "name": "scan",
+   "path": ".claude/skills/apilogicserver-debugging-playbook/scripts/list_discovered_logic.sh:28-49",
+   "signature": "def scan(base, required_fn, exclude_init) -> (loaded, skipped, malformed) | None",
+   "does": "Walks a discovery directory recursively like ALS auto_discovery does: every *.py except auto_discovery.py and __init__.py is a candidate; files renamed to .pyXX count as disabled; a file lacking a top-level def of the required function is 'BAD SHAPE'."
+  },
+  {
+   "name": "report",
+   "path": ".claude/skills/apilogicserver-debugging-playbook/scripts/list_discovered_logic.sh:51-68",
+   "signature": "def report(title, base, required_fn, exclude_init) -> int (number of malformed files)",
+   "does": "Prints WILL LOAD / disabled / !! BAD SHAPE lines for logic/logic_discovery (needs declare_logic) and api/api_discovery (needs add_service); the script exits 1 if any file is malformed.",
+   "input_example": "run outside an ALS project root",
+   "expected_output": "stderr: 'Neither logic/logic_discovery/ nor api/api_discovery/ found.' plus a hint to run from the project root; exit 1"
+  },
+  {
+   "name": "5-rule check-credit template (documented)",
+   "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:240-247",
+   "signature": "Rule.constraint(validate=Customer, as_condition=lambda row: row.balance <= row.credit_limit, error_msg=...) ; Rule.sum(derive=Customer.balance, as_sum_of=Order.amount_total, where=lambda row: row.date_shipped is None) ; Rule.sum ; Rule.formula ; Rule.copy",
+   "does": "Upstream sample logic quoted as the worked translation of a check-credit spreadsheet: one validation, one SUMIF, one SUM, one cell formula, one VLOOKUP. Not code in this repo; it is the pattern every migrated rule follows.",
+   "input_example": "PATCH /api/Item/2/ setting quantity 1 -> 100 on the unshipped order (unit_price 90, credit_limit 5000)",
+   "expected_output": "HTTP 400, errors[0].code \"2001\", title \"Customer balance (9000.0000000000) exceeds credit limit (5000.0000000000)\"; the same PATCH on the shipped order's item returns 200"
+  },
+  {
+   "name": "ALS_Get (candidate bridge)",
+   "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:433-449",
+   "signature": "Function ALS_Get(path As String, token As String) As String",
+   "does": "Corrected VBA sketch for the hybrid Excel bridge: GET against your own ALS server with a Bearer JWT, explicit timeouts, On Error handler and a Status check that returns 'ERROR <status>: ...'. Explicitly labeled CANDIDATE: reviewed, never executed."
+  },
+  {
+   "name": "delta algebra for Rule.sum (documented)",
+   "path": ".claude/skills/declarative-rules-reference/SKILL.md:183-194",
+   "signature": "where(old_row), where(row) -> delta: (T,T) new-old ; (F,F) 0 ; (F,T) +new ; (T,F) -new",
+   "does": "The table that explains adjustment and pruning: a parent aggregate is moved by a one-row delta, never recomputed with SELECT SUM; delta 0 means the parent row, its cascade and its constraint are never touched."
+  },
+  {
+   "name": "write-request sequence (documented)",
+   "path": ".claude/skills/apilogicserver-architecture-contract/SKILL.md:222-234",
+   "signature": "PATCH -> SAFRS -> session commit -> before_flush: ROW LOGIC -> COMMIT LOGIC -> flush -> AFTER_FLUSH -> commit or rollback+400",
+   "does": "Nine numbered steps of what executes on one write in an ALS project, verified with the Item quantity experiment. The mental model every other skill relies on."
+  },
+  {
+   "name": "experiment template",
+   "path": ".claude/skills/apilogicserver-research-methodology/SKILL.md:135-151",
+   "signature": "EXPERIMENT / HYPOTHESIS / MECHANISM / PREDICTED NUMBERS / COMMAND(S) / OBSERVED / VERDICT / STATE / ARCHAEOLOGY ENTRY?",
+   "does": "Copy-paste block enforcing predict-numbers-first: expected values, HTTP codes, rules fired and rules NOT fired are written before the run; an expectation written afterwards is documentation, not evidence."
+  }
+ ],
+ "infra": [
+  {
+   "topic": "No build, CI or manifest",
+   "detail": "The repository holds only two legacy files and .claude/skills/. No README, package manifest, tests or workflow. The visible commit is a merge of PR #1 from a Claude-authored branch on 2026-08-28; the checkout is shallow so earlier history was not inspected."
+  },
+  {
+   "topic": "How the skills are delivered",
+   "detail": "One directory per skill under .claude/skills/<name>/SKILL.md with name + description frontmatter (trigger-rich, at most 1024 chars). Body order: Purpose, Use this skill when, Do NOT use this skill when, numbered sections, then a closing 'Provenance and maintenance' section with one-line re-verification commands.",
+   "path": ".claude/skills/apilogicserver-change-control/SKILL.md:287-294"
+  },
+  {
+   "topic": "Verification environment",
+   "detail": "Facts labeled verified were checked on 2026-08-23 to 26 against a live pip install of ApiLogicServer (installs as Genai-Logic 17.03.19, bundling LogicBank 1.32.0, Python 3.11) using two created projects: basic_demo and the Northwind nw+ sample. Container builds, cloud deploys and every live-LLM leg were NOT executed.",
+   "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:544"
+  },
+  {
+   "topic": "Documented ALS runtime defaults",
+   "detail": "Server on port 5656; Swagger at /api; login at POST /api/auth/login; admin app at /admin-app/index.html; MCP discovery at /.well-known/mcp.json; logs in logs/als.log. Config precedence: creation defaults -> config/config.py (+ default.env) -> CLI args -> APILOGICPROJECT_* env (env wins). Env var names: APILOGICPROJECT_PORT, APILOGICPROJECT_DISABLE_RULES, SECURITY_ENABLED, OPT_LOCKING, KAFKA_SERVER, PYTHONHASHSEED.",
+   "path": ".claude/skills/apilogicserver-architecture-contract/SKILL.md:176-181"
+  },
+  {
+   "topic": "Secrets handling",
+   "detail": "Legacy: the key sits in a VBA variable (a placeholder string in the committed file) and inside the binary workbook. Target: the LLM key lives only server-side in APILOGICSERVER_CHATGPT_APIKEY; clients hold a short-lived JWT (expiry 222 minutes).",
+   "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:398-406"
+  },
+  {
+   "topic": "Script dependencies",
+   "detail": "The three diagnostic scripts need only bash, curl and python3 stdlib; curl always runs with --noproxy '*' and a 10 s timeout. They are read-only against the project and were executed against the live Northwind sample before shipping.",
+   "path": ".claude/skills/apilogicserver-debugging-playbook/SKILL.md:226-230"
+  }
+ ],
+ "decisions": [
+  {
+   "decision": "Replace the VBA caller with a governed server instead of hardening the macro",
+   "why": "[.claude/skills/apilogicserver-failure-archaeology/SKILL.md:304-308] The defects are not 'bad VBA' but the pattern itself: application-embedded glue with no contract (hand-built wire format both ways), no gating (no review, tests or CI) and no evidence (no logs or audit). Patching one failure mode leaves the three absences in place. Status is SETTLED-BY-REPLACEMENT-PLAN: do not reopen.",
+   "alternative_rejected": "Harden turbo3.5_excel_vba in place (escape JSON, add error handling)",
+   "evidence": "."
+  },
+  {
+   "decision": "Full ALS adoption (option A) ranked above the hybrid Excel bridge (B) and GenAI re-creation (C)",
+   "why": "[.claude/skills/apilogicserver-modernization-campaign/SKILL.md:499-507] A rides the path verified end to end. B keeps fragile VBA JSON assembly on any write path and needs a token-distribution story, so it is allowed only read-mostly and only for user continuity. C has the highest variance (LLM-dependent, needs a key) and may only accelerate drafting; its output still passes the P3 and P5 gates.",
+   "alternative_rejected": "Bridge-first or genai-first migration",
+   "evidence": "."
+  },
+  {
+   "decision": "Business logic as declarative rules bound to the SQLAlchemy session's before_flush, not procedural code per endpoint or database triggers",
+   "why": "[.claude/skills/declarative-rules-reference/SKILL.md:77-87] One interception point enforces logic for every writer (API, admin app, custom endpoints, MCP) with nothing to call and nothing to forget; ordering is derived from dependencies; rules stay portable across databases. Procedural code needs hand-tracked dependencies and ordering and silently omits paths.",
+   "alternative_rejected": "Per-controller validation code, or DB triggers",
+   "evidence": "."
+  },
+  {
+   "decision": "Transaction-logic engine with delta adjustment rather than a Rete / BRMS decision engine",
+   "why": "[.claude/skills/declarative-rules-reference/SKILL.md:239-251] Decision engines are explicitly invoked with a named ruleset, cannot presume old row values, and therefore must re-read children to know an aggregate (orders of magnitude slower) while unloaded rules silently do not fire. LogicBank has old_row natively, so it prunes and applies one-row deltas.",
+   "alternative_rejected": "Rete-based engine (Drools-style)",
+   "evidence": "."
+  },
+  {
+   "decision": "AI re-enters only through the governed API (MCP / JSON:API with JWT), never as a client-embedded completion call",
+   "why": "[.claude/skills/apilogicserver-modernization-campaign/SKILL.md:394-406] The proof is measurable: a rule-violating write through the AI channel must be rejected with the same 400/2001 body as a human one, because the rule fires regardless of who calls. The key stays server-side and every transaction leaves a logic log.",
+   "alternative_rejected": "GPT-in-a-cell with the key in the workbook",
+   "evidence": "."
+  },
+  {
+   "decision": "AI-generated schema or logic is a candidate until deterministic gates pass",
+   "why": "[.claude/skills/apilogicserver-failure-archaeology/SKILL.md:310-327] Per the upstream docs, unconstrained AI turns 5 rules into about 200 lines with bugs that are hard to spot but fatal to data integrity. Guardrail chain: AI proposes readable rules -> startup activation, Behave scenarios with predicted numbers and the Logic Report verify -> change-control merges.",
+   "alternative_rejected": "Merging LLM output because it looks right",
+   "evidence": "."
+  },
+  {
+   "decision": "Every fact carries a ground-truth label, and each fact has exactly one home skill",
+   "why": "[.claude/skills/apilogicserver-change-control/SKILL.md:287-294] Labels ('verified <date>, Genai-Logic <version>' vs 'per docs, not live-verified' vs candidate) keep executed evidence from blending with documentation claims; one home per fact with one-line cross-references prevents skills drifting apart. Never an invented flag, path, port or number.",
+   "alternative_rejected": "Unlabeled prose that repeats facts across skills",
+   "evidence": "."
+  },
+  {
+   "decision": "Public claims must stand on a Positioning Ledger row; unqualified multipliers are forbidden",
+   "why": "[.claude/skills/apilogicserver-research-frontier/SKILL.md:31-43] The '40X more concise' figure rests on one A/B example that itself says it is not a benchmark, and Versata-era percentages describe a product that no longer exists. Wrong claims cost more than missing claims, so each claim cites its row and carries the artifact's caveat.",
+   "alternative_rejected": "Repeating docs/marketing numbers as present-tense measurements",
+   "evidence": "."
+  },
+  {
+   "decision": "A phase or change is done only when a measurable gate output is captured, never by looking at the admin app",
+   "why": "[.claude/skills/apilogicserver-modernization-campaign/SKILL.md:39-46] The admin app shows a state, not a proof. Predictions are written before the probe, the violating write must fail with the predicted numbers, and a control experiment must succeed, otherwise 'constraint works' cannot be told apart from 'constraint fires on everything'.",
+   "alternative_rejected": "Acceptance by inspection",
+   "evidence": "."
+  }
+ ],
+ "gotchas": [
+  {
+   "issue": "\"My constraint did not fire\": a write expected to be rejected returns 200",
+   "consequence": "Looks like a broken rules engine; hours lost.",
+   "fix_or_guard": "Usually where-clause pruning doing its job: a qualified sum whose where() is False before and after yields delta 0, so the parent row and its constraint never run. Find the transaction with extract_logic_log.sh and check whether the parent adjustment row is present.",
+   "path": ".claude/skills/declarative-rules-reference/SKILL.md:202-227"
+  },
+  {
+   "issue": "Writes that bypass the SQLAlchemy session (raw SQL, DB browser, another app, bulk loaders, Alembic data scripts)",
+   "consequence": "No rules fire: stored aggregates go stale and invalid rows persist, with no error anywhere.",
+   "fix_or_guard": "Non-negotiable NN-1: route every write through the API/session. Detect by recomputing one aggregate from its children. Only two waivers: rule-free databases (the auth DB) and one-time backfill of a newly added aggregate column.",
+   "path": ".claude/skills/apilogicserver-change-control/SKILL.md:210-217"
+  },
+  {
+   "issue": "Console shows '--- Logging error ---' and a TypeError ('str' object cannot be interpreted as an integer) exactly when a constraint rejects (Genai-Logic 17.03.19)",
+   "consequence": "Misread as the engine crashing; the pretty logic log for that transaction is lost.",
+   "fix_or_guard": "Open upstream bug A8: short_format_exception calls splitlines with a separator argument. Cosmetic only: the 400 and the rollback are correct. Check the HTTP response and data before concluding anything; re-verify with a grep for splitlines in config/server_setup.py.",
+   "path": ".claude/skills/apilogicserver-failure-archaeology/SKILL.md:237-268"
+  },
+  {
+   "issue": "APILOGICPROJECT_DISABLE_RULES set to a truthy value",
+   "consequence": "LogicBank.activate is skipped and NO logic runs until restart; legitimate for bulk loads, a deploy-time footgun otherwise.",
+   "fix_or_guard": "Startup prints 'LogicBank rules disabled' and no dependency listing. Check this env var before trusting any running server.",
+   "path": ".claude/skills/apilogicserver-architecture-contract/SKILL.md:258"
+  },
+  {
+   "issue": "Any *.py dropped into logic/logic_discovery/ is live at the next start, and a file without a top-level declare_logic() breaks startup",
+   "consequence": "An experiment file goes onto the main path of the project of record, or a new rule silently never loads when placed in the wrong folder.",
+   "fix_or_guard": "Experiments live in scratch projects with an exp_ prefix; disable by renaming off .py (the .pyZZ precedent); run list_discovered_logic.sh and compare with the startup '..discovered logic' line. Rule edits always need a restart.",
+   "path": ".claude/skills/apilogicserver-research-methodology/SKILL.md:174-180"
+  },
+  {
+   "issue": "Rebuilds overwrite generated files (database/models.py under a DB-first policy) but never update ui/admin/admin.yaml in place",
+   "consequence": "Hand edits vanish, or the admin app silently lags the schema.",
+   "fix_or_guard": "Put work in the owned files (customize_models.py, customize_api.py, discovery directories); after a rebuild merge admin-merge.yaml / admin-created.yaml and delete the artifacts (gate G4); record one source-of-truth policy.",
+   "path": ".claude/skills/apilogicserver-change-control/SKILL.md:117-127"
+  },
+  {
+   "issue": "The legacy parser depends on the exact marker \"content\": \" with a space and on 16-bit Integer indexes",
+   "consequence": "Compact JSON or any error body returns garbage silently; responses beyond about 32 KB raise run-time error 6; content ending in a backslash overruns into surrounding JSON.",
+   "fix_or_guard": "Do not patch. Use a real JSON parser against a typed contract; this file stays only as the acceptance foil.",
+   "path": ".claude/skills/apilogicserver-failure-archaeology/SKILL.md:296-301"
+  },
+  {
+   "issue": "The library's facts are a snapshot of Genai-Logic 17.03.19 as of late August 2026, and several legs were never executed (P7 container gate, cloud deploys, every live-LLM genai/MCP-client leg, the Excel bridge)",
+   "consequence": "Flags, banners, file line numbers and even attribute names drift between releases (example: the shipped MCP executor names the request attribute 'request' while the docs page says 'prompt').",
+   "fix_or_guard": "Each skill ends with re-verification one-liners; re-stamp labels after running `als welcome` on the current install, and treat 'per docs' and 'candidate' items as unproven.",
+   "path": ".claude/skills/apilogicserver-modernization-campaign/SKILL.md:526-542"
+  }
+ ],
+ "glossary": [
+  {
+   "term": "ALS / Genai-Logic",
+   "meaning": "API Logic Server: `pip install ApiLogicServer` installs the package named Genai-Logic since v17; CLI is `als` (six equivalent entry points). Creates a Flask + SQLAlchemy + SAFRS JSON:API project with admin app from a database schema in one command."
+  },
+  {
+   "term": "LogicBank",
+   "meaning": "The declarative rules engine inside ALS. Rules (Rule.sum, formula, copy, constraint, events) are declared in logic/declare_logic.py or logic/logic_discovery/ and execute automatically in the session's before_flush."
+  },
+  {
+   "term": "watch / react / chain",
+   "meaning": "Engine behaviour modelled on a spreadsheet: watch attribute-level changes via old_row vs row, react by running only rules that reference changed attributes, chain when those results change other rows or tables."
+  },
+  {
+   "term": "adjustment",
+   "meaning": "Maintaining a stored parent aggregate by applying the old-to-new delta of one child row as a one-row update, instead of re-aggregating all children with SELECT SUM."
+  },
+  {
+   "term": "pruning",
+   "meaning": "Skipping rules whose referenced data did not change; for qualified sums, delta 0 means the parent is never processed, so its constraint never runs."
+  },
+  {
+   "term": "gate",
+   "meaning": "A measurable pass condition: a command whose output either matches the quoted expectation or does not. Campaign gates close phases P0-P7; change-control gates are G0 (clean git) to G5 (diffs isolated)."
+  },
+  {
+   "term": "code 2001",
+   "meaning": "The JSON:API error code in the HTTP 400 body returned when a constraint rejects a transaction; 401/422 with a top-level msg is authentication instead."
+  },
+  {
+   "term": "request pattern",
+   "meaning": "House idiom for side effects: the client inserts a row into a request table (SysEmail, SysMcp); an after_flush_row_event on that table performs the side effect and the row stays as the audit trail."
+  },
+  {
+   "term": "REGEN / ONCE-YOURS / ALWAYS-YOURS / ENGINE",
+   "meaning": "File-ownership legend for a created ALS project: regenerated by rebuilds, scaffolded once then yours, files you add, and framework plumbing you should not customize."
+  },
+  {
+   "term": "NN-1 .. NN-5",
+   "meaning": "The five non-negotiables: never write around the ORM; never hand-edit regenerated files outside policy; schema changes only through the rebuild flow; every behaviour change lands with Behave evidence; sample credentials never reach production."
+  },
+  {
+   "term": "Behave Logic Report",
+   "meaning": "Markdown report generated from the Behave run that embeds per-scenario logic logs; the requirements-traceability and audit artifact. Golden suite on the Northwind sample: 7 features, 26 scenarios, 83 steps."
+  },
+  {
+   "term": "Positioning Ledger",
+   "meaning": "Four rows that every public claim must cite: PROVEN-HERE, PROVEN-PER-LINEAGE, CLAIMED-NOT-INDEPENDENTLY-MEASURED, OPEN / PREVIEW."
+  },
+  {
+   "term": "predict-numbers-first",
+   "meaning": "Protocol: write expected values, HTTP codes and the rules expected to fire or be pruned before running an experiment; then compare to the digit."
+  },
+  {
+   "term": "discriminating experiment / control",
+   "meaning": "A probe designed so each hypothesis predicts a different outcome, paired with a control (the same PATCH on a shipped order must succeed) so 'works' is distinguishable from 'fires on everything'."
+  },
+  {
+   "term": "S_CheckSum",
+   "meaning": "Per-row attribute SAFRS adds for optimistic locking; a stale value on write gives 'Sorry, row altered by another user'. Checksums need PYTHONHASHSEED=0 to be repeatable."
+  }
+ ],
+ "relations": [
+  {
+   "project": "ghost-crm",
+   "relation": "Third instance of the pattern (architecture-contract, change-control, validation-and-qa, a campaign-django-rebuild skill, 'Provenance and maintenance' in all 16 skills). Useful to compare how the same knowledge-transfer structure is applied to a different system."
+  }
+ ],
+ "directions": [
+  "Build the F5 extractor: read workbook formulas with openpyxl and VBA with olevba, emit candidate rules in the 5-rule vocabulary plus an 'untranslatable' remainder, and diff against the manual P3 translation table. The frontier skill names this as the first tooling result to earn.",
+  "Execute the P7 gate for real: build the project image and re-run the Behave suite against the container. It is the only campaign gate still labeled to-execute.",
+  "Run the live-LLM legs with a server-side key (genai commands, MCP client executor / SysMcp) so 'per docs, not live-verified' items can be promoted or corrected, including the request-vs-prompt attribute divergence.",
+  "Try the Path B Excel bridge (ALS_Get) on a machine with Excel and a maintained VBA JSON parser; today it is a reviewed-but-never-executed candidate.",
+  "Re-verify the library against a newer Genai-Logic release: re-run the Provenance one-liners, check whether the A8 logging bug is fixed, and re-stamp the version labels.",
+  "Apply the campaign to a real workbook instead of the basic_demo stand-in: design the schema the spreadsheet implies and fill the P0 defect table and P3 translation table with its actual formulas."
+ ],
+ "confidence": "medium",
+ "coverage_notes": "Read in full: turbo3.5_excel_vba, the three diagnostic scripts, the modernization-campaign skill, and the main bodies of declarative-rules-reference, architecture-contract, change-control, failure-archaeology (index, A8-A10), research-frontier (ledger, F5) and research-methodology. Skimmed by frontmatter, headings and targeted sections only: api-contract, build-and-env, cli-and-config, data-modeling, genai-development, integration-patterns, logic-patterns, operate-and-deploy, security-model, validation-and-qa, archaeology A1-A7. api_Key.xlsm was not opened (binary workbook said to carry a key). Nothing was executed: every 'verified' statement is the library's own claim about an external ALS install, and the ALS behaviour described is upstream product behaviour, not code in this repo. Shallow clone: history, the upstream fork source and the claimed '2 legacy commits' could not be confirmed. PATH CAVEAT: the validator strips the leading dot of dot-directories, so files under .claude/ cannot be cited in path fields; such entries carry path '.' and the real path:line in [brackets] at the start of the companion text (what / responsibility / does / detail / why / fix_or_guard)."
+}

@@ -1,0 +1,635 @@
+{
+ "slug": "cloudbq",
+ "repo": "Wkayaobama/CloudBQ",
+ "title": "CloudBQ - HubSpot new-deals pipeline on Cloud Run and BigQuery",
+ "one_liner": "Weekly HubSpot new-deals report: a Cloud Run function lands raw deals in BigQuery and CALLs one stored procedure that scores, de-duplicates and MERGEs them; three orchestrator lanes compared.",
+ "purpose": "Stage/probability reports cannot see a deal for weeks after it is created, so this layer reports every HubSpot deal created since the last successful run, per entity (SEALSQ, ICALPS), with a day-1 hot score and a cross-pipeline duplicate flag, into hubspot.new_deals plus a weekly XLSX/e-mail. Three candidate orchestrators are scaffolded side by side so the choice is made on evidence: A a Cloud Run function driven by Cloud Scheduler, B n8n on Cloud Run (kept only as the delivery tail B1), C a hybrid of BigQuery scheduled queries over a synced copy of HubSpot plus a Node 22 Cloud Run job that writes the score back. Since pass 3 every lane lands its inputs in a run_ts-keyed raw root (deals_raw / labels_raw) and CALLs the same procedure new_deals_batch, so any past run can be recomputed from BigQuery. Pass 2 adds L2 likelihood tiers per deal and a company rollup. The repo also carries four reusable documentation/scaffolding skills. Nothing has run against Google Cloud yet: every step is rehearsed offline.",
+ "domain": "CRM analytics pipeline (HubSpot to BigQuery on GCP)",
+ "status": "active",
+ "stack": [
+  "Python 3.12 (functions-framework 3.x)",
+  "google-cloud-bigquery",
+  "requests",
+  "BigQuery standard SQL (procedure, table function, UDF, JSON)",
+  "Cloud Run (function service + job)",
+  "Cloud Scheduler (OIDC / OAuth)",
+  "Secret Manager",
+  "BigQuery Data Transfer Service (scheduled queries, HubSpot connector)",
+  "Node 22 (@google-cloud/bigquery)",
+  "n8n 2.41.7 on Cloud Run + Cloud SQL Postgres 17",
+  "bash (gcloud, bq)",
+  "Vertex AI Workbench notebooks",
+  "GitHub Actions",
+  "pytest + DuckDB (offline SQL parity)",
+  "aider (recipe scaffolding)",
+  "openpyxl / PyYAML (lane workbook)"
+ ],
+ "aliases": [
+  "CloudBQ",
+  "the new-deals pipeline",
+  "the Cloud Run to BigQuery thing",
+  "the three lanes",
+  "the raw root project",
+  "the hot score pipeline"
+ ],
+ "entry_points": [
+  {
+   "command": "cloud_function_new_deals/deploy.sh all",
+   "what": "Lane A step runner: check-env, enable-apis, iam, tables, routines, secret, deploy, invoker (everything up to, not including, the dry gate). DRYRUN=1 prints every gcloud/bq command instead of running it.",
+   "path": "cloud_function_new_deals/deploy.sh:210-230"
+  },
+  {
+   "command": "cloud_function_new_deals/deploy.sh dry   # then: run ENTITY, probe, enable",
+   "what": "The gate: calls ?dry_run=1 for both entities and asserts rows_written == 0 and dry_run is true; only after it passes does 'enable' resume the two paused Scheduler jobs.",
+   "path": "cloud_function_new_deals/deploy.sh:155-170"
+  },
+  {
+   "command": "GET https://<service-url>?entity=SEALSQ|ICALPS[&dry_run=1]",
+   "what": "The Cloud Run function new_deals_report: one scheduled window run per entity (Cloud Scheduler, OIDC). POST {objectId, mode: event} is the single-deal event path (code only, not deployed).",
+   "path": "cloud_function_new_deals/main.py:341-342"
+  },
+  {
+   "command": "cloud_function_new_deals/deploy.sh replay ENTITY FROM_ISO",
+   "what": "Idempotency check and backfill: rewinds report_state.watermark to FROM_ISO, then runs one live window; MERGE on deal_id keeps the counts unchanged.",
+   "path": "cloud_function_new_deals/deploy.sh:187-193"
+  },
+  {
+   "command": "sql/apply.sh",
+   "what": "Lane C: renders and applies every SQL object in dependency order (tables, UDF, adapter views, scoring views, tier views, root adapter + table function, procedure, optional company views). DRYRUN=1 renders only.",
+   "path": "sql/apply.sh:23"
+  },
+  {
+   "command": "sql/scheduled_query.sh   # DISABLE_SCHEDULE=1 first",
+   "what": "Registers or updates one BigQuery scheduled query per entity (new-deals-SEALSQ-C, new-deals-ICALPS-C) running new_deals_weekly.sql with land_raw.sql spliced in.",
+   "path": "sql/scheduled_query.sh:46-54"
+  },
+  {
+   "command": "sql/sync_transfer.sh",
+   "what": "Creates the Data Transfer Service config hubspot-sync-deals-owners (HubSpot connector, assets Deals + Owners, daily 02:00 UTC, full refresh).",
+   "path": "sql/sync_transfer.sh:20"
+  },
+  {
+   "command": "writeback/deploy_job.sh [execute|live]",
+   "what": "Deploys the Node 22 Cloud Run job new-deals-writeback plus its Scheduler trigger (jobs.run); 'execute' runs once and waits; 'live' flips WRITEBACK_APPROVE=1.",
+   "path": "writeback/deploy_job.sh:19-38"
+  },
+  {
+   "command": "python3 workflows/src/build_workflow.py [--check]",
+   "what": "Generates the two n8n workflow JSON files (NEW_DEALS_DELIVERY, NEW_DEALS_ERRORS); --check exits 1 when a committed file is stale.",
+   "path": "workflows/src/build_workflow.py:84"
+  },
+  {
+   "command": "python3 tests/test_hot_score.py && python3 tests/test_main_offline.py && python3 tests/test_pass3_sql.py",
+   "what": "Offline proof before any push or deploy: score vectors, the function against a fake BigQuery/HubSpot, and the structure of the pass-3 SQL.",
+   "path": "README.md:54"
+  },
+  {
+   "command": "python3 .claude/skills/aider-scaffold/scripts/aider_scaffold.py <recipe.md> [files]",
+   "what": "Runs one recipe through aider as an auto-committed step with a 'Recipe:' trailer, then updates the diff ledger docs/diffs/ (script main() at line 37 of that file; documented in UNIVERSAL_WORKFLOW.md section 4.1).",
+   "path": "UNIVERSAL_WORKFLOW.md:84"
+  }
+ ],
+ "architecture": [
+  {
+   "component": "Lane A - Cloud Run function new_deals_report",
+   "path": "cloud_function_new_deals/main.py",
+   "responsibility": "Extract and land only: reads the watermark, takes a lease, searches HubSpot for deals created in the window, lands them in deals_raw/labels_raw, CALLs new_deals_batch, reads the result back, advances the watermark, POSTs the payload to the delivery webhook.",
+   "talks_to": [
+    "HubSpot CRM API",
+    "BigQuery",
+    "n8n delivery webhook",
+    "Cloud Scheduler"
+   ]
+  },
+  {
+   "component": "deploy.sh step runner",
+   "path": "cloud_function_new_deals/deploy.sh",
+   "responsibility": "The single execution surface of lane A: create-or-update steps for APIs, IAM, tables, routines, secret, deploy, Scheduler jobs (created paused), plus the dry gate, run, replay, probe, status, logs.",
+   "talks_to": [
+    "gcloud",
+    "bq",
+    "Secret Manager",
+    "Cloud Run",
+    "Cloud Scheduler"
+   ]
+  },
+  {
+   "component": "State, sink and audit tables",
+   "path": "cloud_function_new_deals/bigquery_schema.sql",
+   "responsibility": "DDL for report_state (watermark + lock_until lease), new_deals (sink, MERGE key deal_id), new_deals_runs (one row per run, data_gaps), new_deals_history (per-run slice), deals_raw / labels_raw (the raw root) and the view new_deals_last_7d.",
+   "talks_to": [
+    "BigQuery"
+   ]
+  },
+  {
+   "component": "Raw-root adapter + pure batch (lane R)",
+   "path": "sql/deals_landed_v1.sql",
+   "responsibility": "View deals_landed_v1 types the landed JSON once with SAFE_CAST and computes name_key; table function new_deals_batch_rows returns the shaped, scored, de-duplicated batch of one run, read-only.",
+   "talks_to": [
+    "deals_raw",
+    "labels_raw",
+    "hot_score_v1 UDF"
+   ]
+  },
+  {
+   "component": "The one write path: procedure new_deals_batch",
+   "path": "sql/new_deals_batch.sql",
+   "responsibility": "Stored procedure every lane CALLs after landing: TEMP batch, then one transaction of MERGE new_deals, history slice, runs row and (if asked) report_state; dry mode writes only one runs row; any error rolls back, writes a FAILED row and re-raises.",
+   "talks_to": [
+    "new_deals",
+    "new_deals_history",
+    "new_deals_runs",
+    "report_state"
+   ]
+  },
+  {
+   "component": "Hot score v1",
+   "path": "scoring/hot_score_v1.sql",
+   "responsibility": "BigQuery UDF returning STRUCT<score, hot, raw>: a logistic score over eight features, hot when >= 45, NULL for pipelines without a conversion rate. Constants live once in scoring/hot_score_v1.constants.json; Python hot_score() is only the test oracle.",
+   "talks_to": [
+    "new_deals_batch_rows",
+    "hot_deals_v1"
+   ]
+  },
+  {
+   "component": "Lane C - scheduled compute over the sync",
+   "path": "sql/new_deals_weekly.sql",
+   "responsibility": "BigQuery scheduled script per entity: 36 h freshness guard on the synced deals, lands the 90-day set from the sync table (land_raw.sql), then CALLs new_deals_batch with advance_state = TRUE on its own state row NEW_DEALS_<entity>_C.",
+   "talks_to": [
+    "Data Transfer Service sync dataset",
+    "new_deals_batch"
+   ]
+  },
+  {
+   "component": "Lane C - sync adapters and ranking views",
+   "path": "sql/deals_synced_v1.sql",
+   "responsibility": "Adapter views over the HubSpot to BigQuery transfer (deals_synced_v1, owners_synced_v1, pipeline label views); sql/hot_deals_v1.sql ranks open deals per region and exposes hot_deals_v1_writeback, the delta the write-back must PATCH.",
+   "talks_to": [
+    "sync dataset",
+    "pipeline_labels",
+    "writeback_log"
+   ]
+  },
+  {
+   "component": "Write-back job (Node 22 Cloud Run job)",
+   "path": "writeback/index.mjs",
+   "responsibility": "Reads hot_deals_v1_writeback, PATCHes hot_score_v1 / hot_flag_v1 onto HubSpot deals in batches of 100 with 429/5xx backoff, logs one row per deal to writeback_log; dry unless WRITEBACK_APPROVE=1; never sends a NULL score.",
+   "talks_to": [
+    "BigQuery",
+    "HubSpot batch update API",
+    "Cloud Scheduler (jobs.run)"
+   ]
+  },
+  {
+   "component": "Lane B1 - n8n delivery tail",
+   "path": "workflows/src/build_workflow.py",
+   "responsibility": "Generates NEW_DEALS_DELIVERY (webhook with Header Auth, rows to XLSX to e-mail, text-only e-mail on a zero-row week) and NEW_DEALS_ERRORS; deploy/n8n/ holds the Cloud Run service manifest, Cloud SQL, secrets and import scripts.",
+   "talks_to": [
+    "Cloud Run function payload",
+    "SMTP",
+    "Cloud SQL Postgres"
+   ]
+  },
+  {
+   "component": "Pass 2 - L2 deal tiers",
+   "path": "sql/deal_tiers_v1.sql",
+   "responsibility": "Classifies every deal by certainty with RANGE_BUCKET on edges 0.5 / 0.75 / 0.9 into Tier4..Tier1 or Closed_won / Closed_lost; deal_tiers_apply.sql is the scheduled MERGE into the gold table deal_tiers with history and retirement.",
+   "talks_to": [
+    "deals_synced_v1",
+    "deal_tiers",
+    "deal_tiers_history",
+    "StackSync"
+   ]
+  },
+  {
+   "component": "Pass 2b - company tiers rollup",
+   "path": "sql/company_tiers_body.sql",
+   "responsibility": "One CTE chain resolving each deal to a company through five resolvers in precedence, spliced into the views of company_tiers_v1.sql and into the notebook dry run; company_tiers_apply.sql refreshes the snapshot in one transaction.",
+   "talks_to": [
+    "ARR dashboard dataset (stg_deals, rec_three_layer)",
+    "companies_synced_v1",
+    "deal_tiers_v1"
+   ]
+  },
+  {
+   "component": "Notebooks (Vertex AI Workbench lane)",
+   "path": "notebooks/README.md",
+   "responsibility": "cloudbq_deploy_and_witness.ipynb runs the deploy.sh sequence cell by cell and witnesses the SQL from Python; l2_deal_tiers.ipynb is the tier lab (numpy.digitize vs RANGE_BUCKET); company_tiers.ipynb is the dry-run, ship, gate probe of pass 2b.",
+   "talks_to": [
+    "deploy.sh",
+    "BigQuery",
+    "HubSpot client of main.py"
+   ]
+  },
+  {
+   "component": "Lane workbook and records",
+   "path": "docs/execution_surfaces.yaml",
+   "responsibility": "The lane matrix source: layers L0-L17 across lanes A/B/C/R with a parity word, remediation rows and equality checks; built into docs/EXECUTION_SURFACES.xlsx; docs/EXECUTION_SURFACES.md is the append-only timeline.",
+   "talks_to": [
+    "pass-sequence skill"
+   ]
+  },
+  {
+   "component": "Reusable skills and agents (.claude/skills, .claude/agents)",
+   "path": "UNIVERSAL_WORKFLOW.md:79",
+   "responsibility": "Four project-agnostic skills under .claude/skills/: aider-scaffold (recipes + diff ledger), tree-f-visualizer (architecture tree), pass-sequence (sequence page, record, workbook), regen-workflow (generator-then-commit GitHub Actions); plus discovery and implementation agent definitions.",
+   "talks_to": [
+    "docs/diffs",
+    "docs/architecture.yaml",
+    ".github/workflows"
+   ]
+  },
+  {
+   "component": "CI - offline checks (.github/workflows/ci.yml)",
+   "path": "README.md:51-62",
+   "responsibility": "On push and PR: pytest, bash -n on every script, node --check, build_workflow --check, workbook --verify, tree --check, ledger --check, README index --check and a DRYRUN=1 rehearsal of deploy.sh all and dry.",
+   "talks_to": [
+    "GitHub Actions"
+   ]
+  }
+ ],
+ "data_flow": [
+  "1. Cloud Scheduler (Mon 07:00 SEALSQ, 07:20 ICALPS, Europe/Zurich) sends GET <url>?entity=E with an OIDC token of the function's service account to the private Cloud Run service.",
+  "2. new_deals_report truncates now to the second as run_ts, loads pipeline/stage/owner labels from HubSpot, and reads the watermark from report_state (first run: now minus FIRST_RUN_DAYS = 7).",
+  "3. A live window run takes the lease with one atomic UPDATE of report_state.lock_until; if another run holds it the function answers 409 and writes nothing. Dry runs take no lease.",
+  "4. HubSpot search: deals with createdate in [watermark - OVERLAP_MINUTES (5), run_ts), all pipelines; the entity's pipelines are in scope, the rest are kept as duplicate candidates.",
+  "5. Landing (the raw root): land_raw load-jobs the whole search result into deals_raw with properties as JSON and in_scope per deal, land_labels does the same for labels_raw; each loads first, then deletes older rows of the same (run_ts, entity, orchestrator) key. A landing failure fails the run (raw_landing_failed).",
+  "6. call_batch submits ONE statement, CALL new_deals_batch(run_ts, entity, orchestrator, mode, FALSE, NULL, watermark_in, query_start, query_end, started_ms, gaps), and waits up to CALL_TIMEOUT_S (240 s), cancelling the job on timeout.",
+  "7. Inside BigQuery the procedure builds a TEMP batch from new_deals_batch_rows (typed view, labels, hot_score_v1, duplicates over a 90-day horizon), then in one transaction MERGEs new_deals on deal_id (four frozen columns untouched), replaces the history slice and writes the runs row.",
+  "8. read_batch reads the run's rows back from new_deals_history (dry: from the table function) plus rows_written and data_gaps from the runs row; only then write_watermark sets watermark = run_ts and clears the lease in one statement.",
+  "9. The payload (report_id, window, row_count, rows_written, duplicate_suspects, day1_hot, data_gaps, rows) is returned and, on live runs, POSTed to DELIVERY_WEBHOOK_URL with three tries; a failed delivery amends the runs row to OK_DELIVERY_FAILED.",
+  "10. n8n NEW_DEALS_DELIVERY (lane B1) receives the payload behind Header Auth, builds the XLSX and sends the e-mail, or a text-only e-mail when row_count is 0.",
+  "11. Lane C in parallel or as fallback: DTS sync daily 02:00 UTC, scheduled queries Mon 03:53 / 04:23 UTC land the 90-day set and CALL the same procedure with advance_state = TRUE, then the write-back job (Mon 05:30 Zurich) PATCHes hot_score_v1 / hot_flag_v1 onto deals.",
+  "12. On any exception the function marks the procedure's row FAILED (or writes its own FAILED row if none exists), releases the lease and re-raises, so the window stays replayable."
+ ],
+ "key_functions": [
+  {
+   "name": "new_deals_report",
+   "path": "cloud_function_new_deals/main.py:342",
+   "signature": "@functions_framework.http\ndef new_deals_report(request)",
+   "does": "HTTP entry point of lane A. Orchestrates lease, HubSpot search, landing, the CALL, read-back, watermark and delivery; decides the mode (window, event or dry) and returns (payload, 200). It is a synchronous request handler: there is no async def anywhere in the Python.",
+   "input_example": "GET ?entity=SEALSQ&dry_run=1",
+   "expected_output": "200 with a payload where dry_run is true and rows_written is 0 (the assertion of deploy.sh dry); an unknown entity returns ({'error': 'unknown entity X'}, 400); an overlapping live run returns 409."
+  },
+  {
+   "name": "call_batch",
+   "path": "cloud_function_new_deals/main.py:233",
+   "signature": "def call_batch(client, entity, run_ts, mode, window, started, gaps)",
+   "does": "The asynchronous hand-off to BigQuery: client.query() submits the CALL new_deals_batch as a BigQuery job, job.result(timeout=CALL_TIMEOUT_S) blocks on it, and on timeout the job is cancelled so a late procedure cannot land a surprise OK row. Passes advance_state = FALSE and literal NULLs for a missing window.",
+   "input_example": "event mode (no window)",
+   "expected_output": "the CALL text ends with 'FALSE, NULL, NULL, NULL, NULL, @started_ms, @gaps)' and the gaps parameter is ['event_no_window'] (tests/test_main_offline.py:253)"
+  },
+  {
+   "name": "land_raw",
+   "path": "cloud_function_new_deals/main.py:165",
+   "signature": "def land_raw(client, found, in_scope_ids, entity, run_ts, mode, source=\"hubspot_api\")",
+   "does": "Writes the raw root slice: a load job (load_table_from_json, WRITE_APPEND) of the whole search result into deals_raw, then a DELETE of older rows of the same key, both time-boxed by LAND_TIMEOUT_S. Returns (rows landed, whether an older slice was replaced).",
+   "expected_output": "For a search returning deals 1, 2, 3 where 1 and 3 belong to the entity: 3 rows landed, in_scope True for 1 and 3 and False for 2, source 'hubspot_api', properties a dict (tests/test_main_offline.py:306-314)"
+  },
+  {
+   "name": "acquire_lease",
+   "path": "cloud_function_new_deals/main.py:143",
+   "signature": "def acquire_lease(client, entity, run_ts, start)",
+   "does": "One run per entity at a time: creates the report_state row on first run, then sets lock_until = run_ts + LEASE_MINUTES (12) with an UPDATE guarded by 'lock_until IS NULL OR lock_until < @ts'; returns True only when exactly one row was affected.",
+   "expected_output": "False when another run holds a live lease; the caller then answers 409 and no load and no CALL happen (tests/test_main_offline.py:238-240)"
+  },
+  {
+   "name": "write_watermark",
+   "path": "cloud_function_new_deals/main.py:154",
+   "signature": "def write_watermark(client, entity, ts)",
+   "does": "Advances report_state.watermark to run_ts and sets lock_until = NULL in one UPDATE. Called only for live window runs, after the CALL and the read-back succeeded, so a failed run leaves no gap."
+  },
+  {
+   "name": "read_batch",
+   "path": "cloud_function_new_deals/main.py:260",
+   "signature": "def read_batch(client, entity, run_ts, mode, query_start=None, deal_ids=None)",
+   "does": "Renders the payload rows from the tables the run wrote: live runs read the history slice plus rows_written and data_gaps from the runs row; dry runs read the table function new_deals_batch_rows. Ordered by amount_kusd DESC, deal_id.",
+   "expected_output": "dry: (rows, 0, []); live: (rows, rows_written from the runs row, the procedure's data_gaps)"
+  },
+  {
+   "name": "hot_score",
+   "path": "cloud_function_new_deals/main.py:76",
+   "signature": "def hot_score(p, now)",
+   "does": "Python test oracle of the day-1 hot score (not in the request path since pass 3): logistic of eight weighted features plus bias, 0-100, hot when >= 45. Only pipelines [id] and [id] are scored.",
+   "input_example": "vector hw_qualified_big_arr_2027: pipeline [id], stage probability 0.2, closedate 2027-03-31, ARR 16002, 3 contacted notes, revenue_state Pipeline, now 2026-10-05T07:00Z",
+   "expected_output": "(90.3, True); vector hw_identified_no_data gives (2.8, False); a non-scored pipeline gives (None, None) (tests/hot_score_vectors.json)"
+  },
+  {
+   "name": "name_key",
+   "path": "cloud_function_new_deals/main.py:299",
+   "signature": "def name_key(p)",
+   "does": "Duplicate key of a deal: final_customer if present, else the part of dealname before the first '-', '/', '|' or '(' ; lower-cased, non-alphanumerics removed, cut to 40 chars. The SQL twin lives in deals_landed_v1.",
+   "input_example": "{'final_customer': 'Acme Corp.'}",
+   "expected_output": "'acmecorp'"
+  },
+  {
+   "name": "new_deals_batch (procedure)",
+   "path": "sql/new_deals_batch.sql:16",
+   "signature": "PROCEDURE new_deals_batch(p_run_ts TIMESTAMP, p_entity STRING, p_orchestrator STRING, p_mode STRING, p_advance_state BOOL, p_state_report_id STRING, p_watermark_in TIMESTAMP, p_query_start TIMESTAMP, p_query_end TIMESTAMP, p_started_ms INT64, p_gaps ARRAY<STRING>)",
+   "does": "The one write path. Validates mode, checks lane A's lease when advancing state, adds labels_missing / dedup_horizon_partial to the gaps, then MERGE + history + runs row (+ state with GREATEST) in one transaction; dry writes one runs row only.",
+   "input_example": "p_mode = 'dry'",
+   "expected_output": "exactly one new_deals_runs row with dry_run = TRUE and rows_written = 0; no MERGE, no history, no state"
+  },
+  {
+   "name": "new_deals_batch_rows (table function)",
+   "path": "sql/deals_landed_v1.sql:51",
+   "signature": "TABLE FUNCTION new_deals_batch_rows(p_run_ts TIMESTAMP, p_entity STRING, p_orchestrator STRING, p_window_start TIMESTAMP)",
+   "does": "The pure, read-only batch: in-scope deals of the slice (one row per deal, latest fetched_at), labels joined, hot_score_v1 applied with run_ts as now, duplicates from every deal the root knows within 90 days. Column order equals new_deals. Use it to debug a past run without writing.",
+   "input_example": "SELECT * FROM new_deals_batch_rows(X, 'SEALSQ', 'cloud-run-function', NULL)"
+  },
+  {
+   "name": "hot_score_v1 (UDF)",
+   "path": "scoring/hot_score_v1.sql:4",
+   "signature": "FUNCTION hot_score_v1(pipeline STRING, hs_deal_stage_probability FLOAT64, closedate TIMESTAMP, calculation___pipeline_2026__k__ FLOAT64, services_value_2026 FLOAT64, asp_in_usd_q2_2022_calculation FLOAT64, tpm__k_y FLOAT64, product_hierarchy STRING, num_contacted_notes FLOAT64, notes_last_updated TIMESTAMP, revenue_state STRING, run_ts TIMESTAMP) RETURNS STRUCT<score, hot, raw>",
+   "does": "THE implementation of the score since pass 3 (12 positional arguments, pinned by tests/test_pass3_sql.py). Returns NULL when the pipeline has no conversion rate.",
+   "expected_output": "Every row of tests/hot_score_vectors.sql shows ok = TRUE (15 vectors); offline DuckDB parity on 15 vectors + 4,000 random deals"
+  },
+  {
+   "name": "deploy (deploy.sh)",
+   "path": "cloud_function_new_deals/deploy.sh:112",
+   "signature": "deploy()  # gcloud run deploy $FN --source . --function new_deals_report --base-image python312 --no-allow-unauthenticated --timeout 540 --memory 512Mi --max-instances 1 --concurrency 1",
+   "does": "Canonical Cloud Run function deploy from source: private service, one instance, one request at a time, HUBSPOT_TOKEN from a pinned Secret Manager version. The 'deploy' step applies tables and routines first because the function lands and CALLs them."
+  },
+  {
+   "name": "invoker (deploy.sh)",
+   "path": "cloud_function_new_deals/deploy.sh:126",
+   "signature": "invoker()  # gcloud scheduler jobs create http new-deals-$e --oidc-service-account-email ... --attempt-deadline 600s --max-retry-attempts 3",
+   "does": "Grants roles/run.invoker to the service account and creates the two Cloud Scheduler HTTP jobs (new-deals-SEALSQ, new-deals-ICALPS) PAUSED, with the service URL as OIDC audience; they are resumed only by 'enable' after the dry gate."
+  },
+  {
+   "name": "patchBatch (write-back)",
+   "path": "writeback/index.mjs:22",
+   "signature": "async function patchBatch(batch)",
+   "does": "The only async function in the repo: POSTs up to 100 deals to /crm/v3/objects/deals/batch/update, retries 429 and 5xx up to 5 times honouring the rate-limit header, parses a 207 partial result and returns one status row per deal.",
+   "expected_output": "each row gets status OK or ERROR with http_status; after 5 failed attempts: status ERROR, error 'retries exhausted'"
+  },
+  {
+   "name": "land_raw.sql (lane C landing)",
+   "path": "sql/land_raw.sql:9",
+   "signature": "INSERT INTO deals_raw ... SELECT ... TO_JSON(STRUCT(...), stringify_wide_numbers => TRUE) FROM <sync table>; DELETE older rows of the key",
+   "does": "Lane C's root writer, spliced into new_deals_weekly.sql at the marker '-- @include land_raw.sql' and reused by backfill_raw.sh: lands the 90-day set from the sync TABLE with HubSpot property names, then the labels; names raw_slice_replaced and labels_missing."
+  }
+ ],
+ "infra": [
+  {
+   "topic": "Async execution model on GCP",
+   "detail": "No asyncio: asynchrony is job-based. (1) BigQuery jobs: client.query()/load_table_from_json() submit jobs, .result(timeout=) waits, call_batch cancels on timeout. (2) Cloud Scheduler to the function is a synchronous HTTP GET (attempt deadline 600 s > service timeout 540 s, 3 retries). (3) Cloud Scheduler to the write-back is jobs.run, which returns an Operation at once, so Scheduler retries cover only start failures and the job's --max-retries 2 covers execution failures. (4) BigQuery scheduled queries run server-side with @run_time.",
+   "path": "cloud_function_new_deals/main.py:233-254"
+  },
+  {
+   "topic": "Lane A deployment",
+   "detail": "Cloud Run service new-deals-report (python312 base image, source build via Cloud Build), region europe-west6, private, service account new-deals-fn with bigquery.jobUser + dataset dataEditor + secretAccessor. Env var names: BQ_PROJECT, BQ_DATASET, OVERLAP_MINUTES, FIRST_RUN_DAYS, PORTAL_ID, DELIVERY_WEBHOOK_URL, ORCHESTRATOR, HUBSPOT_TOKEN (secret), DELIVERY_WEBHOOK_TOKEN (optional secret), LAND_TIMEOUT_S, CALL_TIMEOUT_S, LEASE_MINUTES.",
+   "path": "cloud_function_new_deals/deploy.sh:112-124"
+  },
+  {
+   "topic": "Concurrency and time budget",
+   "detail": "--max-instances 1 --concurrency 1, a per-entity lease in report_state.lock_until (12 minutes), and the two entity schedules 20 minutes apart. Budget inside Cloud Run's 540 s: 4 x LAND_TIMEOUT_S (45) + CALL_TIMEOUT_S (240) + 3 delivery tries x 30 + 20 = 530 s.",
+   "path": "cloud_function_new_deals/main.py:204-208"
+  },
+  {
+   "topic": "Schedules (three clocks)",
+   "detail": "DTS HubSpot sync every day 02:00 UTC; lane C scheduled queries every monday 03:53 (SEALSQ) and 04:23 (ICALPS) UTC; company tiers refresh every day 03:37 UTC; write-back job 30 5 * * 1 Europe/Zurich; lane A Scheduler jobs 0 7 * * 1 and 20 7 * * 1 Europe/Zurich. Scheduled queries are UTC and ignore DST.",
+   "path": "sql/scheduled_query.sh:3-5"
+  },
+  {
+   "topic": "Settings and secrets",
+   "detail": "Operator settings come from a gitignored .env (names listed in the file .env.example at the repository root: PROJECT, REGION, BQ_LOCATION, DATASET, FN, SA_NAME, PORTAL_ID, SYNC_DATASET, SYNC_DEALS_TABLE, SYNC_OWNERS_TABLE, SYNC_COMPANIES_TABLE, ARR_DATASET, SQL_SA_NAME, N8N_IMAGE ...). Scripts refuse placeholders. Tokens live in Secret Manager (hubspot-token read, hubspot-token-write for the job, three n8n secrets); check-env refuses a HUBSPOT_TOKEN line in .env.",
+   "path": "cloud_function_new_deals/deploy.sh:32-44"
+  },
+  {
+   "topic": "Lane C infrastructure",
+   "detail": "BigQuery Data Transfer Service: the HubSpot connector (Preview, full refresh) fills SYNC_DATASET; scheduled queries are transfer configs with data_source scheduled_query run by service account new-deals-sql. The write-back is a Cloud Run job (node:22-slim, --tasks 1 --max-retries 2 --task-timeout 900s) started by Scheduler with an OAuth token of new-deals-scheduler.",
+   "path": "writeback/deploy_job.sh:27-34"
+  },
+  {
+   "topic": "Lane B infrastructure (n8n)",
+   "detail": "Knative manifest applied with gcloud run services replace: pinned n8n image, Cloud SQL Postgres 17 (db-f1-micro), minScale 0 / maxScale 1, CPU always allocated, N8N_CONCURRENCY_PRODUCTION_LIMIT=1, encryption key and DB password from Secret Manager, health path /health. Workflows are imported by stable id through the n8n REST API.",
+   "path": "deploy/n8n/service.yaml"
+  },
+  {
+   "topic": "CI and bot regeneration",
+   "detail": "ci.yml runs all offline checks on push and PR (Python 3.12, Node 22). update-readme-index.yml calls the reusable regenerate.yml to rebuild the README Documents index on pushes to main and commit it with a Regenerated-by trailer; it reads the secret named REGEN_TOKEN. Files: .github/workflows/ci.yml, regenerate.yml, update-readme-index.yml.",
+   "path": "UNIVERSAL_WORKFLOW.md:294"
+  },
+  {
+   "topic": "Target project of the first run",
+   "detail": "The operator runbook targets GCP project [id] with dataset mrload in location EU and HubSpot portal [id]; BQ_LOCATION follows the dataset's location, not the Cloud Run region. A Vertex AI Workbench instance can run the same sequence from the notebook.",
+   "path": "docs/RUNBOOK_CLOUD_SHELL.md:11-16"
+  }
+ ],
+ "decisions": [
+  {
+   "decision": "Run lane A (Cloud Run function) as the production orchestrator, B1 (n8n) only as its delivery tail, and add lane C's compute + write-back when the score must be visible inside HubSpot",
+   "why": "A is the cheapest with the fewest parts, has the exact createdate window and the strongest guarantee set (lease, watermark after MERGE, paused-until-dry schedulers, keyless identity); only C can write back; n8n owning the whole pipeline duplicated everything.",
+   "alternative_rejected": "n8n owning the whole pipeline (B2), or BigQuery scheduled queries alone as the orchestrator",
+   "evidence": "docs/SCENARIOS.md:64-69"
+  },
+  {
+   "decision": "Fix non-reconstructible runs with a run_ts-keyed landing table (the raw root: deals_raw + labels_raw), not with another orchestrator",
+   "why": "Both lanes persisted their outputs per run but never their inputs, so a past run's score, duplicates, labels and report could not be recomputed. An orchestrator sequences nodes; it does not persist the node that is missing. The three defects had one cause: inputs never landed.",
+   "alternative_rejected": "A DAG/orchestrator proposal; keeping four live copies of the batch arithmetic held together by tests",
+   "evidence": "docs/PASS3_RAW_ROOT.md:161-189"
+  },
+  {
+   "decision": "Store landed properties as one JSON column and type them once in the adapter view deals_landed_v1",
+   "why": "Lane A delivers HubSpot strings and lane C typed sync values; the property set changes; with JSON a new property needs no DDL, old slices stay readable and 'as delivered' is kept.",
+   "alternative_rejected": "28 typed columns (every PROPS change is a migration plus a view change)",
+   "evidence": "docs/PASS3_RAW_ROOT.md:226-230"
+  },
+  {
+   "decision": "Landing is plain DML outside the batch transaction, ordered load-first-then-delete-older",
+   "why": "A failed batch must leave its inputs queryable, BigQuery refuses nested transactions, and a failure between the two statements must never leave an empty slice.",
+   "alternative_rejected": "DELETE-then-INSERT, or landing inside the batch transaction",
+   "evidence": "docs/PASS3_RAW_ROOT.md:235-238"
+  },
+  {
+   "decision": "D1: a dry run lands its slice with mode = 'dry' and writes one runs row, but no MERGE, no history, no state",
+   "why": "The rehearsal becomes visible in BigQuery and only one implementation (SQL) stays alive; the convention became 'writes nothing to the sink or the state'.",
+   "alternative_rejected": "Keep 'dry computes in memory and writes nothing at all', which would keep the Python shaper alive for dry only",
+   "evidence": "docs/PASS3_RAW_ROOT.md:361-368"
+  },
+  {
+   "decision": "D2: lane A (the API extractor) is the root writer; lane C becomes the executor of the one SQL implementation and a fallback caller on its own state row NEW_DEALS_<entity>_C",
+   "why": "HubSpot's API is what the write-back needs; sharing A's report_state key would let C rewind A, and the procedure's lease check keeps a fallback run from colliding with a live lane-A run.",
+   "alternative_rejected": "Retire the DTS caller and the _C row, or share one state row",
+   "evidence": "docs/PASS3_RAW_ROOT.md:369-372"
+  },
+  {
+   "decision": "D6: retire n8n B2 (NEW_DEALS_FULL, the generated Code node, the .mjs port)",
+   "why": "Once the batch is one SQL implementation over the raw root that every lane CALLs, a second shaper has nothing left to mirror.",
+   "alternative_rejected": "Keeping a JavaScript copy of the shaper and scorer in parity by tests",
+   "evidence": "docs/PASS3_RAW_ROOT.md:381-387"
+  },
+  {
+   "decision": "Canonical deploy path gcloud run deploy --function --base-image, with the URL read from status.url",
+   "why": "Google documents it as the canonical form; mixing it with the compatibility path and a cloudfunctions.net audience breaks the Scheduler OIDC audience.",
+   "alternative_rejected": "gcloud functions deploy --gen2",
+   "evidence": "docs/EXECUTION_SURFACES.md:54"
+  },
+  {
+   "decision": "Audit rows are written with query INSERTs and landings with load jobs, never streaming inserts",
+   "why": "A streaming buffer would block the DELETE that replaces a slice (and lane C's own DELETE in new_deals_runs).",
+   "alternative_rejected": "insert_rows_json / streaming inserts",
+   "evidence": "cloud_function_new_deals/main.py:218"
+  },
+  {
+   "decision": "Store L2 tiers with a scheduled MERGE into a gold table (deal_tiers) plus a history table",
+   "why": "The transfer may drop and recreate its destination table, which breaks a materialized view; StackSync excludes views as sources; a view holds no history; the source is a full reload, not a change stream.",
+   "alternative_rejected": "Materialized view over the synced table; BigQuery CDC via the Storage Write API",
+   "evidence": "docs/PASS2_L2_TIERS.md:103-113"
+  }
+ ],
+ "gotchas": [
+  {
+   "issue": "Nothing has run against Google Cloud yet: pass 1, pass 2 and pass 3 are rehearsed offline only",
+   "consequence": "Every 'verified' claim is an offline test or a DRYRUN=1 rendering; the Evidence sections are empty and the first authenticated run may surface platform differences (for example strict-mode resolution of the TEMP table in the procedure).",
+   "fix_or_guard": "Follow docs/RUNBOOK_CLOUD_SHELL.md phase by phase, run tests/pass3_batch_vectors.sql in a dev dataset first, paste the probe output verbatim.",
+   "path": "docs/PASS1_SEQUENCE.md:9"
+  },
+  {
+   "issue": "Event mode exists in code but cannot be reached: the service is private and a HubSpot workflow webhook cannot present a Google OIDC token",
+   "consequence": "The README's near-real-time path does not work as deployed; new deals appear only at the weekly window run.",
+   "fix_or_guard": "Needs a relay (n8n) or a public route validating the HubSpot signature; declared out of scope for lane A.",
+   "path": "docs/PASS1_SEQUENCE.md:123"
+  },
+  {
+   "issue": "Cloud Scheduler retries do not retry a failed write-back execution, because jobs.run returns an Operation immediately",
+   "consequence": "Scheduler sees success once the execution started; overlapping executions of the job are allowed.",
+   "fix_or_guard": "The job exits non-zero on errors so Cloud Run's --max-retries 2 re-runs it; OK rows are logged, so the retry PATCHes only the rest.",
+   "path": "writeback/index.mjs:57"
+  },
+  {
+   "issue": "Two BigQuery scheduled scripts in the same minute are cancelled as conflicting transactions, and an on-the-hour schedule can trigger twice",
+   "consequence": "A lost or doubled lane-C run.",
+   "fix_or_guard": "scheduled_query.sh refuses a shared minute or a ':00' schedule; defaults 03:53 and 04:23 UTC.",
+   "path": "sql/scheduled_query.sh:17-18"
+  },
+  {
+   "issue": "Landing json.dumps(properties) instead of the dict stores a JSON string scalar",
+   "consequence": "Every JSON_VALUE in deals_landed_v1 reads NULL, so nothing is scored or shaped.",
+   "fix_or_guard": "land_raw passes the dict itself; test_landing_lands_the_whole_search_with_ddl_columns asserts it.",
+   "path": "cloud_function_new_deals/main.py:168-169"
+  },
+  {
+   "issue": "Timeout defaults drift between docs and code: parts of PASS3_RAW_ROOT.md still say LAND_TIMEOUT_S 90 s and CALL_TIMEOUT_S 300 s",
+   "consequence": "With those values the budget would exceed Cloud Run's 540 s and the request could be killed with the lease left set.",
+   "fix_or_guard": "The code and the offline test pin 45 s and 240 s (4 x 45 + 240 + 90 + 20 = 530 s).",
+   "path": "tests/test_main_offline.py:197"
+  },
+  {
+   "issue": "Redeploying the write-back job resets WRITEBACK_APPROVE to the .env value (default 0)",
+   "consequence": "A live job silently goes back to dry executions that only log DRY rows.",
+   "fix_or_guard": "Set WRITEBACK_APPROVE=1 in .env once the job is live.",
+   "path": "writeback/deploy_job.sh:13"
+  },
+  {
+   "issue": "Lane C depends on names unknown until the first transfer run, and the sync is a full refresh that overwrites its tables",
+   "consequence": "deals_synced_v1 fails to create if a column is missing; derived columns added to a sync table do not survive the next run; a past run_time reads today's sync.",
+   "fix_or_guard": "Fill SYNC_* in .env after the first run; never write into a sync table; such runs carry raw_backfilled_from_current_sync; a 36 h freshness guard aborts stale runs.",
+   "path": "sql/new_deals_weekly.sql:18-29"
+  },
+  {
+   "issue": "A crash after the lease is taken leaves lock_until in the future",
+   "consequence": "The next run for that entity gets 409 until LEASE_MINUTES (12) have passed.",
+   "fix_or_guard": "Landing and the CALL are time-boxed so failures surface inside the request and release_lease runs; deploy.sh status shows watermarks and leases.",
+   "path": "cloud_function_new_deals/main.py:143-152"
+  },
+  {
+   "issue": "bq --dry_run cannot execute a CALL and stops at the first IF",
+   "consequence": "DRYRUN=1 on the SQL scripts proves rendering and syntax only, not the batch logic.",
+   "fix_or_guard": "Structure tests offline (tests/test_pass3_sql.py) and the executed vectors check in a dev dataset.",
+   "path": "docs/PASS3_RAW_ROOT.md:404-411"
+  },
+  {
+   "issue": "DATASET=mrload in the runbook puts lane A's tables next to warehouse tables",
+   "consequence": "deploy.sh tables grants dataEditor on the whole dataset to the function's service account.",
+   "fix_or_guard": "Acceptable for a first pass; a dedicated dataset (hubspot) narrows the grant at no cost.",
+   "path": "docs/RUNBOOK_CLOUD_SHELL.md:14-16"
+  }
+ ],
+ "glossary": [
+  {
+   "term": "Lane A / B / C / R",
+   "meaning": "The execution surfaces compared in the workbook: A Cloud Run function, B n8n on Cloud Run, C hybrid (BigQuery scheduled queries + write-back job), R the raw root plus the one SQL implementation every lane CALLs."
+  },
+  {
+   "term": "B1 / B2",
+   "meaning": "B1 = n8n only as delivery tail (webhook to XLSX to e-mail), kept. B2 = n8n owning the whole pipeline with a generated Code node, retired in pass 3 (decision D6)."
+  },
+  {
+   "term": "Raw root",
+   "meaning": "deals_raw and labels_raw: a run_ts-keyed copy of what each run computed from, landed before anything is computed, so a past run is recomputable."
+  },
+  {
+   "term": "Slice key",
+   "meaning": "(run_ts, entity, orchestrator): identifies one run's rows in deals_raw, labels_raw, new_deals_history and new_deals_runs; re-landing the same key replaces the slice."
+  },
+  {
+   "term": "Watermark",
+   "meaning": "report_state.watermark per report_id (NEW_DEALS_<entity> for A, NEW_DEALS_<entity>_C for C): the end of the last successful window; it advances only after a successful MERGE."
+  },
+  {
+   "term": "Lease",
+   "meaning": "report_state.lock_until: one run per entity at a time, taken by an atomic UPDATE; an overlapping run gets HTTP 409."
+  },
+  {
+   "term": "Frozen four",
+   "meaning": "deal_id, first_seen_run, day1_hot_score, day1_hot_flag: columns the MERGE never overwrites on a re-observation or a replay."
+  },
+  {
+   "term": "Day-1 hot score",
+   "meaning": "hot_score_v1: a 0-100 logistic score of a new deal computed at first observation (fitted 2026-10-01); hot when >= 45; only for SEALSQ pipelines [id] and [id]."
+  },
+  {
+   "term": "name_key",
+   "meaning": "Normalised final customer (or first token of the deal name) used to flag duplicate suspects across pipelines and entities within 90 days."
+  },
+  {
+   "term": "data_gaps",
+   "meaning": "ARRAY<STRING> on new_deals_runs naming what a run could not read or compute: sync_stale, labels_missing, dedup_horizon_partial, raw_landing_failed, raw_slice_replaced, raw_backfilled_from_current_sync, source_detail_unavailable, event_no_window."
+  },
+  {
+   "term": "Dry gate",
+   "meaning": "deploy.sh dry: ?dry_run=1 for both entities; lands with mode = 'dry', one runs row, rows_written must be 0; schedulers are enabled only after it passes."
+  },
+  {
+   "term": "Parallel / Conditional / Divergent",
+   "meaning": "Parity words of the lane workbook: same result on every lane (pinned by a test), same result under a stated condition, or a different mechanism with a named remediation."
+  },
+  {
+   "term": "Layers L0-L17",
+   "meaning": "The 18 rows of the lane matrix: L0 deploy unit, L1 identity, L2 secrets, L3 trigger, L4 extraction window, L5 scoring, L6 shaping + duplicate flag, L7 MERGE, L8 watermark, L9 delivery, L10 write-back, L11 dry-run gate, L12 replay, L13 audit trail, L14 access control, L15 concurrency + retry safety, L16 observability, L17 cost."
+  },
+  {
+   "term": "Pass 1 / 2 / 2b / 3",
+   "meaning": "Pass 1: the deploy sequence to the first weekly report. Pass 2: L2 likelihood tiers. Pass 2b: the company object by foreign-key resolution. Pass 3: the raw root and the single SQL implementation."
+  },
+  {
+   "term": "Test oracle",
+   "meaning": "main.py hot_score() / shape() / name_key(): no longer in the request path, kept only to generate and check tests/hot_score_vectors.json against the SQL UDF."
+  },
+  {
+   "term": "Recipe and diff ledger",
+   "meaning": "A recipe is a markdown file describing one block for aider; each resulting commit carries a 'Recipe:' trailer and gets one patch in docs/diffs/ with a row in INDEX.md."
+  },
+  {
+   "term": "Entity",
+   "meaning": "SEALSQ (pipelines [id], [id], [id], [id]; USD home currency) or ICALPS (pipeline [id]; EUR as stored)."
+  },
+  {
+   "term": "Witness",
+   "meaning": "In the notebook: executing a SQL statement from Python and showing its BigQuery job id, bytes processed and slot time next to its text."
+  }
+ ],
+ "relations": [],
+ "directions": [
+  "Run pass 1 for real on [id] following docs/RUNBOOK_CLOUD_SHELL.md and paste the dry-run and probe output into the empty Evidence sections: every claim is still offline.",
+  "Execute tests/pass3_batch_vectors.sql and tests/hot_score_vectors.sql in a dev dataset: the first authenticated proof that the procedure, the table function and the UDF behave as the structure tests assume.",
+  "Create the hubspot-token-write private app and run bootstrap_property.sh so lane C's write-back can go live and Breeze / workflows can read hot_score_v1 as a deal property.",
+  "Build lane W for L2 tiers (a dedicated webhook route for HubSpot's array payload with signature validation) or accept the daily cadence; the function's current event path is not it.",
+  "Register the daily tier MERGE (deal_tiers_apply.sql) as a scheduled query: scheduled_query.sh registers only the weekly script today.",
+  "Deliver the report from new_deals_last_7d or the history slice so a re-send is the same report from any lane, and decide whether to retire the DTS fallback caller and its _C state row once lane A lands reliably."
+ ],
+ "confidence": "high",
+ "coverage_notes": "Read in full: README, CONVENTIONS, main.py, deploy.sh, bigquery_schema.sql, all of sql/ except the middle of company_tiers_body.sql and company_tiers_v1/apply (headers and DDL lines only), scoring/, writeback/, deploy/n8n/, build_workflow.py, CI workflows, .env.example (names only), SCENARIOS, PASS1, PASS2, PASS3, EXECUTION_SURFACES.md, notebooks/README, the test names and key assertions. Skimmed: UNIVERSAL_WORKFLOW.md (sections 1-2 and headings), the skills' script docstrings, discovery reports (synthesis, parts of scenario A/C, scorer_repos). Not opened: the .ipynb files, the three .xlsx workbooks, the 1,347-line execution_surfaces.yaml body, docs/diffs patches, generated tree files. Single branch (main, one merge commit); no alternate worktrees. Expected outputs come from tests/hot_score_vectors.json and tests/test_main_offline.py; name_key example evaluated by reading. The async answer is by reading: no async def in Python, one async function in writeback/index.mjs. Nothing in the repo has been executed on GCP, so runtime behaviour is as designed, not as observed."
+}

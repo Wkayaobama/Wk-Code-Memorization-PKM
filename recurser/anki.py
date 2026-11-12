@@ -44,6 +44,8 @@ CSS = """
         text-align: left; color: #121924; background: #ffffff; max-width: 40em; margin: 0 auto; padding: 12px; }
 .head { font: 500 13px/1.3 "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; color: #5d697b; margin-bottom: 14px; }
 .q { font-weight: 500; font-size: 21px; }
+code { background: #edf0f5; border-radius: 4px; padding: 1px 5px; font: 500 0.9em "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; }
+.nightMode code, .night_mode code { background: #1a212c; }
 pre { background: #edf0f5; border-radius: 8px; padding: 10px 12px; font: 400 14px/1.5 "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
       white-space: pre-wrap; overflow-wrap: anywhere; }
 .a { font-size: 19px; }
@@ -102,6 +104,15 @@ def esc(value) -> str:
     return html.escape("" if value is None else str(value), quote=False).replace("\t", "    ").replace("\r\n", "\n").replace("\n", "<br>")
 
 
+def rich(value) -> str:
+    """``esc`` plus inline code: a balanced pair of backticks becomes a <code> element."""
+    text = esc(value)
+    parts = text.split("`")
+    if len(parts) < 3 or len(parts) % 2 == 0:
+        return text
+    return "".join(f"<code>{part}</code>" if i % 2 and part else part for i, part in enumerate(parts))
+
+
 def flat(value) -> str:
     """One line, the owner's ' / ' convention for multi-line code."""
     return " / ".join(part.strip() for part in str(value or "").splitlines() if part.strip())
@@ -158,16 +169,16 @@ def card_note(card: dict, project: dict, owner: str) -> dict | None:
         "Type": card["type"],
         "Level": str(card["level"]),
         "Concept": esc(card.get("concept", "")),
-        "Question": esc(question),
+        "Question": rich(question),
         "Snippet": esc(card.get("code_snippet", "")).replace("<br>", "\n") if card.get("code_snippet") else "",
         "ClozeFront": schema.CLOZE_RE.sub("[...]", esc(cloze)) if cloze and not is_trace else "",
-        "Answer": esc(card.get("answer", "")) if not is_trace else esc(" → ".join(card.get("steps") or [])),
+        "Answer": rich(card.get("answer", "")) if not is_trace else rich(" → ".join(card.get("steps") or [])),
         "ClozeBack": schema.CLOZE_RE.sub(lambda m: '<span class="fill">' + m.group(0).split("::", 1)[1][:-2] + "</span>", esc(cloze)) if cloze and not is_trace else "",
         "ExpectedOutput": esc(card.get("expected_output", "")).replace("<br>", "\n") if card.get("expected_output") else "",
-        "Explanation": esc(card.get("explanation", "")),
-        "Anchor": esc(card.get("anchor", "")),
+        "Explanation": rich(card.get("explanation", "")),
+        "Anchor": rich(card.get("anchor", "")),
         "Example": esc(card.get("example", "")).replace("<br>", "\n") if card.get("example") else "",
-        "Confusables": esc(card.get("confusables", "")),
+        "Confusables": rich(card.get("confusables", "")),
         "Source": esc(source_label(card)),
         "Evidence": esc(card.get("evidence_quote", "")).replace("<br>", "\n") if card.get("evidence_quote") else "",
         "Permalink": permalink(card, project, owner),
@@ -183,13 +194,13 @@ def step_notes(card: dict, project: dict) -> list[dict]:
     title = f"{project.get('title') or project['slug']} :: {card.get('concept', '')}"
     out = []
     for k, step in enumerate(steps, start=1):
-        context = "<br>".join(esc(s) for s in steps[max(0, k - 3):k - 1]) if k > 1 else "[Beginning]"
+        context = "<br>".join(rich(s) for s in steps[max(0, k - 3):k - 1]) if k > 1 else "[Beginning]"
         digest = hashlib.sha1(step.encode("utf-8")).hexdigest()[:8]
         out.append({
             "Title": esc(title),
             "Sequence": str(k),
             "Context": context,
-            "Line": esc(step) + (" □" if k == len(steps) else ""),
+            "Line": rich(step) + (" □" if k == len(steps) else ""),
             "Prompt": "[...]",
             "Source": esc(source_label(card)),
             "ID": f"{card['id']}#{digest}",
@@ -203,7 +214,8 @@ def select_cards(edition: dict, progress: dict | None = None, only_learned: bool
     states = (progress or {}).get("cards") or {}
     out = []
     for c in sorted(edition["cards"], key=lambda c: c["code"]):
-        if c.get("stale") or flags.get(c["id"]) == "suspended":
+        flag = flags.get(c["id"])
+        if c.get("stale") or (flag.get("v") if isinstance(flag, dict) else flag) == "suspended":
             continue
         if only_learned and not (states.get(c["id"]) or {}).get("learned"):
             continue

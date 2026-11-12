@@ -1,0 +1,372 @@
+{
+ "slug": "deep-seek-harness",
+ "repo": "Wkayaobama/deep-seek-harness",
+ "title": "DeepSeek Harness local launcher (dsh Web UI on 127.0.0.1:3080)",
+ "one_liner": "Thin cross-platform launcher that runs a pinned release of DeepSeek's agent harness (dsh) and opens its browser Web UI on http://127.0.0.1:3080.",
+ "purpose": "The repository contains no agent code of its own: it wraps the upstream npm package @deepseek-ai/dsh (DeepSeek Harness, an open-source agent harness with a browser Web UI, described by the README as a fast-changing developer preview) so that one command starts it locally. Two launcher scripts (POSIX sh and Windows cmd) check for Node.js, pin the release the setup was last verified against (0.1.1-rc.2), prefer pnpm over npx because npm's resolver can hang on the package's dependency graph, and forward any extra flags to `dsh web`. A package.json offers the same thing as an installed dependency (`pnpm start`). The README is the runbook: first-run configuration (API key, workspace, first task), flags, SSH port-forwarding for remote machines, security warnings (no authentication, loopback only), updating and troubleshooting. It exists so the owner can try a DeepSeek-backed coding agent in the browser without cloning or building the harness.",
+ "domain": "LLM tooling / agent harness launcher",
+ "status": "paused",
+ "stack": [
+  "POSIX sh",
+  "Windows cmd batch",
+  "Node.js 22.19+ or 24+",
+  "pnpm (dlx) preferred",
+  "npx fallback",
+  "@deepseek-ai/dsh 0.1.1-rc.2 (upstream npm package)",
+  "DeepSeek API"
+ ],
+ "aliases": [
+  "deepseek harness",
+  "the dsh launcher",
+  "start-harness",
+  "the DeepSeek web UI thing",
+  "deep seek harness"
+ ],
+ "entry_points": [
+  {
+   "command": "./start-harness.sh [flags for dsh web]",
+   "what": "macOS/Linux launcher: checks Node, resolves DSH_VERSION, then execs `pnpm dlx @deepseek-ai/dsh@<version> web \"$@\"` (or `npx -y ...` when pnpm is absent).",
+   "path": "start-harness.sh:1"
+  },
+  {
+   "command": "start-harness.cmd [flags for dsh web]",
+   "what": "Windows launcher: checks that node is on PATH, defaults DSH_VERSION, then runs pnpm dlx or npx -y with `web %*`.",
+   "path": "start-harness.cmd:1"
+  },
+  {
+   "command": "pnpm install && pnpm start",
+   "what": "Alternative path through the pinned dependency in package.json; `start` runs `dsh web` from node_modules.",
+   "path": "package.json:7"
+  },
+  {
+   "command": "pnpm run start:no-open",
+   "what": "Same as start but passes --no-open so no browser is launched.",
+   "path": "package.json:8"
+  },
+  {
+   "command": "npm run update:dsh",
+   "what": "Bumps the package.json dependency to the latest upstream release (`npm install @deepseek-ai/dsh@latest`); does not touch the DSH_VERSION default in the launcher scripts.",
+   "path": "package.json:9"
+  },
+  {
+   "command": "DSH_VERSION=latest ./start-harness.sh",
+   "what": "One-off run of the newest upstream release without editing any file.",
+   "path": "README.md:104"
+  }
+ ],
+ "architecture": [
+  {
+   "component": "POSIX launcher",
+   "path": "start-harness.sh",
+   "responsibility": "Guards on Node presence and major version, sets the DSH_VERSION default, prints a first-run notice, then replaces itself (exec) with pnpm dlx or npx running `dsh web` plus forwarded arguments.",
+   "talks_to": [
+    "node",
+    "pnpm",
+    "npx",
+    "upstream dsh package"
+   ]
+  },
+  {
+   "component": "Windows launcher",
+   "path": "start-harness.cmd",
+   "responsibility": "Batch equivalent of the POSIX launcher: node presence check, DSH_VERSION default, pnpm-or-npx dispatch with `%*`. It has no Node version check.",
+   "talks_to": [
+    "node",
+    "pnpm",
+    "npx",
+    "upstream dsh package"
+   ]
+  },
+  {
+   "component": "Pinned dependency manifest",
+   "path": "package.json",
+   "responsibility": "Declares @deepseek-ai/dsh at the exact version 0.1.1-rc.2 and three scripts (start, start:no-open, update:dsh) for people who prefer an installed copy over dlx/npx.",
+   "talks_to": [
+    "upstream dsh package",
+    "npm registry"
+   ]
+  },
+  {
+   "component": "API key template (.env.example)",
+   "path": "README.md:53",
+   "responsibility": "Tracked file .env.example at the repo root: a template with the single variable name DEEPSEEK_API_KEY (empty). Copied to a git-ignored .env, it is read by dsh from the directory the launcher is invoked in.",
+   "talks_to": [
+    "upstream dsh package"
+   ]
+  },
+  {
+   "component": "Runbook (README)",
+   "path": "README.md",
+   "responsibility": "The only documentation: requirements, quick start, first-run configuration in the Web UI, flags, SSH port-forwarding, security notes, run-from-source, updating, troubleshooting.",
+   "talks_to": []
+  },
+  {
+   "component": "Upstream DeepSeek Harness (external)",
+   "path": "package.json:12",
+   "responsibility": "The actual product: the `dsh` CLI whose `web` subcommand serves the agent Web UI on loopback port 3080. Not vendored here; downloaded at launch (dlx/npx) or by install.",
+   "talks_to": [
+    "DeepSeek API",
+    "local workspace files and shell",
+    "browser"
+   ]
+  },
+  {
+   "component": "Web UI screenshot",
+   "path": "docs/web-ui.png",
+   "responsibility": "1440x900 PNG embedded in the README to show what the harness looks like; documentation asset only.",
+   "talks_to": []
+  }
+ ],
+ "data_flow": [
+  "1. The user changes into the project directory the agent should work in (it becomes the default workspace root, and a .env there supplies DEEPSEEK_API_KEY) and calls the launcher script.",
+  "2. The script checks that `node` is on PATH; the sh version also extracts the Node major version and exits 1 when it is below 22.",
+  "3. DSH_VERSION is resolved: the environment variable if set, otherwise the pinned default 0.1.1-rc.2.",
+  "4. A notice is printed that the first run downloads the package and can take a few minutes.",
+  "5. If pnpm is on PATH the script runs `pnpm dlx @deepseek-ai/dsh@<version> web <extra args>`; otherwise it prints a hint about the npm resolver and runs `npx -y @deepseek-ai/dsh@<version> web <extra args>`.",
+  "6. The package manager downloads (first run) or reuses its cache, then starts `dsh web`, which serves the Web UI on http://127.0.0.1:3080 and opens the default browser unless --no-open is passed or an SSH session is detected (README claim about upstream).",
+  "7. First run in the browser: Settings -> Models to paste the DeepSeek API key (effective without restart), then Choose workspace; the session composer stays disabled until a workspace is selected.",
+  "8. The user starts a session; the agent reads and edits workspace files, runs commands, keeps a plan and asks for approval under the active permission policy. Ctrl+C in the terminal stops the server."
+ ],
+ "key_functions": [
+  {
+   "name": "Node presence guard (sh)",
+   "path": "start-harness.sh:6-9",
+   "signature": "if ! command -v node >/dev/null 2>&1; then ... exit 1; fi",
+   "does": "Fails fast with a readable message when Node.js is not installed, instead of letting pnpm/npx fail obscurely.",
+   "input_example": "./start-harness.sh on a machine without node",
+   "expected_output": "stderr: 'error: Node.js is required (v22.19+ or v24+). Install it from https://nodejs.org/' and exit code 1"
+  },
+  {
+   "name": "Node major-version guard (sh)",
+   "path": "start-harness.sh:11-15",
+   "signature": "NODE_MAJOR=$(node -p 'process.versions.node.split(\".\")[0]'); if [ \"$NODE_MAJOR\" -lt 22 ]; then ... exit 1; fi",
+   "does": "Rejects Node majors below 22. It compares only the major number, so it is looser than the documented requirement (22.19+ or 24+): 22.0-22.18 and 23.x pass the guard.",
+   "input_example": "./start-harness.sh with Node 20",
+   "expected_output": "stderr: 'error: Node.js v22.19+ or v24+ is required (found v20.x.y).' and exit code 1"
+  },
+  {
+   "name": "DSH_VERSION pin with env override (sh)",
+   "path": "start-harness.sh:18",
+   "signature": "DSH_VERSION=\"${DSH_VERSION:-0.1.1-rc.2}\"",
+   "does": "Single line that pins the upstream release the setup was verified against while letting a per-run environment variable override it (for example DSH_VERSION=latest).",
+   "input_example": "DSH_VERSION unset",
+   "expected_output": "DSH_VERSION is 0.1.1-rc.2"
+  },
+  {
+   "name": "pnpm-or-npx dispatch (sh)",
+   "path": "start-harness.sh:24-29",
+   "signature": "if command -v pnpm ...; then exec pnpm dlx \"@deepseek-ai/dsh@${DSH_VERSION}\" web \"$@\"; else exec npx -y \"@deepseek-ai/dsh@${DSH_VERSION}\" web \"$@\"; fi",
+   "does": "The core of the repo: picks pnpm when available (fast resolution), falls back to npx with a warning, and uses exec so the shell is replaced by the package-manager process. All script arguments are forwarded after `web`.",
+   "input_example": "./start-harness.sh --port 4000 --no-open (pnpm installed, DSH_VERSION unset)",
+   "expected_output": "runs: pnpm dlx @deepseek-ai/dsh@0.1.1-rc.2 web --port 4000 --no-open"
+  },
+  {
+   "name": "Windows version default",
+   "path": "start-harness.cmd:12",
+   "signature": "if \"%DSH_VERSION%\"==\"\" set DSH_VERSION=0.1.1-rc.2",
+   "does": "Batch counterpart of the sh pin: sets the default only when the variable is empty. This is the second place the pin lives.",
+   "input_example": "DSH_VERSION not set in the environment",
+   "expected_output": "DSH_VERSION is 0.1.1-rc.2"
+  },
+  {
+   "name": "pnpm-or-npx dispatch (cmd)",
+   "path": "start-harness.cmd:18-24",
+   "signature": "where pnpm >nul 2>nul / if errorlevel 1 ( npx -y @deepseek-ai/dsh@%DSH_VERSION% web %* ) else ( pnpm dlx @deepseek-ai/dsh@%DSH_VERSION% web %* )",
+   "does": "Windows version of the dispatch. `where pnpm` sets errorlevel 1 when pnpm is missing, which selects the npx branch and prints the resolver hint.",
+   "input_example": "start-harness.cmd --no-open (pnpm missing)",
+   "expected_output": "prints the 'install pnpm' note, then runs: npx -y @deepseek-ai/dsh@0.1.1-rc.2 web --no-open"
+  },
+  {
+   "name": "npm script: start",
+   "path": "package.json:7",
+   "signature": "\"start\": \"dsh web\"",
+   "does": "Runs the locally installed dsh binary (from the pinned dependency) instead of an ephemeral dlx/npx download. Requires `pnpm install` first.",
+   "input_example": "pnpm start",
+   "expected_output": "runs: dsh web"
+  },
+  {
+   "name": "npm script: update:dsh",
+   "path": "package.json:9",
+   "signature": "\"update:dsh\": \"npm install @deepseek-ai/dsh@latest\"",
+   "does": "Moves the package.json pin to the latest upstream release. Uses npm (the resolver the README warns about) and leaves the launcher scripts' DSH_VERSION default unchanged."
+  }
+ ],
+ "infra": [
+  {
+   "topic": "Runtime requirements",
+   "detail": "Node.js 22.19+ or 24+ on the local machine; pnpm optional but strongly preferred (npm i -g pnpm or corepack enable pnpm). README states the setup was verified on a clean Linux container with Node v22.22 and pnpm 10.33.",
+   "path": "README.md:11-14"
+  },
+  {
+   "topic": "Network binding and port",
+   "detail": "The upstream server binds loopback 127.0.0.1 only, default port 3080; `--port <n>` changes the port, `--trusted-host <authority>` accepts another Host header (reverse-proxy / named-host setups), `--no-open` skips the browser.",
+   "path": "README.md:59-70"
+  },
+  {
+   "topic": "Remote access",
+   "detail": "Supported remote use is SSH local port-forwarding (-L 3080:127.0.0.1:3080) and then opening the loopback URL in the local browser. README says dsh detects an SSH session and only prints the URL.",
+   "path": "README.md:72-80"
+  },
+  {
+   "topic": "Secrets",
+   "detail": "One secret: the DeepSeek API key. Either pasted in the Web UI (Settings -> Models) or supplied as DEEPSEEK_API_KEY in a .env file in the launch directory. .env is git-ignored; only the empty .env.example is tracked.",
+   "path": "README.md:52-53"
+  },
+  {
+   "topic": "Version pinning",
+   "detail": "Pin lives in three spots: DSH_VERSION default in start-harness.sh, the same default in start-harness.cmd, and the exact dependency version in package.json. package-lock.json is git-ignored and no pnpm lockfile is tracked, so transitive dependencies are not locked.",
+   "path": "README.md:99-105"
+  },
+  {
+   "topic": "Proxy environments",
+   "detail": "Behind a corporate proxy set HTTPS_PROXY and NODE_USE_ENV_PROXY=1 so Node honours it.",
+   "path": "README.md:112"
+  },
+  {
+   "topic": "Deployment / CI",
+   "detail": "None. No CI workflow, no tests, no Dockerfile, no cloud resources: the repo is meant to be cloned and run on a workstation. The only verification is the manual end-to-end check recorded in the README (HTTP 200 on the loopback URL with --no-open).",
+   "path": "README.md:48"
+  }
+ ],
+ "decisions": [
+  {
+   "decision": "Prefer `pnpm dlx` and fall back to `npx -y` only when pnpm is missing",
+   "why": "pnpm resolves the package's large release-candidate dependency graph in seconds, whereas npm's resolver (observed with npm 10.x) can grind for a very long time on 'resolving dependencies'.",
+   "alternative_rejected": "npx / npm install as the default path",
+   "evidence": "start-harness.sh:22-23"
+  },
+  {
+   "decision": "Pin the exact upstream version 0.1.1-rc.2 instead of tracking latest",
+   "why": "DeepSeek Harness is in developer preview and changes fast; the repo pins the version the setup was last verified against, with DSH_VERSION=latest as an explicit opt-in.",
+   "alternative_rejected": "Always running @latest",
+   "evidence": "README.md:9"
+  },
+  {
+   "decision": "Keep the server on 127.0.0.1 and reach remote machines through SSH port-forwarding",
+   "why": "The Web UI has no authentication and its API drives an agent that can execute shell commands in the workspace; exposing it is remote code execution. README notes the CLI itself refuses --host 0.0.0.0.",
+   "alternative_rejected": "Public tunnel (ngrok, cloudflared) or a reverse proxy on a public interface",
+   "evidence": "README.md:84-85"
+  },
+  {
+   "decision": "Wrap the published npm package rather than clone and build the harness",
+   "why": "Goal is one command that opens the UI. Building from source needs pnpm 11.7 plus an install and build step, so it is relegated to an 'advanced' section for hacking on the harness itself (rationale evident from the README structure, not stated).",
+   "alternative_rejected": "git clone + pnpm install + pnpm run build + pnpm dsh web as the normal path",
+   "evidence": "README.md:87-97"
+  },
+  {
+   "decision": "API key entered in the Web UI or a git-ignored .env, never in the repo",
+   "why": "The key takes effect in the UI without restarting the server; the .env route exists for people who prefer files, and .gitignore excludes .env so the key cannot be committed.",
+   "alternative_rejected": "Hard-coding or committing the key",
+   "evidence": "README.md:52-53"
+  },
+  {
+   "decision": "Launch from the directory the agent should work in",
+   "why": "The invoking directory becomes the default workspace root and is where dsh looks for .env, so the launcher is designed to be called from the target project, with extra flags simply appended.",
+   "evidence": "README.md:18"
+  }
+ ],
+ "gotchas": [
+  {
+   "issue": "npx or npm install hangs on 'resolving dependencies'",
+   "consequence": "The first launch appears frozen for a very long time when pnpm is not installed.",
+   "fix_or_guard": "Install pnpm (npm i -g pnpm or corepack enable pnpm) and rerun; the launcher picks it up automatically. The scripts print this hint before using npx.",
+   "path": "README.md:109"
+  },
+  {
+   "issue": "The version pin is duplicated in three places and `update:dsh` only changes package.json",
+   "consequence": "After `npm run update:dsh`, `pnpm start` runs the new release while the launcher scripts still run 0.1.1-rc.2: silent drift between the two launch paths.",
+   "fix_or_guard": "When bumping, edit the DSH_VERSION default in both scripts and the package.json dependency together, or use DSH_VERSION=latest for a one-off.",
+   "path": "package.json:9"
+  },
+  {
+   "issue": "The Node guard is looser than the documented requirement",
+   "consequence": "start-harness.sh only rejects majors below 22 (so 22.0-22.18 and 23.x pass), and start-harness.cmd checks only that node exists. An unsupported Node fails later inside dsh with a less clear error.",
+   "fix_or_guard": "Check `node --version` manually against 22.19+ or 24+.",
+   "path": "start-harness.sh:11-15"
+  },
+  {
+   "issue": "The Web UI has no authentication and can run shell commands",
+   "consequence": "Anyone who can reach the port can drive the agent in the workspace (remote code execution).",
+   "fix_or_guard": "Never expose it via a public tunnel or public reverse proxy; use SSH -L. Upstream binds loopback by default and refuses --host 0.0.0.0 (README claim).",
+   "path": "README.md:84"
+  },
+  {
+   "issue": "Running ./start-harness.sh from inside this repo makes the launcher repo itself the workspace",
+   "consequence": "The agent works on the launcher files rather than the intended project, and a .env placed next to the script is not found when launching from elsewhere.",
+   "fix_or_guard": "cd into the target project and call the script by its path; keep .env in the directory you launch from (the comment on line 1 of .env.example says it is picked up from the invoking directory).",
+   "path": "README.md:18"
+  },
+  {
+   "issue": "No lockfile is tracked (.gitignore line 2 excludes package-lock.json, and there is no pnpm-lock.yaml)",
+   "consequence": "Only the top-level dsh version is exact; transitive dependencies can resolve differently over time, so a later install is not guaranteed identical to the verified one.",
+   "fix_or_guard": "None in the repo; commit a pnpm lockfile if reproducibility matters."
+  },
+  {
+   "issue": "First run is slow even with pnpm, and the session composer is disabled until a workspace is chosen",
+   "consequence": "Easy to mistake for a broken install or a broken UI.",
+   "fix_or_guard": "Wait a few minutes on first download (later starts use the cache); in the UI click Choose workspace and select the project directory.",
+   "path": "README.md:54"
+  }
+ ],
+ "glossary": [
+  {
+   "term": "DeepSeek Harness",
+   "meaning": "DeepSeek's open-source agent harness with a browser Web UI; the upstream project this repo launches. Described in the README as a developer preview."
+  },
+  {
+   "term": "dsh",
+   "meaning": "The CLI binary of the npm package @deepseek-ai/dsh. `dsh web` starts the Web UI server."
+  },
+  {
+   "term": "DSH_VERSION",
+   "meaning": "Environment variable read by both launcher scripts to choose the upstream release; defaults to 0.1.1-rc.2, can be set to latest."
+  },
+  {
+   "term": "pnpm dlx",
+   "meaning": "pnpm's download-and-execute command (its npx equivalent); the launcher's preferred way to run dsh without installing it."
+  },
+  {
+   "term": "npx -y",
+   "meaning": "npm's download-and-execute fallback, with -y to skip the install confirmation prompt."
+  },
+  {
+   "term": "workspace",
+   "meaning": "The project directory the agent is allowed to read, edit and run commands in. Defaults to the directory dsh was started from and must be selected in the UI before a session can start."
+  },
+  {
+   "term": "--no-open",
+   "meaning": "Flag for `dsh web` that starts the server without opening the default browser."
+  },
+  {
+   "term": "--trusted-host",
+   "meaning": "Repeatable flag that makes the server accept requests carrying another Host authority, for reverse-proxy or named-host setups."
+  },
+  {
+   "term": "loopback binding",
+   "meaning": "The server listens only on 127.0.0.1, so it is reachable only from the same machine (or through an SSH forward)."
+  },
+  {
+   "term": "permission policy",
+   "meaning": "Upstream setting that decides which agent operations require the user's approval before they run."
+  },
+  {
+   "term": "DEEPSEEK_API_KEY",
+   "meaning": "Name of the environment variable (in .env) that carries the DeepSeek platform API key, as an alternative to entering it under Settings -> Models."
+  }
+ ],
+ "relations": [
+  {
+   "project": "cloudbq",
+   "relation": "Thematic only, no code link: its aider-scaffold skill (also present in [private project]) accepts DEEPSEEK_API_KEY as one of the provider keys, so the same DeepSeek key can serve both tools."
+  }
+ ],
+ "directions": [
+  "Make the pin single-sourced: have the scripts read the version from package.json, or change update:dsh to pnpm and to rewrite the DSH_VERSION defaults, because today a bump leaves the three pins out of sync.",
+  "Re-verify against the current upstream release (DSH_VERSION=latest): the pin is a release candidate of a developer preview recorded in August 2026, so flags and first-run steps in the README may have moved.",
+  "Tighten the Node guard to the documented 22.19+ / 24+ rule and add the same check to start-harness.cmd, since both currently let unsupported versions through.",
+  "Turn the manual verification into a smoke test (start with --no-open, expect HTTP 200 on the loopback URL) and track a pnpm lockfile, so a broken upstream release is caught before use.",
+  "For use from another machine, script the documented SSH -L forward (or run the launcher as a service on a remote box and tunnel to it) rather than exposing the port: the UI has no authentication."
+ ],
+ "confidence": "high",
+ "coverage_notes": "Read every tracked file (8 files, one merge commit from August 2026): README.md, both launcher scripts, package.json, .env.example (holds only an empty variable name), .gitignore, .cursorindexingignore; docs/web-ui.png was identified by file type only, not viewed. Everything about what the upstream harness does (loopback binding, refusal of --host 0.0.0.0, SSH detection, Web UI steps, flags) is taken from this repo's README and was not checked against the upstream source, which is not vendored here. No tests, CI or history exist. Status 'paused' is a judgement: the launcher is complete but there is a single commit and no later activity. The 'functions' listed are script blocks and npm scripts; the repo has no real functions. [private project] (.env.example, .gitignore) are cited through README lines or in prose because the validator cannot resolve paths that start with a dot."
+}

@@ -1,0 +1,595 @@
+{
+ "slug": "bhead-claude",
+ "repo": "Wkayaobama/Bhead-Claude",
+ "title": "HR Scout (Bhead-Claude): job-intel app + Claude SDK/headless scaffold",
+ "one_liner": "FastAPI + React + Mongo job-scraping app (HR Scout) whose Claude wiring was decoupled from Understand Studio; main also ships a scaffold with an SDK rail and a headless `claude -p` rail.",
+ "purpose": "The repo began as an Understand Studio (App Builder) generated app: HR Scout scrapes configured job boards, has Claude extract structured postings, scores each extraction with deterministic quality rules, and runs an interview-prep coach over documents uploaded per job. Two lines of work exist. Line `main` keeps the Studio-coupled app and adds `claude-template/`, a barebone scaffold distilled from it with two Claude rails: the in-process Anthropic SDK (llm.py) and headless Claude Code CLI runs (`claude -p`, headless.py) driven by a workflow registry, scheduler and Cloud Run deploy script. Line `claude/standalone-app` (freshest, primary) translates the app itself into a self-contained product: one AI seam calling api.anthropic.com directly, one Settings class with guardrails, quality rules as data, tests and system maps; it deletes the scaffold, so no headless rail remains there. It exists so the owner owns the app end to end instead of depending on the builder's proxy, key and metering.",
+ "domain": "LLM tooling / job-scraping intelligence app",
+ "status": "active",
+ "stack": [
+  "Python 3.12",
+  "FastAPI",
+  "Motor (async MongoDB driver)",
+  "MongoDB 7",
+  "pydantic-settings",
+  "anthropic Python SDK (AsyncAnthropic)",
+  "httpx",
+  "pypdf",
+  "cryptography (Fernet)",
+  "pytest + pytest-asyncio",
+  "React 18",
+  "Vite 5",
+  "Tailwind CSS",
+  "TypeScript",
+  "Docker Compose",
+  "Claude Code CLI print mode (main line only)",
+  "Click (scaffold.py, main line only)",
+  "Google Cloud Run + Secret Manager (main line template only)",
+  "Apify actor API"
+ ],
+ "aliases": [
+  "headless-bun-claude",
+  "Bhead",
+  "HR Scout",
+  "the job scraper",
+  "claude-template",
+  "the headless claude scaffold",
+  "the standalone-app refactor"
+ ],
+ "entry_points": [
+  {
+   "command": "cp .env.example .env && docker compose up --build",
+   "what": "[standalone-app] Starts frontend (:5173), backend (:8000) and mongo; needs ANTHROPIC_API_KEY for scraping and the coach.",
+   "path": "docker-compose.yml"
+  },
+  {
+   "command": "cd backend && uvicorn app.main:app --reload",
+   "what": "[standalone-app] Bare-metal backend; Settings finds the repo-root .env by __file__, not cwd.",
+   "path": "backend/app/main.py:53"
+  },
+  {
+   "command": "cd backend && pytest",
+   "what": "[standalone-app] Runs the suite with a fake Mongo and fake Anthropic client (README states 47 tests, no network).",
+   "path": "backend/pytest.ini"
+  },
+  {
+   "command": "GET /api/health",
+   "what": "[standalone-app] Liveness plus wiring facts: mongo state, llm.describe(), quality threshold/rule count, vault on/off, caps.",
+   "path": "backend/app/main.py:84"
+  },
+  {
+   "command": "POST /api/scraper/run/{target_id}",
+   "what": "[standalone-app] Marks the target running and queues the HTML-fetch scrape as a FastAPI background task; 409 if already running.",
+   "path": "backend/app/routes/scraper.py:372"
+  },
+  {
+   "command": "POST /api/monitor/analyze",
+   "what": "[standalone-app] Re-scores every job posting with the quality engine and persists score, band, flags and fired rules.",
+   "path": "backend/app/routes/monitor.py:234"
+  },
+  {
+   "command": "python scaffold.py new my-app [--no-frontend] [--dir PATH]",
+   "what": "[main] Click CLI that copies claude-template/template into a new project and replaces the __app_name__ token with the slug.",
+   "path": "claude-template/scaffold.py:46"
+  },
+  {
+   "command": "POST /api/workflows/{id-or-name}/run",
+   "what": "[main, template] Fires one headless `claude -p` run in the background; returns 202 with the run record, 409 if that workflow is in flight.",
+   "path": "claude-template/template/backend/app/routes/workflows.py:78"
+  },
+  {
+   "command": "GCP_PROJECT=... ./deploy/cloudrun.sh",
+   "what": "[main, template] Enables APIs, creates the anthropic-api-key secret, then `gcloud run deploy --source .` with no CPU throttling and min-instances 1.",
+   "path": "claude-template/template/deploy/cloudrun.sh:35"
+  }
+ ],
+ "architecture": [
+  {
+   "component": "AI seam (standalone)",
+   "path": "backend/app/llm.py",
+   "responsibility": "Only module importing `anthropic`. Shared AsyncAnthropic client; extract_structured, stream_chat, chat_once; turns refusal and max_tokens stop reasons into exceptions; optional server-side refusal fallback on the beta surface.",
+   "talks_to": [
+    "Anthropic API",
+    "Settings"
+   ]
+  },
+  {
+   "component": "Settings (config as a class)",
+   "path": "backend/app/config.py",
+   "responsibility": "Every tunable as a typed field with a default and bounds; reads env first, then repo-root .env, then backend/.env (which overrides). Mirrored by the compose env allowlist and .env.example.",
+   "talks_to": [
+    "docker-compose.yml",
+    "all backend modules"
+   ]
+  },
+  {
+   "component": "FastAPI app + lifespan",
+   "path": "backend/app/main.py",
+   "responsibility": "Opens the Motor client, creates indexes, starts the scheduler task, mounts nine routers, serves /api/health; CORS middleware only when CORS_ORIGINS is set.",
+   "talks_to": [
+    "MongoDB",
+    "Scheduler",
+    "Routes"
+   ]
+  },
+  {
+   "component": "Scraper routes (two paths)",
+   "path": "backend/app/routes/scraper.py",
+   "responsibility": "HTML path (httpx fetch -> _html_to_text -> truncate) and Apify path (actor items -> text blocks -> truncate), both ending in extract_structured with one job schema, then dedup-insert and session bookkeeping.",
+   "talks_to": [
+    "AI seam",
+    "Apify runner",
+    "MongoDB",
+    "Job boards"
+   ]
+  },
+  {
+   "component": "Apify runner",
+   "path": "backend/app/routes/apify_scraper.py",
+   "responsibility": "Starts the lexis-solutions~jobup-scraper actor, polls every 6 s up to 600 s, fetches dataset items and flattens each into a labelled text block. Lives under routes/ but defines no router.",
+   "talks_to": [
+    "Apify API"
+   ]
+  },
+  {
+   "component": "Cron scheduler",
+   "path": "backend/app/scheduler.py",
+   "responsibility": "asyncio loop in the lifespan: every SCHEDULER_TICK_SECONDS finds active, cron-enabled, non-running targets that are due, reserves them (status running, next run) and fires _do_scrape(triggered_by='cron').",
+   "talks_to": [
+    "MongoDB",
+    "Scraper routes"
+   ]
+  },
+  {
+   "component": "Quality engine",
+   "path": "backend/app/quality/engine.py",
+   "responsibility": "Pure interpreter (no I/O, no clock) over the registry: evaluate -> QualityResult(score, issues, fired, flagged, band); describe for payloads; validate_registry run at package import.",
+   "talks_to": [
+    "Quality registry",
+    "Field extractor",
+    "Monitor routes"
+   ]
+  },
+  {
+   "component": "Quality registry + extractor",
+   "path": "backend/app/quality/registry.py",
+   "responsibility": "Ten rules, three bands and FLAG_THRESHOLD=70 as frozen dataclasses; extractor.py normalises the four scored fields (title, description, company, salary_range) to stripped strings for rules and dedup.",
+   "talks_to": [
+    "Quality engine"
+   ]
+  },
+  {
+   "component": "Monitor routes",
+   "path": "backend/app/routes/monitor.py",
+   "responsibility": "KPI overview, 7-day timeline, per-target performance, category split, quality-config (registry as data), hallucinations list, analyze (persist scores) and a unified audit log.",
+   "talks_to": [
+    "Quality engine",
+    "MongoDB"
+   ]
+  },
+  {
+   "component": "Documents + interview coach",
+   "path": "backend/app/routes/documents.py",
+   "responsibility": "Upload (10 MB cap) and store files in Mongo per job; /chat builds a system prompt from job fields plus extracted document text (20k chars) and bridges stream_chat to SSE.",
+   "talks_to": [
+    "AI seam",
+    "MongoDB",
+    "Browser"
+   ]
+  },
+  {
+   "component": "Secrets vault",
+   "path": "backend/app/routes/secrets.py",
+   "responsibility": "Fernet-encrypted key-value store; key derived by SHA-256 from SECRETS_ENCRYPTION_KEY with a fixed prefix; whole router returns 503 while the passphrase is empty.",
+   "talks_to": [
+    "MongoDB",
+    "Settings"
+   ]
+  },
+  {
+   "component": "React operator UI",
+   "path": "frontend/src/App.tsx",
+   "responsibility": "Seven tabs (Job Feed, URL Manager, Agent Config, Sessions, Documents, Monitor, Secrets) calling relative /api paths through the Vite proxy; holds no AI credentials.",
+   "talks_to": [
+    "Vite proxy",
+    "FastAPI"
+   ]
+  },
+  {
+   "component": "[main] Studio-coupled Claude cookbook",
+   "path": "backend/app/claude_examples.py",
+   "responsibility": "Parent version of the seam: get_client picks Studio proxy mode (UT_API_KEY + UT_LLM_BASE_URL) or standalone mode, prepends a whitelabel identity prelude and calls increment_prompt for usage metering.",
+   "talks_to": [
+    "Understand Studio proxy",
+    "Anthropic API",
+    "ut_usage"
+   ]
+  },
+  {
+   "component": "[main] Headless seam",
+   "path": "claude-template/template/backend/app/headless.py",
+   "responsibility": "Only place a `claude` subprocess is spawned: run_headless builds `claude -p <prompt> --output-format text` with optional model, allowed tools and extra args, caps output at 200 KB and kills on timeout.",
+   "talks_to": [
+    "Claude Code CLI",
+    "git",
+    "Settings"
+   ]
+  },
+  {
+   "component": "[main] Workflow registry, runner, scheduler",
+   "path": "claude-template/template/backend/app/workflows.py",
+   "responsibility": "File-backed workflow definitions (data/workflows.json) and run history (data/runs.jsonl); start_run with an overlap guard; 30 s interval scheduler started from the lifespan.",
+   "talks_to": [
+    "Headless seam",
+    "Workflow routes"
+   ]
+  },
+  {
+   "component": "[main] Template SDK seam",
+   "path": "claude-template/template/backend/app/llm.py",
+   "responsibility": "No-args AsyncAnthropic singleton with adaptive thinking; chat_once, stream_chat, chat_with_tools (manual tool loop) and extract_structured via output_config.format.",
+   "talks_to": [
+    "Anthropic API"
+   ]
+  },
+  {
+   "component": "[main] Scaffold CLI",
+   "path": "claude-template/scaffold.py",
+   "responsibility": "Copies template/ to a new slugged directory, optionally drops the frontend and its marker-delimited infra blocks, then substitutes __app_name__ everywhere.",
+   "talks_to": [
+    "claude-template/template"
+   ]
+  }
+ ],
+ "data_flow": [
+  "1. [standalone-app] Operator adds a job-board URL in the URL Manager tab; the browser calls /api/targets through the Vite proxy and a scrape_targets document is stored (unique index on url).",
+  "2. A scrape starts either manually (POST /api/scraper/run/{id} or run-apify/{id}, queued as a background task) or from scheduler_loop when a cron-enabled target is due; the target is marked `running` first.",
+  "3. _build_system_prompt composes the prompt: agent_config.system_prompt (or the default) + domain focus + the target's goal; an agent_sessions record is inserted with status running, prompt_used and the model name.",
+  "4. HTML path: httpx GET with a browser User-Agent, _html_to_text strips tags, text is cut to SCRAPE_PAGE_CHARS (12000). Apify path: run_apify_scrape polls the actor, items become text blocks cut to APIFY_TEXT_CHARS (15000).",
+  "5. extract_structured sends the text with _JOB_EXTRACTION_SCHEMA under output_config.format (json_schema, additionalProperties false added by _strict_schema) and returns {jobs: [...]}; refusal or truncation raises instead.",
+  "6. _persist_jobs skips empty titles, dedups by case-insensitive exact title + company within the target, inserts new job_postings, then sets target status completed and session jobs_found/new_jobs; any exception goes to _mark_error.",
+  "7. POST /api/monitor/analyze runs quality.evaluate on every posting: score = 100 minus fired-rule penalties (floor 0), flagged when score < 70, band clean/review/flagged; results are persisted on the posting.",
+  "8. The Monitor page reads /api/monitor/quality-config (registry as data) plus overview, timeline, hallucinations and audit endpoints, so thresholds and rule labels are rendered from payloads.",
+  "9. Interview coach: a document is uploaded against a job; POST /api/documents/chat extracts its text, builds a job + document system prompt and streams stream_chat chunks as SSE (`data: {text}` ... `data: {done: true}`, errors in-band).",
+  "10. [main, template] Headless rail: scheduler_loop (30 s) or POST /api/workflows/{id}/run -> start_run stamps last_run and spawns _execute -> run_headless runs `claude -p` in /repo -> the run record is appended to data/runs.jsonl."
+ ],
+ "key_functions": [
+  {
+   "name": "extract_structured",
+   "path": "backend/app/llm.py:253",
+   "signature": "async def extract_structured(*, user_message: str, schema: dict, system_prompt: Optional[str] = None, model: Optional[str] = None, max_tokens: Optional[int] = None) -> dict",
+   "does": "The single structured-output call used by both scrape paths. Sends the schema as output_config.format json_schema (no tools, no tool_choice), checks stop_reason, and json.loads the text block.",
+   "input_example": "user_message='extract', schema={jobs: array of {title}} with the fake client returning '{\"jobs\": [{\"title\": \"Dev\"}]}'",
+   "expected_output": "{'jobs': [{'title': 'Dev'}]} (backend/tests/test_llm.py:85)"
+  },
+  {
+   "name": "stream_chat",
+   "path": "backend/app/llm.py:187",
+   "signature": "async def stream_chat(*, user_message: str, system_prompt: Optional[str] = None, history: Optional[list[dict]] = None, model: Optional[str] = None, max_tokens: Optional[int] = None) -> AsyncIterator[str]",
+   "does": "Yields text chunks from messages.stream for the coach's SSE bridge, then inspects the final message so a refusal or truncation is raised after the stream ends.",
+   "input_example": "user_message='hi', system_prompt='coach', fake chunks ['Hello', ' world']",
+   "expected_output": "['Hello', ' world'] (backend/tests/test_llm.py:139)"
+  },
+  {
+   "name": "get_client",
+   "path": "backend/app/llm.py:80",
+   "signature": "def get_client() -> AsyncAnthropic",
+   "does": "Builds the shared client once. Raises LLMNotConfigured when neither ANTHROPIC_API_KEY nor ANTHROPIC_AUTH_TOKEN is present, so a missing key is a clear message at the first AI call rather than a connection error.",
+   "input_example": "no credentials in settings or env",
+   "expected_output": "raises LLMNotConfigured mentioning ANTHROPIC_API_KEY; llm.describe()['configured'] is False"
+  },
+  {
+   "name": "_api",
+   "path": "backend/app/llm.py:114",
+   "signature": "def _api()",
+   "does": "Returns (messages resource, extra kwargs). With AI_REFUSAL_FALLBACK on it returns client.beta.messages plus betas=['server-side-fallback-2026-07-01'] and fallbacks='default'; otherwise client.messages and {}.",
+   "input_example": "settings.ai_refusal_fallback = True",
+   "expected_output": "call lands on client.beta.messages with fallbacks == 'default' (backend/tests/test_llm.py:112)"
+  },
+  {
+   "name": "_raise_for_stop",
+   "path": "backend/app/llm.py:130",
+   "signature": "def _raise_for_stop(resp: Any, max_tokens: int) -> None",
+   "does": "Guard shared by all three helpers: stop_reason 'refusal' raises LLMRefused(category, explanation); 'max_tokens' raises LLMTruncated, so a declined or cut-off answer is never persisted as a result."
+  },
+  {
+   "name": "_strict_schema",
+   "path": "backend/app/llm.py:225",
+   "signature": "def _strict_schema(schema: dict) -> dict",
+   "does": "Deep-copies a JSON schema and sets additionalProperties: false on every object node that does not set it (walking properties, $defs, items, anyOf/oneOf/allOf); explicit values are kept and the input is not mutated."
+  },
+  {
+   "name": "evaluate",
+   "path": "backend/app/quality/engine.py:94",
+   "signature": "def evaluate(job: dict, *, registry: Iterable[Rule] = RULES, bands: Iterable[Band] = BANDS, threshold: int = FLAG_THRESHOLD) -> QualityResult",
+   "does": "Pure scoring: start at 100, subtract each fired rule's penalty, floor at 0, flag when score < threshold, attach the band key.",
+   "input_example": "clean job whose description is '<div>Great role</div> with a long enough text'",
+   "expected_output": "score 80, band 'review', flagged False, issue 'HTML artefacts in description' (backend/tests/test_quality_engine.py:120)"
+  },
+  {
+   "name": "validate_registry",
+   "path": "backend/app/quality/engine.py:154",
+   "signature": "def validate_registry(registry=RULES, bands=BANDS, threshold=FLAG_THRESHOLD) -> None",
+   "does": "Fail-fast check run when app.quality is imported: unique keys, known predicate kinds, positive penalties, fields that are extracted, compilable patterns, bands that tile 0..100 and one band starting at the threshold."
+  },
+  {
+   "name": "extract_fields",
+   "path": "backend/app/quality/extractor.py:21",
+   "signature": "def extract_fields(job: dict) -> dict[str, str]",
+   "does": "The one normalisation of a job document into the four scored fields; None and non-strings become stripped strings, so no rule regex ever sees a non-string. Also used by dedup in _persist_jobs.",
+   "input_example": "{'title': None, 'company': 42, 'description': '  padded  '}",
+   "expected_output": "{'title': '', 'description': 'padded', 'company': '42', 'salary_range': ''}"
+  },
+  {
+   "name": "_do_scrape",
+   "path": "backend/app/routes/scraper.py:211",
+   "signature": "async def _do_scrape(db, target_id: str, triggered_by: str = 'manual') -> None",
+   "does": "HTML scrape path end to end: session record, fetch, text cut to scrape_page_chars, extract_structured, _persist_jobs; every exception is routed to _mark_error (target and session set to error)."
+  },
+  {
+   "name": "_persist_jobs",
+   "path": "backend/app/routes/scraper.py:129",
+   "signature": "async def _persist_jobs(db, jobs: list, target_id: str, target: dict, session_id, triggered_by: str) -> tuple[int, int]",
+   "does": "Dedup-insert by re.escape'd case-insensitive title + company per target, then update target (status completed, job_count, scrape_count) and session (jobs_found, new_jobs). Returns (found, new)."
+  },
+  {
+   "name": "scheduler_loop",
+   "path": "backend/app/scheduler.py:16",
+   "signature": "async def scheduler_loop(db) -> None",
+   "does": "Cron loop: selects active, cron-enabled, non-running targets whose cron_next_run is past or missing, reserves each (status running, next run = now + interval, default 1440 min) and fires _do_scrape with asyncio.create_task."
+  },
+  {
+   "name": "run_apify_scrape",
+   "path": "backend/app/routes/apify_scraper.py:102",
+   "signature": "async def run_apify_scrape(target_url: str, apify_token: str, max_items: int | None = None) -> list[dict[str, Any]]",
+   "does": "Starts the jobup actor run, polls status every 6 s for up to 600 s, raises RuntimeError on FAILED/ABORTED/TIMED-OUT or timeout, then returns the dataset items."
+  },
+  {
+   "name": "run_headless [main]",
+   "path": "claude-template/template/backend/app/headless.py:91",
+   "signature": "async def run_headless(prompt: str, *, workdir=None, output_format='text', model=None, allowed_tools=None, extra_args=None, timeout: float = 1800) -> dict",
+   "does": "The headless Anthropic call: spawns `claude -p <prompt> --output-format <fmt>` (plus --model, --allowedTools, extra args) in the workdir with the process env, returns exit_code/stdout/stderr/duration_s and never raises on a failed run.",
+   "input_example": "a run that exceeds the default timeout",
+   "expected_output": "{'exit_code': -1, 'stdout': '', 'stderr': 'timed out after 1800s', 'duration_s': <elapsed>}"
+  },
+  {
+   "name": "start_run [main]",
+   "path": "claude-template/template/backend/app/workflows.py:143",
+   "signature": "def start_run(workflow: dict) -> Optional[dict]",
+   "does": "Overlap gate and launcher: returns None if the workflow id is in _active, else records a run with status 'running', stamps last_run at the START of the run, and schedules _execute as a background task."
+  },
+  {
+   "name": "_ensure_workdir [main]",
+   "path": "claude-template/template/backend/app/headless.py:55",
+   "signature": "async def _ensure_workdir(workdir: str) -> None",
+   "does": "No-op for local bind mounts; when WORKFLOW_REPO_URL is set (Cloud Run) it shallow-clones the repo on first run and fetches + hard-resets to FETCH_HEAD before later runs, serialised by an asyncio lock."
+  }
+ ],
+ "infra": [
+  {
+   "topic": "Local runtime (standalone-app)",
+   "detail": "docker compose with three services: frontend (node:20-alpine, `npm run dev` on 5173), backend (python:3.12-slim, `uvicorn --reload` on 8000, app dir bind-mounted) and mongo:7 with a named volume. Mongo's port is not published. Host ports via FRONTEND_PORT / BACKEND_PORT.",
+   "path": "docker-compose.yml"
+  },
+  {
+   "topic": "Environment contract (standalone-app)",
+   "detail": "Compose passes an explicit allowlist into the backend: PROJECT_NAME, MONGO_URL, MONGO_DB, ANTHROPIC_API_KEY, AI_MODEL, AI_EFFORT, AI_REFUSAL_FALLBACK, EXTRACT_MAX_TOKENS, CHAT_MAX_TOKENS, SCRAPE_PAGE_CHARS, APIFY_TEXT_CHARS, APIFY_API_KEY, SECRETS_ENCRYPTION_KEY, CORS_ORIGINS, SCHEDULER_TICK_SECONDS. A new setting needs three edits: Settings field, allowlist line, .env.example row.",
+   "path": "docker-compose.yml:18"
+  },
+  {
+   "topic": "Same-origin API via Vite proxy",
+   "detail": "The Vite dev server proxies /api to http://backend:8000, so the browser never calls the API cross-origin and no CORS middleware is installed unless CORS_ORIGINS is set. Change the proxy target to localhost:8000 when the API runs outside Docker.",
+   "path": "frontend/vite.config.ts"
+  },
+  {
+   "topic": "Tests (standalone-app)",
+   "detail": "pytest with asyncio_mode=auto; conftest provides FakeDB/FakeCollection (a literal slice of the Motor surface) and a TestClient that skips the lifespan, so no Mongo, scheduler or network is needed. Pinned deps in requirements.txt; requirements-dev.txt adds pytest and pytest-asyncio.",
+   "path": "backend/tests/conftest.py"
+  },
+  {
+   "topic": "MongoDB collections and indexes",
+   "detail": "Created in the lifespan: scrape_targets (unique url; active, cron_enabled, cron_next_run), job_postings (target_id, category, scraped_at, text index on title+company), agent_sessions (target_id, started_at, status), documents (job_id, uploaded_at), secrets (unique variable_name). agent_config is a singleton with _id 'default'.",
+   "path": "backend/app/main.py:22"
+  },
+  {
+   "topic": "Headless image build (main, template)",
+   "detail": "The template backend Dockerfile installs git and the Claude Code CLI via the official install script, adds /root/.local/bin to PATH and marks all directories git-safe, because the mounted target repo belongs to the host user. Compose bind-mounts WORKFLOW_TARGET_DIR (default .) at /repo.",
+   "path": "claude-template/template/backend/Dockerfile"
+  },
+  {
+   "topic": "Cloud Run deployment (main, template)",
+   "detail": "Root Dockerfile builds the Vite app and has FastAPI serve it from static/ in one container honouring PORT. deploy/cloudrun.sh uses GCP_PROJECT, GCP_REGION (default europe-west1), SERVICE_NAME, MIN_INSTANCES, AI_MODEL, WORKFLOW_REPO_URL; ANTHROPIC_API_KEY comes from Secret Manager secret anthropic-api-key; flags --no-cpu-throttling, --min-instances 1, --timeout 3600, --memory 1Gi, --max-instances 2.",
+   "path": "claude-template/template/deploy/cloudrun.sh"
+  },
+  {
+   "topic": "Studio coupling (main, parent app)",
+   "detail": "Parent env names: UT_API_KEY, UT_LLM_BASE_URL, UNDERSTAND_API_URL, LLM_MODE, AI_MODEL, PREVIEW_DOMAIN_SUFFIX. Claude calls go through the Studio proxy unless ANTHROPIC_API_KEY is set and UT_LLM_BASE_URL is empty; analytics and error-tracker middleware plus a CORS wildcard are installed.",
+   "path": "backend/app/claude_examples.py:90"
+  }
+ ],
+ "decisions": [
+  {
+   "decision": "[main] Add a headless Claude Code CLI rail (`claude -p`) next to the SDK rail instead of doing agentic repo work through the SDK",
+   "why": "Print mode runs the CLI's own agent loop with file, grep and git tools and accepts slash commands such as /review, which are a CLI concept; varying the workload is just varying a prompt string. Stated rule of thumb: SDK when your code knows the steps, headless when the model must discover them by exploring a filesystem. The rail is added, not substituted: chat, extraction and tool calls stay on the SDK.",
+   "alternative_rejected": "Hand-writing the agent loop and file tools on top of the Messages API (chat_with_tools) for repo reviews",
+   "evidence": "claude-template/template/docs/llm-modes.md:346-359"
+  },
+  {
+   "decision": "One seam module per Claude mode: only llm.py imports `anthropic`, only headless.py spawns `claude`",
+   "why": "Every cross-cutting change (auth, gateway base_url, caching, metering, sandboxing, CLI flags) becomes a one-file edit; the same property is what made the generated parent app easy to dissect.",
+   "alternative_rejected": "Inline SDK calls or subprocess spawns inside routes",
+   "evidence": "claude-template/template/docs/llm-modes.md:20-23"
+  },
+  {
+   "decision": "[standalone-app] Call api.anthropic.com directly with the owner's key; delete the Studio proxy, per-app key, usage callbacks and whitelabel identity prelude",
+   "why": "Outside Studio the proxy URL has nothing on the other end and the first AI call fails. The vendor never forked the protocol, it only moved the endpoint, so the dependency was trivially removable.",
+   "alternative_rejected": "Keeping the dual Studio/standalone mode switch of claude_examples.get_client",
+   "evidence": "README.md:140-148"
+  },
+  {
+   "decision": "[standalone-app] Structured extraction via output_config.format json_schema instead of a forced tool call",
+   "why": "The API guarantees the first text block is valid JSON for the schema, so no markdown stripping is needed, and the code comment records that forced tool_choice is rejected by current models. The parent version used tool_choice with a named tool.",
+   "alternative_rejected": "tool_choice {type: tool, name: ...} as in the parent claude_examples.extract_structured",
+   "evidence": "backend/app/llm.py:261-266"
+  },
+  {
+   "decision": "[standalone-app] Treat stop_reason refusal and max_tokens as exceptions (LLMRefused, LLMTruncated)",
+   "why": "Callers must never persist a declined or truncated answer as if it were a complete extraction; the scrape then ends in _mark_error with a readable message.",
+   "alternative_rejected": "Returning whatever text came back, as the template helpers on main do",
+   "evidence": "backend/app/llm.py:18-20"
+  },
+  {
+   "decision": "[standalone-app] Server-side refusal fallback, chosen once in _api() and switchable with AI_REFUSAL_FALLBACK",
+   "why": "When the model declines, the API re-runs the request on Anthropic's recommended fallback model inside the same call; the feature lives on the beta surface, so the choice is made in one place rather than at each call site.",
+   "alternative_rejected": "Surfacing every refusal as an error (still available by setting the flag false)",
+   "evidence": "backend/app/llm.py:114-120"
+  },
+  {
+   "decision": "[standalone-app] Quality rules as data in a registry, interpreted by a pure engine",
+   "why": "Adding a check is adding a row; the engine has no I/O or clock so tests need only dicts; the registry is validated at import and served to the UI, so the frontend never restates a threshold. A parity test proves equivalence with the generated app's inline heuristics.",
+   "alternative_rejected": "The hard-coded heuristics inside the generated monitor route",
+   "evidence": "backend/tests/test_quality_engine.py:30-41"
+  },
+  {
+   "decision": "[standalone-app] Empty SECRETS_ENCRYPTION_KEY disables the vault with 503",
+   "why": "Encrypting with a guessable constant would only look safe. The derivation salt is unchanged, so setting the passphrase to the old host per-app key keeps previously stored secrets readable.",
+   "alternative_rejected": "Deriving the Fernet key from a built-in default",
+   "evidence": "backend/app/routes/secrets.py:5-11"
+  },
+  {
+   "decision": "[standalone-app] Explicit compose environment allowlist plus a Settings class anchored on __file__",
+   "why": "A variable reaches the container only if listed, so the env contract is visible; anchoring .env lookup on the module path means uvicorn and pytest find the same file from any directory and never pick up an unrelated .env.",
+   "alternative_rejected": "env_file passthrough and cwd-relative .env lookup (the parent and template approach)",
+   "evidence": "backend/app/config.py:1-15"
+  },
+  {
+   "decision": "[main, template] On Cloud Run deploy with --no-cpu-throttling and --min-instances 1",
+   "why": "A triggered headless run returns 202 and keeps working after the response; throttled CPU would stall it. The in-process scheduler only lives while an instance exists. Option B moves cadence to Cloud Scheduler hitting the run endpoint by workflow name, allowing min-instances 0.",
+   "alternative_rejected": "Default Cloud Run scale-to-zero with throttled background CPU",
+   "evidence": "claude-template/template/deploy/cloudrun.sh:28-34"
+  }
+ ],
+ "gotchas": [
+  {
+   "issue": "No authentication on any route (both lines)",
+   "consequence": "Anyone reaching port 8000 can trigger scrapes that spend Anthropic and Apify budget, delete data, and read vault values in plaintext via GET /api/secrets/{name}/value; on main the workflow API runs an agent against the mounted repo.",
+   "fix_or_guard": "Keep it on localhost or put a reverse proxy with auth in front; on Cloud Run remove unauthenticated access and use an OIDC invoker.",
+   "path": "docs/SYSTEM_MAPS.md:278"
+  },
+  {
+   "issue": "A target can stick in status `running`",
+   "consequence": "A crash or --reload mid-scrape leaves target and session running; the scheduler skips it and manual triggers return 409. No route resets the status.",
+   "fix_or_guard": "None in code; reset the document by hand. Listed as known drift.",
+   "path": "docs/SYSTEM_MAPS.md:282"
+  },
+  {
+   "issue": "Scheduler claims are not atomic and tasks are fire-and-forget",
+   "consequence": "With more than one backend process the same target can be scraped twice; create_task results are not referenced.",
+   "fix_or_guard": "Run a single backend process; an atomic find-and-update claim is the natural fix.",
+   "path": "backend/app/scheduler.py:28-61"
+  },
+  {
+   "issue": "Adding a setting to Settings but not to the compose allowlist",
+   "consequence": "The container silently runs on the default value.",
+   "fix_or_guard": "Always make the three edits together: Settings field, docker-compose environment line, .env.example row.",
+   "path": "backend/app/config.py:12-14"
+  },
+  {
+   "issue": "Coach SSE parser splits each chunk on newline without buffering partial frames",
+   "consequence": "A frame split across network reads can drop a token on slow connections.",
+   "fix_or_guard": "Buffer on blank-line frame boundaries as the template frontend does; open drift.",
+   "path": "frontend/src/pages/DocumentsPage.tsx:224-232"
+  },
+  {
+   "issue": "cron_interval_minutes is not validated",
+   "consequence": "A value of 0 or below makes the target due on every scheduler tick, spending model budget continuously.",
+   "fix_or_guard": "Add a lower bound on the target models; open drift.",
+   "path": "docs/SYSTEM_MAPS.md:296"
+  },
+  {
+   "issue": "[main] Headless print mode cannot ask for permission",
+   "consequence": "Any tool that would prompt is denied, so workflows that edit files or run state-changing commands fail silently unless granted.",
+   "fix_or_guard": "Grant per workflow with allowed_tools (e.g. Edit, Bash(git diff:*)) or extra_args; never pass a permission-bypass flag for unattended runs.",
+   "path": "claude-template/template/backend/app/headless.py:19-25"
+  },
+  {
+   "issue": "[main] Workflow state is file-backed and ephemeral on Cloud Run",
+   "consequence": "After an instance replacement the two seed workflows return disabled with new ids and run history is gone.",
+   "fix_or_guard": "Address workflows by name (find_workflow accepts id or exact name), re-enable after deploy, or swap load_workflows/save_workflows for a database.",
+   "path": "claude-template/template/backend/app/workflows.py:90-97"
+  }
+ ],
+ "glossary": [
+  {
+   "term": "HR Scout",
+   "meaning": "The product name of the app in this repo: job-board scraper + Claude extraction + quality scoring + interview coach."
+  },
+  {
+   "term": "AI seam",
+   "meaning": "The single module allowed to talk to Claude in a given mode: llm.py for the SDK, headless.py for the CLI. Nothing else imports `anthropic` or spawns `claude`."
+  },
+  {
+   "term": "Mode 1 / SDK rail",
+   "meaning": "In-process Anthropic Python SDK calls over HTTPS to the Messages API; your code drives any loop. Used for chat, streaming, extraction and tool calls."
+  },
+  {
+   "term": "Mode 2 / headless rail",
+   "meaning": "Claude Code CLI in print mode (`claude -p \"<prompt>\" --output-format text`) run as a subprocess against a mounted repo; the CLI drives its own agent loop. Exists only in claude-template on main."
+  },
+  {
+   "term": "Print mode",
+   "meaning": "The non-interactive `-p` mode of the Claude Code CLI: runs the agent loop, prints the final result to stdout and exits; exit code 0 means success."
+  },
+  {
+   "term": "Workflow",
+   "meaning": "On main's template, a named repeatable headless prompt with a cadence: {name, prompt, interval_minutes, enabled, model, allowed_tools, extra_args, last_run}."
+  },
+  {
+   "term": "Studio mode vs standalone mode",
+   "meaning": "The parent app's two auth modes: Studio routes the SDK through Understand Tech's Anthropic-compatible proxy with UT_API_KEY; standalone uses ANTHROPIC_API_KEY directly and is chosen only when UT_LLM_BASE_URL is empty."
+  },
+  {
+   "term": "Identity prelude",
+   "meaning": "The whitelabel instruction the generated app silently prepended to every system prompt to hide the underlying model; removed in the standalone line and covered by a test."
+  },
+  {
+   "term": "Scrape target",
+   "meaning": "A configured job-board URL with name, optional goal (prompt suffix), active flag, cron settings and a status of idle/running/completed/error."
+  },
+  {
+   "term": "Agent session",
+   "meaning": "The log record of one scrape run: prompt used, domain focus, trigger (manual or cron), scrape mode (html or apify), model, jobs found and new jobs, error."
+  },
+  {
+   "term": "Quality registry",
+   "meaning": "RULES (10), BANDS (clean 90-100, review 70-89, flagged 0-69) and FLAG_THRESHOLD = 70 as frozen dataclasses; the only place a rule or threshold is defined."
+  },
+  {
+   "term": "Predicate kind",
+   "meaning": "The rule type the engine interprets: shorter_than, longer_than, matches, repeated_words, missing, shorter_than_if_present, lacks_if_present."
+  },
+  {
+   "term": "confidence_score",
+   "meaning": "The 0-100 quality score written on a job posting by /api/monitor/analyze: 100 minus the penalties of fired rules; below 70 sets flagged true."
+  },
+  {
+   "term": "Refusal fallback",
+   "meaning": "Beta API option (fallbacks: 'default') that re-runs a declined request on Anthropic's recommended fallback model within the same call; toggled by AI_REFUSAL_FALLBACK."
+  },
+  {
+   "term": "Known drift",
+   "meaning": "The closing list in docs/SYSTEM_MAPS.md of behaviours the maps describe honestly but the code does not yet fix (no auth, stuck targets, naive UTC datetimes, non-cascading deletes, ...)."
+  }
+ ],
+ "relations": [],
+ "directions": [
+  "Decide the fate of the headless rail: the standalone line deleted claude-template, so `claude -p` workflows exist only on main. Either extract the scaffold into its own repo or port headless.py + workflows.py into the standalone app (e.g. scheduled /review of a repo).",
+  "Add authentication before exposing beyond localhost: every route, including plaintext secret reads and scrape triggers, is open (first item of known drift).",
+  "Make scheduler claims atomic and add a reset for targets stuck in `running`, then validate cron_interval_minutes with a lower bound.",
+  "Build a production image: both services run dev servers only; main's template already shows the pattern (root Dockerfile building Vite and serving static/ from FastAPI, Cloud Run script).",
+  "Fix the coach SSE parser to buffer partial frames and switch datetimes to timezone-aware UTC (utcnow is deprecated on Python 3.12).",
+  "Wire agent_config.goal into the system prompt or remove the field, and drop unused surface (text index, /api/admin/revoke-keys clears collections nothing writes to); replace the placeholder LICENSE."
+ ],
+ "confidence": "high",
+ "coverage_notes": "Read in full on claude/standalone-app: README, docs/SYSTEM_MAPS.md, compose, Dockerfiles, config, llm, main, scheduler, quality package, routes scraper/apify_scraper/documents/monitor/secrets/admin/agent_config, all three test files; skimmed jobs/targets/sessions routes and frontend pages (grep only). On main: claude-template README, scaffold.py, template headless/workflows/llm/config/main/routes, llm-modes.md, deploy-cloudrun.md, cheatsheet, cloudrun.sh; parent claude_examples.py head and config; ut_api_v3, ut_usage, analytics, error_tracker by signature only. .env.example read for variable names only. Nothing was executed, so test counts and expected outputs come from test source and README. Uncertain: no Bun code or config exists in either line despite the 'headless-bun-claude' nickname; the third remote branch (claude/upbeat-lovelace-qsjaby, merged into main by PR 2) was not checked out separately. Model ids and beta header are quoted as written in the repo, not verified."
+}

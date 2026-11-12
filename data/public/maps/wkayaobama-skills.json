@@ -1,0 +1,547 @@
+{
+ "slug": "wkayaobama-skills",
+ "repo": "Wkayaobama/wkayaobama-skills",
+ "title": "wkayaobama-skills: personal Claude Code skills and commands library",
+ "one_liner": "Portable library of the owner's Claude Code commands and skills: pipeline salvation plans, Bronze ETL methodology, PDF-to-DOCX salvage scripts and a prompt-level rigor hook.",
+ "purpose": "A personal, cross-machine knowledge repo for Claude Code. It collects the methods the owner distilled while rescuing the IC'ALPS CRM pipeline (icalps-dashboard: Excel/xlwings + FastAPI bridge + 12-stage PowerShell Bronze ETL called Workflowps) and makes them reusable through one environment variable, CLAUDE__ROOT, that every file uses as its absolute root. It holds two commands (write a salvation plan, execute it checkpoint by checkpoint) and five skills: pipeline-salvation, workflowps (three documents), github-deployment, salvage-pdf-to-word and production-discipline. Only salvage-pdf-to-word ships runnable code (Node + Python scripts that rebuild an untagged PDF into a structured DOCX); production-discipline ships a PowerShell hook that injects a seven-point rigor checklist on decision-like prompts. Everything else is methodology text that is read on demand, never loaded wholesale into a session.",
+ "domain": "LLM tooling: Claude Code skills, ETL methodology, document salvage",
+ "status": "active",
+ "stack": [
+  "Markdown skills and commands (Claude Code)",
+  "Node.js ES modules",
+  "pdfjs-dist ^5.7.284 (legacy build)",
+  "docx ^9.6.1 (docx-js)",
+  "mammoth ^1.12.0",
+  "Python: pypdfium2 + Pillow",
+  "PowerShell hook script",
+  "Claude Code hooks (UserPromptSubmit, PreToolUse)",
+  "Documented only: PSDuckDB, ImportExcel, SQL Server, PostgreSQL, FastAPI, xlwings"
+ ],
+ "aliases": [
+  "the skills repo",
+  "my personal skills library",
+  "CLAUDE__ROOT repo",
+  "the pipeline salvation skill",
+  "the rigor hook",
+  "the PDF salvage skill",
+  "workflowps skill"
+ ],
+ "entry_points": [
+  {
+   "command": "Read and follow ${CLAUDE__ROOT}/commands/write_plan.md",
+   "what": "Asks Claude to write a Pipeline Salvation plan (8 sections) and save it under ~/.claude/plans/ before any code is touched.",
+   "path": "README.md:66"
+  },
+  {
+   "command": "Read and follow ${CLAUDE__ROOT}/commands/execute_plan.md",
+   "what": "Executes a saved plan task by task: sentinel check, run, verify, stop at every checkpoint for confirmation.",
+   "path": "commands/execute_plan.md:13"
+  },
+  {
+   "command": "node ${CLAUDE__ROOT}/skills/salvage-pdf-to-word/scripts/parse.js <input.pdf> <out-dir>",
+   "what": "Stage 1: walks the pdfjs operator list of page 1 and writes raw.json plus raw.stats.json in top-left coordinates.",
+   "path": "skills/salvage-pdf-to-word/scripts/parse.js:279"
+  },
+  {
+   "command": "python render_canvas.py <pdf> <out_png> [dpi=50]  then  python slice_canvas.py <in_png> <out_dir> [n=6]",
+   "what": "Stage 2: renders the first page to PNG and cuts it into N horizontal bands used as visual ground truth.",
+   "path": "skills/salvage-pdf-to-word/scripts/render_canvas.py:25"
+  },
+  {
+   "command": "node ${CLAUDE__ROOT}/skills/salvage-pdf-to-word/scripts/build.js <raw.json> <config.json> <output.docx>",
+   "what": "Stage 3: clusters text items into lines, classifies them with the corpus config, groups blocks and emits output.docx plus output.ir.json.",
+   "path": "skills/salvage-pdf-to-word/scripts/build.js:37"
+  },
+  {
+   "command": "node ${CLAUDE__ROOT}/skills/salvage-pdf-to-word/scripts/preview.js <output.docx> <preview.html>",
+   "what": "Stage 4: converts the DOCX to a self-contained HTML preview with mammoth.",
+   "path": "skills/salvage-pdf-to-word/scripts/preview.js:7"
+  },
+  {
+   "command": "powershell -ExecutionPolicy Bypass -File \"$HOME/.claude/hooks/rigor-reminder.ps1\"",
+   "what": "The UserPromptSubmit hook command: prints the rigor checklist that Claude Code injects as extra context when the prompt matches the matcher regex.",
+   "path": "skills/production-discipline/references/settings-snippet.json:9"
+  }
+ ],
+ "architecture": [
+  {
+   "component": "README and the CLAUDE__ROOT convention",
+   "path": "README.md",
+   "responsibility": "Declares CLAUDE__ROOT (set once per machine in ~/.bashrc or the PowerShell profile) as the absolute root used by every skill file, maps the tree and says when to invoke each skill. Rule: do not load all skills into every session.",
+   "talks_to": [
+    "commands",
+    "skills"
+   ]
+  },
+  {
+   "component": "write-plan command",
+   "path": "commands/write_plan.md",
+   "responsibility": "Forces a read-first step, an architecture baseline with a status per stage, then the eight plan sections and the five-level probe ladder. A plan that omits either execution system (Python dashboard or Workflowps) is declared invalid.",
+   "talks_to": [
+    "pipeline-salvation skill",
+    "execute-plan command"
+   ]
+  },
+  {
+   "component": "execute-plan command",
+   "path": "commands/execute_plan.md",
+   "responsibility": "Loads and criticises the plan, executes each task with .done sentinel checks, verifies before marking complete, pauses at checkpoints and never declares success before the Success Threshold is met.",
+   "talks_to": [
+    "write-plan command",
+    "pipeline-salvation skill",
+    "workflowps skill"
+   ]
+  },
+  {
+   "component": "pipeline-salvation skill",
+   "path": "skills/pipeline-salvation/SKILL.md",
+   "responsibility": "Methodology for recovering the working core of a messy pipeline: success threshold, canonical execution boundary, stage contracts, four buckets, runnable spine, probe discipline, guardrail assessment, recovery checkpoints, first action.",
+   "talks_to": [
+    "write-plan command"
+   ]
+  },
+  {
+   "component": "workflowps: Bronze extraction reference card",
+   "path": "skills/workflowps/SKILL.md",
+   "responsibility": "Skill named bronze-extraction-pipeline: entity contract, query contract, run-context layout, snapshot capture, state ledger, structural and semantic gates, 12 numbered stages. Maps each concept to files of the PowerShell reference implementation.",
+   "talks_to": [
+    "metaskill",
+    "INTEGRATIONS"
+   ]
+  },
+  {
+   "component": "workflowps: hierarchical incremental extraction (metaskill)",
+   "path": "skills/workflowps/metaskill.md",
+   "responsibility": "Domain-agnostic version of the same pipeline as six principles: entity is the query, content hash as CDC, FK graph propagation, layered gates, run state machine, filesystem as execution graph.",
+   "talks_to": [
+    "workflowps reference card"
+   ]
+  },
+  {
+   "component": "workflowps: integrations reference",
+   "path": "skills/workflowps/INTEGRATIONS.md",
+   "responsibility": "Documents the two optional integrations of the PowerShell pipeline: the Excel approval gate for stage 09 (VBA button or xlwings function writing approved.json) and the FastAPI bridge used by the dashboard and as stage 11 load fallback.",
+   "talks_to": [
+    "FastAPI bridge (external)",
+    "Excel dashboard (external)"
+   ]
+  },
+  {
+   "component": "github-deployment skill",
+   "path": "skills/github-deployment/SKILL.md",
+   "responsibility": "Seven-step recipe that created this repo from icalps-dashboard: create the repo with gh, set CLAUDE__ROOT, copy commands and skills, write the README, push, link back, and reference skills locally instead of remote plugins.",
+   "talks_to": [
+    "README"
+   ]
+  },
+  {
+   "component": "salvage-pdf-to-word: parser (stage 1)",
+   "path": "skills/salvage-pdf-to-word/scripts/parse.js",
+   "responsibility": "pdfjs-dist walker for page 1: text items via getTextContent, path bounding boxes via getOperatorList with a save/restore/transform matrix stack, y flipped to top-left. Writes raw.json and raw.stats.json.",
+   "talks_to": [
+    "build.js"
+   ]
+  },
+  {
+   "component": "salvage-pdf-to-word: builder (stage 3)",
+   "path": "skills/salvage-pdf-to-word/scripts/build.js",
+   "responsibility": "Corpus-agnostic core: loads config.json, clusters lines, classifies each line, folds lines into blocks (banner, form-question, proc-list, field-slot, paragraph) and emits the DOCX with docx-js plus the IR JSON for audit.",
+   "talks_to": [
+    "config.json",
+    "preview.js"
+   ]
+  },
+  {
+   "component": "salvage-pdf-to-word: visual reference and preview",
+   "path": "skills/salvage-pdf-to-word/scripts",
+   "responsibility": "render_canvas.py and slice_canvas.py produce PNG bands to compare against the IR; preview.js turns the DOCX into HTML through mammoth for a fast browser check.",
+   "talks_to": [
+    "pypdfium2",
+    "Pillow",
+    "mammoth"
+   ]
+  },
+  {
+   "component": "production-discipline skill and rigor hook",
+   "path": "skills/production-discipline/SKILL.md",
+   "responsibility": "Harness-level rigor gate: a UserPromptSubmit matcher regex runs rigor-reminder.ps1, which prints a seven-point checklist (sequential thinking, read docs, search memory, state assumptions, evidence). Option 2 documents a blocking PreToolUse variant.",
+   "talks_to": [
+    "~/.claude/settings.json",
+    "sequential-thinking MCP server"
+   ]
+  }
+ ],
+ "data_flow": [
+  "1. Library lifecycle: a skill is authored inside a source project (originally icalps-dashboard), copied into commands/ or skills/<name>/ here, committed and pushed; the README tree and the 'When to Use Each Skill' table are updated.",
+  "2. On each machine the repo is cloned and CLAUDE__ROOT is exported once; skills are then invoked by asking Claude to read ${CLAUDE__ROOT}/commands/<file>.md, which pulls in the skills it needs by absolute path.",
+  "3. Plan flow: write_plan reads both orchestrators, the Workflowps contract and git state, then writes a plan with an architecture baseline and eight sections to ~/.claude/plans/YYYY-MM-DD-<feature-name>.md.",
+  "4. execute_plan reviews the plan, then per task: check the .done sentinel, run the stage or Python step, verify the artifact against its contract, mark completed; it stops at each checkpoint and finally runs probe levels 1 to 4.",
+  "5. Reference Bronze pipeline (documented, code lives elsewhere): 00_preflight, 01_extract, 02_repair, 03_delta, 04_cascade, 05_validate_structural, 06_validate_format, 07_validate_fuzzy, 08_report, 09_approval, 10_finalize, 11_load.",
+  "6. Stage 09 is a human gate: the reviewer opens review_package.xlsx and a VBA button or xlwings function writes approved.json or rejected.json into review/{entity}/{RunId}/approval/; a FileSystemWatcher resumes or aborts the run.",
+  "7. PDF salvage stage 1: parse.js reads the PDF with pdfjs-dist and writes raw.json (textItems, graphicsOps, canvas size, coordSpace top-left) and raw.stats.json (fonts seen, rect-size histogram, samples).",
+  "8. PDF salvage stage 2: render_canvas.py renders the page at 50 DPI by default; slice_canvas.py cuts the PNG into 6 bands by default; the slices are the ground truth for pattern authoring.",
+  "9. PDF salvage stage 3: build.js runs clusterLines, classifyLine on every line, groupBlocks, buildDocument, then writes output.docx and output.ir.json; console logs give line-class and block counts.",
+  "10. PDF salvage stage 4: preview.js writes preview.html; the author iterates on config.json (labels, regex, thresholds) until the preview matches the slices, then checks the DOCX in Word.",
+  "11. Rigor hook (as the skill describes it): Claude Code tests each user prompt against the matcher regex in ~/.claude/settings.json; on a match it runs rigor-reminder.ps1 (timeout 5 s) and injects its output as additional context before the assistant answers.",
+  "12. Escalation path (not enabled by default): the reminder writes a marker file, a PreToolUse hook blocks every tool call until the sequential-thinking tool has been invoked, and a Stop hook deletes the marker."
+ ],
+ "key_functions": [
+  {
+   "name": "parse",
+   "path": "skills/salvage-pdf-to-word/scripts/parse.js:69",
+   "signature": "async function parse(pdfPath, outDir)",
+   "does": "Loads the PDF with the pdfjs legacy build, takes page 1 at scale 1.0, maps text items to {id, str, x, y, w, h, fontName, fontSize, color: null, hasEOL} with y flipped to top-left, walks the operator list for path boxes, then writes raw.json and raw.stats.json.",
+   "input_example": "node parse.js form.pdf ./work",
+   "expected_output": "./work/raw.json with keys source, canvas {width, height}, coordSpace \"top-left\", textItems, graphicsOps, images (always []); plus ./work/raw.stats.json"
+  },
+  {
+   "name": "flushPath",
+   "path": "skills/salvage-pdf-to-word/scripts/parse.js:133",
+   "signature": "const flushPath = (mode) => { ... }  // mode: \"fill\" | \"stroke\" | \"fillStroke\"",
+   "does": "On a paint operator, transforms each pending path bounding box with the matrix captured when the path was built, flips y, and pushes a graphics op {id, op: \"path\", x, y, w, h, stroke, fill, opIdx}. Stroke or fill colour is kept only when the paint mode uses it."
+  },
+  {
+   "name": "rgb",
+   "path": "skills/salvage-pdf-to-word/scripts/parse.js:62",
+   "signature": "function rgb(comps)",
+   "does": "Converts pdfjs colour components in the 0..1 range into a lowercase #rrggbb string, clamping each channel; returns null when fewer than three components are given.",
+   "input_example": "rgb([1, 0, 0])",
+   "expected_output": "\"#ff0000\""
+  },
+  {
+   "name": "histogramRectSizes",
+   "path": "skills/salvage-pdf-to-word/scripts/parse.js:266",
+   "signature": "function histogramRectSizes(ops)",
+   "does": "Buckets graphics ops by their larger side: under 4 tiny, under 16 small, under 100 mid, under 800 large, otherwise huge. Written to raw.stats.json so the author can tell whether real form-field boxes exist.",
+   "input_example": "[{w:2,h:3},{w:10,h:1},{w:50,h:900}]",
+   "expected_output": "{ tiny: 1, small: 1, mid: 0, large: 0, huge: 1 }"
+  },
+  {
+   "name": "clusterLines",
+   "path": "skills/salvage-pdf-to-word/scripts/build.js:105",
+   "signature": "function clusterLines(items, yTol)",
+   "does": "Drops blank items, sorts by y then x, and starts a new line whenever an item is more than yTol points from the y of the item that opened the current line. Each line gets text, xMin, xMax and the mode font size (rounded to 0.1) and mode font name."
+  },
+  {
+   "name": "mode",
+   "path": "skills/salvage-pdf-to-word/scripts/build.js:135",
+   "signature": "function mode(arr)",
+   "does": "Most frequent value of an array; a tie keeps the value seen first. Used so one odd glyph does not change a line's font size.",
+   "input_example": "mode([11, 11, 40])",
+   "expected_output": "11"
+  },
+  {
+   "name": "classifyLine",
+   "path": "skills/salvage-pdf-to-word/scripts/build.js:146",
+   "signature": "function classifyLine(line)",
+   "does": "Assigns a kind in fixed priority: empty, banner-heading (font size at or above bannerFontSize), form-heading, proc-section (procSection or procQuotite regex), field-label (exact label or label as first item with inline content), temps-total, proc-item (code, desc, optional badge), else body.",
+   "input_example": "one-item line with text \"10234 - Description\", font 11, formmed5 example config",
+   "expected_output": "{ kind: \"proc-item\", code: \"10234\", desc: \"Description\", badge: null, raw: \"10234 - Description\" }"
+  },
+  {
+   "name": "groupBlocks",
+   "path": "skills/salvage-pdf-to-word/scripts/build.js:213",
+   "signature": "function groupBlocks(lines)",
+   "does": "Folds classified lines into blocks. A form-heading opens a form-question whose rows are label plus content lines (text before the first label becomes preamble); a proc-section opens a proc-list collecting items, notes and a tempsTotal flag. Both stop at the next form-heading, proc-section or banner."
+  },
+  {
+   "name": "buildContentParagraphs",
+   "path": "skills/salvage-pdf-to-word/scripts/build.js:383",
+   "signature": "function buildContentParagraphs(lines, label, numberingRefs)",
+   "does": "Renders the content cell of a form row. If the label is an option-list host, the joined text starts with optionListPrefix and at least two 'N. text' options are found, it emits a real numbered list with a fresh numbering reference; otherwise one paragraph per line."
+  },
+  {
+   "name": "badgeHighlight",
+   "path": "skills/salvage-pdf-to-word/scripts/build.js:459",
+   "signature": "function badgeHighlight(badge)",
+   "does": "Maps a badge text to a Word highlight colour: exact lowercase key in badgeHighlights first, then any key contained in the badge, else lightGray.",
+   "input_example": "badgeHighlight(\"30 min\") with the formmed5 example config",
+   "expected_output": "\"red\" (via the \"min\" key); an unknown badge returns \"lightGray\""
+  },
+  {
+   "name": "NumberingRefs.makeUnique",
+   "path": "skills/salvage-pdf-to-word/scripts/build.js:531",
+   "signature": "makeUnique(prefix)  // method of class NumberingRefs",
+   "does": "Returns a fresh numbering reference and registers a decimal level-0 config for it, so every option list restarts at 1 instead of continuing the previous list.",
+   "input_example": "two calls of makeUnique(\"opts\") on a new instance",
+   "expected_output": "\"opts-1\" then \"opts-2\""
+  },
+  {
+   "name": "buildDocument",
+   "path": "skills/salvage-pdf-to-word/scripts/build.js:550",
+   "signature": "function buildDocument(blocks)",
+   "does": "Dispatches each block kind to its emitter and assembles the docx Document: overridden Heading1 and Heading2 paragraph styles, numbering configs, page margins, a right-aligned italic header with meta.headerText and a 'Page X / Y' footer."
+  },
+  {
+   "name": "render",
+   "path": "skills/salvage-pdf-to-word/scripts/render_canvas.py:14",
+   "signature": "def render(pdf_path: str, out_png: str, dpi: int = 50) -> None",
+   "does": "Renders the first page of the PDF with pypdfium2 at scale dpi/72 and saves an optimised PNG, creating the parent directory.",
+   "input_example": "render_canvas.py form.pdf work/canvas.png",
+   "expected_output": "work/canvas.png rendered at 50 DPI (scale 50/72)"
+  },
+  {
+   "name": "slice_canvas",
+   "path": "skills/salvage-pdf-to-word/scripts/slice_canvas.py:14",
+   "signature": "def slice_canvas(in_png: str, out_dir: str, n: int = 6) -> None",
+   "does": "Cuts a tall PNG into n equal horizontal bands (the last band takes the remainder) named slice-NN-y<top>-<bottom>.png. Pillow's pixel cap is disabled because the canvas is intentionally huge.",
+   "input_example": "a 1200 px tall PNG with the default n",
+   "expected_output": "slice-01-y0-200.png ... slice-06-y1000-1200.png"
+  },
+  {
+   "name": "UserPromptSubmit matcher (rigor regex)",
+   "path": "skills/production-discipline/references/settings-snippet.json:5",
+   "signature": "(?i)(recommend|should i|should we|which (?:one|path|option|approach)|vs\\b|versus|compare|assess|evaluate|production|how would|why does|why is|tier|workflow|architecture|approach|trade[- ]?off|tradeoff|design)",
+   "does": "Decides which prompts get the rigor checklist. Case-insensitive and unanchored; only 'vs' has a word boundary, so the other words also match inside longer words.",
+   "input_example": "\"compare option A vs B\"  /  \"fix the typo in line 3\"",
+   "expected_output": "first prompt matches (hook fires); second does not match"
+  }
+ ],
+ "infra": [
+  {
+   "topic": "Installation on a machine",
+   "detail": "Clone the repo and export CLAUDE__ROOT pointing at the clone (bash profile or PowerShell profile). All skill files use ${CLAUDE__ROOT} absolute paths; relative paths are forbidden by the maintenance rules.",
+   "path": "README.md:5-17"
+  },
+  {
+   "topic": "Node dependencies of the PDF salvage scripts",
+   "detail": "scripts/package.json is a private ES-module package: docx ^9.6.1, mammoth ^1.12.0, pdfjs-dist ^5.7.284, optional sharp ^0.34.5. Installed with npm install inside the scripts directory. pdfjs is imported from its legacy build because Node has no DOMMatrix.",
+   "path": "skills/salvage-pdf-to-word/scripts/package.json"
+  },
+  {
+   "topic": "Python dependencies of the PDF salvage scripts",
+   "detail": "pypdfium2 for rendering and Pillow for slicing; installed with pip. No requirements file is committed.",
+   "path": "skills/salvage-pdf-to-word/SKILL.md:180"
+  },
+  {
+   "topic": "Rigor hook installation",
+   "detail": "Copy hooks/rigor-reminder.ps1 to ~/.claude/hooks/, merge the UserPromptSubmit entry of references/settings-snippet.json into ~/.claude/settings.json (command type, timeout 5, status message 'Injecting rigor discipline reminder...'), restart Claude Code. Relies on the sequential-thinking MCP server (@modelcontextprotocol/server-sequential-thinking) being added at user scope.",
+   "path": "skills/production-discipline/SKILL.md:62-98"
+  },
+  {
+   "topic": "Repository hosting and publishing",
+   "detail": "Plain GitHub repo, single branch master, no CI, no tests, no build. Updates are manual: copy the changed skill from the source project, commit, push. The deployment skill forbids committing connection strings, API keys, .env files and Bronze CSVs.",
+   "path": "skills/github-deployment/SKILL.md:151-156"
+  },
+  {
+   "topic": "Plan storage",
+   "detail": "Plans produced by write_plan are saved outside the repo at ~/.claude/plans/YYYY-MM-DD-<feature-name>.md and consumed from there by execute_plan.",
+   "path": "commands/write_plan.md:20"
+  },
+  {
+   "topic": "External infra of the documented pipeline (not in this repo)",
+   "detail": "FastAPI bridge started with uvicorn dashboard.server.main:app, deployed on Render as service [service]; endpoints POST /export-to-postgres, GET /query, /schema, /tables, /preview. Env var names: ICALPS_API_URL, ICALPS_SERVER (used in execute_plan), PG_HOST, PG_PORT, PG_DATABASE, PG_USER, PG_PASSWORD.",
+   "path": "skills/workflowps/INTEGRATIONS.md:252-335"
+  }
+ ],
+ "decisions": [
+  {
+   "decision": "Reference skills locally through ${CLAUDE__ROOT} absolute paths instead of remote plugin or marketplace skills",
+   "why": "The owner wants one portable, versioned source of truth that works across machines; if a remote plugin conflicts with a local skill, the local skill takes precedence. Cached plugin paths under ~/.claude/plugins/cache/ must not be referenced.",
+   "alternative_rejected": "The obra/superpowers plugin, remote marketplace skills, cached plugin paths",
+   "evidence": "skills/github-deployment/SKILL.md:131-147"
+  },
+  {
+   "decision": "Salvage the working core of a messy pipeline instead of rewriting it",
+   "why": "Proven business behaviour must be preserved before style is cleaned; confidence thresholds are deliverables defined before touching code, the clean plan must stay smaller than the legacy workspace, and live writes are refused until boundary and evidence threshold are explicit.",
+   "alternative_rejected": "A rewrite, or process metrics such as 'all files migrated' or '100% test coverage' as the definition of done",
+   "evidence": "skills/pipeline-salvation/SKILL.md:13-43"
+  },
+  {
+   "decision": "New guardrails are wired warn-only first and promoted to hard-block only after a Level 4 staging run",
+   "why": "A premature guardrail can block the core path; evidence from a full staging run (for example a false-positive rate under 5%) must justify promotion. If a guardrail blocks too much it is downgraded to probe-only.",
+   "alternative_rejected": "Wiring a new gate as a hard block on first integration",
+   "evidence": "skills/pipeline-salvation/SKILL.md:136-137"
+  },
+  {
+   "decision": "Detect changes with a content hash and a FULL OUTER JOIN between two snapshots instead of CDC",
+   "why": "Legacy and commercial source systems give no reliable change feed or updated_at; they only answer 'what is the current state'. Two CSVs and a SQL engine classify every row as NEW, DELETED, MODIFIED or UNCHANGED in one pass, with no hooks or streaming infrastructure.",
+   "alternative_rejected": "CDC, event streams, trusting updated_at timestamps",
+   "evidence": "skills/workflowps/metaskill.md:68-86"
+  },
+  {
+   "decision": "Numeric-prefixed stage files plus .done sentinels instead of a scheduler or DAG engine",
+   "why": "For 10 to 20 stages on one machine an orchestration tool is unjustified overhead. A generic loop sorts filenames and stops on non-zero exit; sentinels give resume-from-failure without an external state store; adding, removing or reordering a stage is a file operation.",
+   "alternative_rejected": "Schedulers, DAG engines, workflow platforms",
+   "evidence": "skills/workflowps/metaskill.md:217-255"
+  },
+  {
+   "decision": "The delta baseline comes from run_registry.json, written only after finalize, never from scanning the filesystem",
+   "why": "A failed partial run leaves files with later timestamps than the last good run, so picking the newest file would select a bad baseline. Engine-local load state is kept separately so two engines can upsert into the same staging tables without corrupting each other.",
+   "alternative_rejected": "Deriving the previous run from the newest file on disk; one shared state file for all engines",
+   "evidence": "skills/workflowps/SKILL.md:179-210"
+  },
+  {
+   "decision": "Rebuild PDF structure from positions and vector operators instead of trusting PDF tags",
+   "why": "For forms, templates and scanned documents the structure is visual only (position, font size, proximity); one-shot converters flatten it into paragraphs in scan order. pdfjs-dist exposes both the text stream and the operator list, enough to rebuild structure.",
+   "alternative_rejected": "pdf2docx, Acrobat export, mammoth on an already converted file",
+   "evidence": "skills/salvage-pdf-to-word/references/methodology.md:1-23"
+  },
+  {
+   "decision": "Everything corpus-specific lives in config.json; build.js stays corpus-agnostic",
+   "why": "The same script must work on a French medical form, an English questionnaire or a contract template. A wrong classification is fixed by adding a label or regex to that corpus's config, not by making the script smarter for one document family.",
+   "alternative_rejected": "Hard-coding patterns of one corpus in build.js",
+   "evidence": "skills/salvage-pdf-to-word/SKILL.md:192-198"
+  },
+  {
+   "decision": "Enforce rigor in the harness with a hook instead of relying on a memory or CLAUDE.md rule",
+   "why": "The rule 'use sequential thinking before recommending' already existed in a project feedback memory file and the assistant still skipped it, costing a full review cycle. Memory-only enforcement was judged insufficient, so the harness injects the checklist mechanically.",
+   "alternative_rejected": "Memory-only or CLAUDE.md-only instruction",
+   "evidence": "skills/production-discipline/SKILL.md:22-26"
+  },
+  {
+   "decision": "Default to the soft UserPromptSubmit reminder (Option 1); keep the blocking PreToolUse hook (Option 2) as an escalation",
+   "why": "Option 1 costs nothing per tool call, has cheap false positives and cannot deadlock. Option 2 is hard enforcement but needs three scripts, three settings entries and a marker-file lifecycle, adds about 50 to 200 ms per tool call and can block sequential thinking itself if the allowlist check fails.",
+   "alternative_rejected": "Enabling the PreToolUse block from the start",
+   "evidence": "skills/production-discipline/SKILL.md:102-116"
+  }
+ ],
+ "gotchas": [
+  {
+   "issue": "The two commands point at ${CLAUDE__ROOT}/dashboard/... and ${CLAUDE__ROOT}/Workflowps/... files that do not exist in this repository.",
+   "consequence": "With CLAUDE__ROOT set to this repo (as the README says) the 'read before writing' step and the Workflowps skill reference cannot be resolved; the commands only work as written inside the icalps-dashboard layout.",
+   "fix_or_guard": "Use them from the source project, or repoint the paths (the Workflowps card lives here at skills/workflowps/SKILL.md).",
+   "path": "commands/write_plan.md:28-44"
+  },
+  {
+   "issue": "The github-deployment skill has drifted from the real repo: it lists writing-plans and executing-plans skills that are absent, recommends a private repo and 'git push origin main', and does not mention the two newer skills.",
+   "consequence": "Following it literally misdescribes the tree; the checkout is on branch master and the orchestrator's inventory lists the repo as public.",
+   "fix_or_guard": "Treat the README directory map as the source of truth and refresh the deployment skill.",
+   "path": "skills/github-deployment/SKILL.md:16-34"
+  },
+  {
+   "issue": "parse.js assigns to an undeclared variable pendingRects in the endPath case; the declared variable is pendingPaths.",
+   "consequence": "By reading (not executed): in an ES module this throws a ReferenceError the first time an endPath operator is handled, and pending paths are never discarded for clip-only paths.",
+   "fix_or_guard": "Rename to pendingPaths = [].",
+   "path": "skills/salvage-pdf-to-word/scripts/parse.js:231"
+  },
+  {
+   "issue": "Only the first page is processed: parse.js calls getPage(1) and render_canvas.py takes pdf[0], although SKILL.md says single- or multi-page sources are supported.",
+   "consequence": "Pages after the first are silently ignored; the worked example is one very tall canvas page, which hides the limit.",
+   "fix_or_guard": "Loop over pages with a per-page y offset before using the skill on a normal multi-page PDF.",
+   "path": "skills/salvage-pdf-to-word/scripts/parse.js:82"
+  },
+  {
+   "issue": "build.js derives the IR path with outArg.replace(/\\.docx$/, \".ir.json\").",
+   "consequence": "If the output argument does not end in .docx the IR path equals the output path and the IR JSON overwrites the DOCX just written.",
+   "fix_or_guard": "Always pass an output name ending in .docx.",
+   "path": "skills/salvage-pdf-to-word/scripts/build.js:638"
+  },
+  {
+   "issue": "Config regexes are case-sensitive unless the pattern starts with the literal prefix (?i); a comment in build.js claims the opposite, and the schema sample in SKILL.md omits the prefix that the real example config uses.",
+   "consequence": "A copied pattern such as '^Section' misses lower-case or upper-case variants and those lines fall through to body.",
+   "fix_or_guard": "Prefix patterns with (?i) as the example config does; check line-class counts printed by build.js.",
+   "path": "skills/salvage-pdf-to-word/scripts/build.js:48-61"
+  },
+  {
+   "issue": "Corpus-specific leftovers remain in the 'corpus-agnostic' scripts: preview.js hard-codes the formmed5 title and header, build.js hard-codes the 'Temps total' label and the default 'Options disponibles:' prefix, and usage strings still name old files under src/.",
+   "consequence": "A new corpus gets French labels and the wrong preview title unless the scripts are edited; option texts containing digits also defeat the option-list regex.",
+   "fix_or_guard": "Move these literals into config.json when the next corpus is added.",
+   "path": "skills/salvage-pdf-to-word/scripts/preview.js:43-47"
+  },
+  {
+   "issue": "Extracted but unused data: graphicsOps are written to raw.json but build.js reads only textItems and canvas; style.colors.badge is loaded and never applied; the optional sharp dependency is never imported; images is always [] and text colour always null.",
+   "consequence": "Rectangles, images and colour play no role in classification yet, despite the description mentioning boxes and visual cues.",
+   "fix_or_guard": "Known deferral for colour and images (methodology); rectangle-based field detection is still to be built.",
+   "path": "skills/salvage-pdf-to-word/scripts/build.js:615-618"
+  },
+  {
+   "issue": "The rigor matcher is an unanchored substring regex: tier, design, workflow, approach or production also match inside longer words, and plain mentions of a workflow trigger it.",
+   "consequence": "The checklist is injected on prompts that are not decisions (for example any word containing 'tier').",
+   "fix_or_guard": "Documented stance: narrow the regex locally, or accept the reminder as cheap context noise.",
+   "path": "skills/production-discipline/SKILL.md:48-58"
+  },
+  {
+   "issue": "The Option 2 blocking script assumes PreToolUse stdin JSON has tool_name and tool_use_history fields; the document itself says this contract is unverified.",
+   "consequence": "If the fields differ, the allowlist check fails and the hook can block the sequential-thinking call itself (deadlock) on rigor-gated turns.",
+   "fix_or_guard": "Run the diagnostic variant that logs the received JSON first; rollback is removing the PreToolUse and Stop blocks.",
+   "path": "skills/production-discipline/hooks/RIGOR_HOOK_OPTION_2.md:141-150"
+  }
+ ],
+ "glossary": [
+  {
+   "term": "CLAUDE__ROOT",
+   "meaning": "Environment variable (two underscores) holding the absolute path of the skills clone; every skill and command path starts with ${CLAUDE__ROOT}."
+  },
+  {
+   "term": "Command vs skill",
+   "meaning": "A command (commands/*.md) is the thing the owner asks Claude to read and follow; a skill (skills/<name>/SKILL.md) is a methodology reference that commands pull in when needed."
+  },
+  {
+   "term": "Pipeline Salvation",
+   "meaning": "The owner's method for recovering the runnable core of a messy, half-understood pipeline without a rewrite."
+  },
+  {
+   "term": "Success Threshold",
+   "meaning": "Three to six measurable behaviours that define 'saved', written before any task; process metrics are not accepted."
+  },
+  {
+   "term": "Four Buckets",
+   "meaning": "File classification of a salvage plan: KEEP, REWRITE-MINIMAL, DEFER, DROP. Every file of the main package goes into exactly one."
+  },
+  {
+   "term": "Runnable Spine",
+   "meaning": "One-sentence statement of the gap per system plus at most three file edits per system to close it."
+  },
+  {
+   "term": "Probe ladder",
+   "meaning": "Five ascending risk levels: 1 local contract tests, 2 dry run or server start, 3 read-only live probe, 4 full staging run, 5 approved live write (human approval, no exceptions)."
+  },
+  {
+   "term": "Workflowps",
+   "meaning": "The 12-stage PowerShell Bronze ETL engine of the IC'ALPS project (SQL Server to PostgreSQL stg_ tables). Its code is not in this repo; only its methodology documents are."
+  },
+  {
+   "term": "Entity contract / query contract",
+   "meaning": "Entity contract: name, primary key, updated column, source table, extraction order, staging table, required properties, expected output columns, plus the FK graph. Query contract: the full SQL with JOINs, explicit aliases, ORDER BY primary key and source-side computed fields."
+  },
+  {
+   "term": "run_id",
+   "meaning": "Timestamp identifier (yyyyMMdd_HHmmss) declared once by the orchestrator and threaded to every stage; it namespaces every artifact and sorts chronologically as a string."
+  },
+  {
+   "term": "Sentinel (.done)",
+   "meaning": "Small file {stage_name}_{run_id}.done written by a stage on success; the orchestrator skips stages whose sentinel exists unless -Force is passed."
+  },
+  {
+   "term": "Run registry vs engine-local load state",
+   "meaning": "run_registry.json maps each entity to its last successfully finalized run_id (the delta baseline). Load state files hold engine-internal metadata (row count, schema, fingerprint) per engine."
+  },
+  {
+   "term": "BRZ-05 / BRZ-02",
+   "meaning": "Risk labels of the Bronze pipeline: BRZ-05 is the 85% schema-coverage threshold (below it, abort before extracting); BRZ-02 flags empty-string foreign keys that silently drop rows in joins."
+  },
+  {
+   "term": "raw.json / IR (output.ir.json)",
+   "meaning": "raw.json is the stage 1 dump of text items and path boxes in top-left coordinates. The IR is the list of classified blocks written next to the DOCX, used to tell a classification error from an emission error."
+  },
+  {
+   "term": "Block kinds",
+   "meaning": "banner (centred heading with page break), form-question (heading plus two-column label/content table), proc-list (checkbox items with optional badges and a total-time row), field-slot (label plus blank line), paragraph."
+  },
+  {
+   "term": "DXA and half-points",
+   "meaning": "Word units used in config.json: table widths and margins are in DXA (1 inch is about 1440), font sizes are in half-points (22 means 11 pt)."
+  },
+  {
+   "term": "Rigor gate, Option 1 and Option 2",
+   "meaning": "Option 1: UserPromptSubmit hook that injects the seven-point discipline checklist (soft). Option 2: PreToolUse hook that blocks tool calls until sequential thinking was invoked, driven by a marker file (hard, deferred)."
+  }
+ ],
+ "relations": [
+  {
+   "project": "cloudbq",
+   "relation": "Its discovery docs survey this repo (scorer_repos.md cites skills/workflowps/INTEGRATIONS.md) and plan to install a new pass-sequence skill into this library following the README conventions (pass_sequence_port.md)."
+  }
+ ],
+ "directions": [
+  "Fix parse.js: rename pendingRects to pendingPaths and loop over all pages, because the skill claims multi-page support but handles page 1 only.",
+  "Use graphicsOps in build.js to detect real form-field boxes and checkboxes; rectangles are already extracted and histogrammed but ignored by classification.",
+  "Move the remaining formmed5 and French literals (preview title, 'Temps total', option prefix) into config.json and add a second corpus example to prove the corpus-agnostic claim.",
+  "Repoint the commands to paths that exist under this repo (or document that they must run inside icalps-dashboard) and refresh github-deployment so it matches the README tree and branch master.",
+  "Add the pass-sequence skill planned in the cloudbq discovery notes, with a row in the README 'When to Use Each Skill' table.",
+  "If the soft reminder keeps being ignored, verify the PreToolUse JSON contract with the diagnostic logger and then enable Option 2; also tighten the matcher with word boundaries to cut false positives."
+ ],
+ "confidence": "high",
+ "coverage_notes": "Read all 24 tracked files in full (README, 2 commands, 5 skills with references, 5 scripts, package.json, example config and README, hook script, settings snippet). Nothing was executed: behaviours and expected outputs come from reading simple logic; the parse.js ReferenceError and the pdfjs v5 operator format were not verified by running, so whether stage 1 works end to end with the pinned pdfjs version is uncertain. Shallow clone with one commit (2026-06-10, adds production-discipline), single branch master, no alternate worktrees; 'active' status is a judgement. The Workflowps, dashboard and FastAPI code described by several documents is not in this repo (source project icalps-dashboard is not among the listed projects), so those parts are documentation of external code. The worked-example subdirectory name under skills/salvage-pdf-to-word/examples was deliberately not reproduced because it may be a personal name; a local Windows user path in github-deployment was also left out. Not verified: whether Claude Code applies a matcher to UserPromptSubmit events; if it does not, the reminder fires on every prompt."
+}

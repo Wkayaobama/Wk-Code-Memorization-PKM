@@ -1,0 +1,486 @@
+{
+ "slug": "google-sheets-api-python",
+ "repo": "Wkayaobama/google-sheets-api-python",
+ "title": "SEALSQ revenue model: 'making' layer as a HubSpot custom object",
+ "one_liner": "Design, runbook and three scripts that give 20 manual-input revenue plan lines a HubSpot custom object (revenue_plan_line) bound to companies, with values mirrored one-way from a Google Sheet.",
+ "purpose": "Fork of a Google Sheets API tutorial (the Pygs wrapper); the owner's own work is the revenue_model/ directory. The SEALSQ revenue model has three feeds: baking (ARR snapshots), making (forward-looking lines typed in by planners) and retrieval (Sheets exports loaded for the final computation). The making feed had no CRM identity: 20 line items lived only as sheet rows. This project settles the granularity and gives each line a governed CRM home, a 'revenue_plan_line' custom object in HubSpot portal [id], associated to one canonical Company where a binding exists, with amounts 2025-2030 in $M mirrored from the Sheet. It is built to guarantee zero overlap with the 6 live deal pipelines and the ARR-snapshot object. Deliverables: a design document with DFMEA risk scoring, a gated S0-S9 deployment runbook, a schema payload, two idempotent HubSpot scripts (upsert, associate) and one Sheet re-sync script.",
+ "domain": "CRM revenue planning integration (HubSpot custom object + Google Sheets)",
+ "status": "paused",
+ "stack": [
+  "Python 3 (stdlib urllib, csv, argparse)",
+  "HubSpot CRM API v3 (objects, batch upsert, schemas)",
+  "HubSpot Associations API v4",
+  "Google Sheets API v4 (google-api-python-client)",
+  "google-auth service account",
+  "pandas (imported by pygs.py)",
+  "CSV source-of-truth files",
+  "Markdown runbook + design doc"
+ ],
+ "aliases": [
+  "revenue plan line",
+  "the making layer",
+  "the line-item integration layer",
+  "plan lines custom object",
+  "the Pygs fork",
+  "workflow-design-framework branch"
+ ],
+ "entry_points": [
+  {
+   "command": "curl -X POST https://api.hubapi.com/crm-object-schemas/v3/schemas -H \"Authorization: Bearer $HUBSPOT_PRIVATE_APP_TOKEN\" -H \"Content-Type: application/json\" -d @revenue_model/schema_revenue_plan_line.json",
+   "what": "S2: creates the revenue_plan_line custom object from the versioned payload (one-time).",
+   "path": "revenue_model/WORKFLOW.md:97-102"
+  },
+  {
+   "command": "python revenue_model/crm_upsert_plan_lines.py --object-type p[id]_revenue_plan_line --dry-run",
+   "what": "S4 preview: builds the 20 upsert inputs from the two CSVs and prints the first one; needs no token.",
+   "path": "revenue_model/crm_upsert_plan_lines.py:85-88"
+  },
+  {
+   "command": "python revenue_model/crm_upsert_plan_lines.py --object-type p[id]_revenue_plan_line --execute",
+   "what": "S4: batch-upserts the 20 records by idProperty=li_key (records only, no associations).",
+   "path": "revenue_model/crm_upsert_plan_lines.py:90-95"
+  },
+  {
+   "command": "python revenue_model/crm_associate_companies.py --object-type p[id]_revenue_plan_line --dry-run",
+   "what": "S5 preview: lists the bindable lines and their target company ids; needs no token.",
+   "path": "revenue_model/crm_associate_companies.py:117-120"
+  },
+  {
+   "command": "python revenue_model/crm_associate_companies.py --object-type p[id]_revenue_plan_line --execute",
+   "what": "S5: guards the target company ids, resolves the 'Plan line' association type and batch-creates the 15 line-to-company edges.",
+   "path": "revenue_model/crm_associate_companies.py:139-151"
+  },
+  {
+   "command": "python revenue_model/crm_associate_companies.py --object-type p[id]_revenue_plan_line --verify",
+   "what": "S5 gate: reads back associations and exits 0 only if every bindable line points to exactly its canonical company.",
+   "path": "revenue_model/crm_associate_companies.py:125-137"
+  },
+  {
+   "command": "python revenue_model/deploy_line_items.py <spreadsheet_id>",
+   "what": "S7: clears and rewrites the LI_CATALOG and LI_VALUES tabs from the CSVs and appends the per-year checksum block.",
+   "path": "revenue_model/deploy_line_items.py:50-53"
+  }
+ ],
+ "architecture": [
+  {
+   "component": "Implementation design",
+   "path": "revenue_model/implementation_design.md",
+   "responsibility": "The WHY: problem framing (baking / making / retrieval), portal probe evidence, the custom-object decision, isolation rules R1-R5, company bindings, lifecycle, DFMEA tables and the Phase 0-D deployment plan with acceptance checks.",
+   "talks_to": [
+    "WORKFLOW runbook"
+   ]
+  },
+  {
+   "component": "WORKFLOW runbook (S0-S9)",
+   "path": "revenue_model/WORKFLOW.md",
+   "responsibility": "Sequential deployment runbook ordered by dependency; every step has an owner, a surface and a Verify gate that must pass before the next step starts.",
+   "talks_to": [
+    "HubSpot Settings UI",
+    "HubSpot API",
+    "all three scripts"
+   ]
+  },
+  {
+   "component": "Line-item catalog",
+   "path": "revenue_model/li_catalog.csv",
+   "responsibility": "Single source of truth for the 20 lines: li_key, src_row, segment, label, pursuit_tag, entity, entity_share, company_binding_mode, canonical company name and HubSpot id, binding note.",
+   "talks_to": [
+    "Upsert script",
+    "Association script",
+    "Sheet deploy script"
+   ]
+  },
+  {
+   "component": "Line-item values",
+   "path": "revenue_model/li_values.csv",
+   "responsibility": "120 rows in long format (20 lines x years 2025-2030), value_musd in $M; loader-compatible with the model's VARIABLES layout plus the li_key join column.",
+   "talks_to": [
+    "Upsert script",
+    "Sheet deploy script"
+   ]
+  },
+  {
+   "component": "Custom object schema payload",
+   "path": "revenue_model/schema_revenue_plan_line.json",
+   "responsibility": "Exact body for the schema-creation call: object revenue_plan_line, li_key as unique-value property, enums (segment, pursuit_tag, entity, binding_mode), six amount_YYYY numbers, COMPANY as the only associated object.",
+   "talks_to": [
+    "HubSpot crm-object-schemas v3"
+   ]
+  },
+  {
+   "component": "Record upsert script (S4)",
+   "path": "revenue_model/crm_upsert_plan_lines.py",
+   "responsibility": "Joins catalog and values in memory, pivots the six years into amount_2025..amount_2030 and POSTs batches of 100 to the batch/upsert endpoint keyed on li_key.",
+   "talks_to": [
+    "li_catalog.csv",
+    "li_values.csv",
+    "HubSpot CRM v3 objects API"
+   ]
+  },
+  {
+   "component": "Company association script (S5)",
+   "path": "revenue_model/crm_associate_companies.py",
+   "responsibility": "Dedicated, separately auditable association step: filters bindable lines, guards company ids against merged/deleted records, resolves the labelled association type, creates edges, and verifies them.",
+   "talks_to": [
+    "li_catalog.csv",
+    "HubSpot CRM v3 batch read",
+    "HubSpot Associations v4"
+   ]
+  },
+  {
+   "component": "Sheet deploy script (S7)",
+   "path": "revenue_model/deploy_line_items.py",
+   "responsibility": "Republishes both CSVs as the LI_CATALOG and LI_VALUES tabs of any spreadsheet id and appends live SUMIF checksums per year.",
+   "talks_to": [
+    "Pygs wrapper",
+    "Google Sheets API"
+   ]
+  },
+  {
+   "component": "Pygs wrapper (upstream tutorial code)",
+   "path": "pygs.py",
+   "responsibility": "Service-account Google Sheets helper inherited from the fork: list_sheet_names, create_sheet, read_sheet, clear_sheet, append_to_sheet, overwrite_sheet, dataframe_to_sheet. Authenticates at import time.",
+   "talks_to": [
+    "Google Sheets API v4"
+   ]
+  }
+ ],
+ "data_flow": [
+  "1. Planners own per-year values in the Google Sheet; in the repo the same data is frozen as li_catalog.csv (20 lines) and li_values.csv (120 line-year values in $M).",
+  "2. S0 preflight: confirm Enterprise tier, a free custom-object slot, and a private app whose token is exported as HUBSPOT_PRIVATE_APP_TOKEN.",
+  "3. S1: merge duplicate company records INTO the operator-designated canonical record ([account], [account]); [account] site records are kept; [account] domainless records are reviewed one by one.",
+  "4. S2: POST schema_revenue_plan_line.json to create the object; record the fullyQualifiedName (expected p[id]_revenue_plan_line), which every later step takes as --object-type.",
+  "5. S3: create the 'Plan line' association label between the object and companies.",
+  "6. S4: crm_upsert_plan_lines.py build_inputs() joins catalog + values into 20 inputs and POSTs them to /crm/v3/objects/{object_type}/batch/upsert with idProperty=li_key.",
+  "7. S5: crm_associate_companies.py keeps the 15 VERIFIED / VERIFIED_WITH_DUPES lines, resolves their record ids by li_key, batch-reads the 6 target companies as a guard, resolves the association typeId by label name, then POSTs /crm/v4/associations/{object_type}/companies/batch/create.",
+  "8. S5 gate: --verify re-reads associations and must report 15/15; the 5 PROSPECTIVE / AGGREGATE lines stay unassociated by design.",
+  "9. S6: admin configures the company sidebar card and locks amount_* edits to the automation user.",
+  "10. S7: deploy_line_items.py rewrites LI_CATALOG and LI_VALUES in the Sheet and appends the checksum block (expected [amounts] $M for 2025-2030).",
+  "11. S8-S9: acceptance checks (20 records, segment sums, 15 associations, deal count unchanged), the R5 anti-double-counting audit, then DFMEA checkpoint 3 re-scoring.",
+  "12. Planned, not yet coded (Phase D): nightly export via the search API plus a separate associations call back into LI_VALUES staging, with checksum comparison to detect drift."
+ ],
+ "key_functions": [
+  {
+   "name": "build_inputs",
+   "path": "revenue_model/crm_upsert_plan_lines.py:46",
+   "signature": "def build_inputs()",
+   "does": "Reads li_catalog.csv and li_values.csv, groups values by li_key and year, and returns one batch-upsert input per catalog row: {idProperty: 'li_key', id: <li_key>, properties: {...}} with amount_2025..amount_2030 filled from the values (default '0'). granularity and active are hard-coded constants; binding_mode comes from the catalog column company_binding_mode and notes from binding_note.",
+   "input_example": "no arguments; reads the two CSVs next to the script",
+   "expected_output": "A list of 20 dicts; the first has id 'li_cat_new_sealsq_prospects' with amount_2030 = '[amount]' (values are sent as strings)."
+  },
+  {
+   "name": "main (upsert)",
+   "path": "revenue_model/crm_upsert_plan_lines.py:74",
+   "signature": "def main()",
+   "does": "Parses --object-type plus a required, mutually exclusive --dry-run / --execute. Dry-run prints the first input and returns before the token is read; execute POSTs slices of 100 inputs to /crm/v3/objects/{object_type}/batch/upsert.",
+   "input_example": "--object-type p[id]_revenue_plan_line --dry-run",
+   "expected_output": "First line: '20 records to upsert into p[id]_revenue_plan_line', then the first input as indented JSON, then a reminder that associations are WORKFLOW S5."
+  },
+  {
+   "name": "call",
+   "path": "revenue_model/crm_upsert_plan_lines.py:32",
+   "signature": "def call(token, method, path, payload=None)",
+   "does": "Minimal HubSpot HTTP client on urllib.request: Bearer header, JSON body, returns the parsed JSON response. Any HTTPError ends the process with sys.exit and the first 500 characters of the error body. Duplicated verbatim in the association script (crm_associate_companies.py:41)."
+  },
+  {
+   "name": "bindable_lines",
+   "path": "revenue_model/crm_associate_companies.py:55",
+   "signature": "def bindable_lines()",
+   "does": "Splits the catalog into lines to associate (company_binding_mode in BINDABLE = {VERIFIED, VERIFIED_WITH_DUPES} and a non-empty company_hs_object_id) and skipped lines. This is the binding_mode governance gate in code.",
+   "expected_output": "With the committed catalog: 15 bindable lines and 5 skipped; the script prints '15 bindable lines; 5 skipped by binding_mode (AGGREGATE, PROSPECTIVE)'."
+  },
+  {
+   "name": "guard_companies",
+   "path": "revenue_model/crm_associate_companies.py:64",
+   "signature": "def guard_companies(token, lines)",
+   "does": "Batch-reads every distinct target company id (name, domain) and aborts if any id is not returned as itself, i.e. deleted or merged away. This is the S1-before-S5 ordering protection against associating to a merged-away duplicate.",
+   "expected_output": "Prints one 'company <id>: <name> (<domain>) OK' line per id, or exits with 'ABORT: company ids not readable as themselves (deleted or merged away): [...]'."
+  },
+  {
+   "name": "resolve_type",
+   "path": "revenue_model/crm_associate_companies.py:79",
+   "signature": "def resolve_type(token, object_type)",
+   "does": "GETs /crm/v4/associations/{object_type}/companies/labels and returns (typeId, category, label_used) for the label named 'Plan line'. If the label is missing it falls back to the default unlabeled type with a WARNING; if no type exists at all it aborts and points at S2.",
+   "expected_output": "(typeId, category, 'Plan line') when S3 was done, category defaulting to 'USER_DEFINED' if the API omits it; (typeId, category defaulting to 'HUBSPOT_DEFINED', '(default)') plus a WARNING line otherwise."
+  },
+  {
+   "name": "resolve_line_ids",
+   "path": "revenue_model/crm_associate_companies.py:92",
+   "signature": "def resolve_line_ids(token, object_type, lines)",
+   "does": "Batch-reads the custom-object records with idProperty=li_key and returns a dict li_key -> HubSpot record id; aborts with the missing keys if S4 has not loaded them.",
+   "expected_output": "dict of 15 entries, or 'ABORT: line records not found (run WORKFLOW S4 upsert first): [...]'."
+  },
+  {
+   "name": "main (associate)",
+   "path": "revenue_model/crm_associate_companies.py:104",
+   "signature": "def main()",
+   "does": "Three exclusive modes. --dry-run prints line -> company targets with no API call. --verify batch-reads associations and counts a line OK only when its associated company list equals exactly [canonical id]; exit code 0 only if all are OK. --execute runs guard_companies, resolve_type, then one batch/create call for all edges.",
+   "input_example": "--object-type p[id]_revenue_plan_line --verify",
+   "expected_output": "Final line 'verify: 15/15 correct; expected total = 15' and exit code 0 when the deployment is right; exit code 1 on any MISMATCH."
+  },
+  {
+   "name": "main (sheet deploy)",
+   "path": "revenue_model/deploy_line_items.py:28",
+   "signature": "def main(spreadsheet_id)",
+   "does": "Imports Pygs late, lists existing tabs, and for each of LI_CATALOG and LI_VALUES: creates the tab if absent, clears it, appends all CSV rows. For LI_VALUES it first appends a blank row, a CHECKSUM title row and six rows [year, SUMIF formula].",
+   "input_example": "python revenue_model/deploy_line_items.py <spreadsheet_id>",
+   "expected_output": "Prints 'deployed LI_CATALOG: 21 rows' and 'deployed LI_VALUES: 129 rows' (121 CSV rows + 2 + 6 checksum rows); the first checksum formula is =SUMIF(E2:E121,A124,F2:F121)."
+  },
+  {
+   "name": "load_rows",
+   "path": "revenue_model/deploy_line_items.py:23",
+   "signature": "def load_rows(csv_name)",
+   "does": "Reads a CSV next to the script into a list of row lists, header included, for a values-only push to the Sheet."
+  },
+  {
+   "name": "Pygs.append_to_sheet",
+   "path": "pygs.py:73",
+   "signature": "def append_to_sheet(self, sheet_name=None, sheet_range=None, values=None)",
+   "does": "Appends rows with valueInputOption=USER_ENTERED and insertDataOption=OVERWRITE; USER_ENTERED is what makes the SUMIF checksum strings evaluate as live formulas. A flat list is wrapped into a single row."
+  },
+  {
+   "name": "Pygs.create_sheet",
+   "path": "pygs.py:30",
+   "signature": "def create_sheet(self, sheet_name, sheet_index=1)",
+   "does": "Adds a tab via batchUpdate addSheet. If the name already exists it silently appends a random ' (n)' suffix instead of failing, which is why the deploy script checks the existing tab names first."
+  }
+ ],
+ "infra": [
+  {
+   "topic": "Execution model",
+   "detail": "No service, no CI, no tests, no dependency manifest. Everything is run by hand from a terminal, step by step, following the S0-S9 runbook; each step has a Verify gate. Scripts take the object's fullyQualifiedName as --object-type so nothing is hard-wired to the portal.",
+   "path": "revenue_model/WORKFLOW.md:1-16"
+  },
+  {
+   "topic": "HubSpot target and authentication",
+   "detail": "Portal [id] (Enterprise tier needed for custom objects, with at least one free definition slot). A private app token is read from env var HUBSPOT_PRIVATE_APP_TOKEN. Scopes: crm.objects.custom.read/write, crm.objects.companies.read/write (write only for S1 API merges), crm.schemas.custom.read/write.",
+   "path": "revenue_model/WORKFLOW.md:36-48"
+  },
+  {
+   "topic": "HubSpot endpoints used",
+   "detail": "POST /crm-object-schemas/v3/schemas (S2); POST /crm/v3/objects/companies/merge (S1); POST /crm/v4/associations/{fqn}/companies/labels (S3); POST /crm/v3/objects/{fqn}/batch/upsert (S4); POST /crm/v3/objects/companies/batch/read and /crm/v3/objects/{fqn}/batch/read, GET /crm/v4/associations/{fqn}/companies/labels, POST .../batch/create and .../batch/read (S5).",
+   "path": "revenue_model/crm_associate_companies.py:67-149"
+  },
+  {
+   "topic": "Google Sheets authentication",
+   "detail": "pygs.py authenticates with a service-account JSON key located at the repository root, with the Drive scope, at module import time. In this fork the key file is a placeholder: it must be replaced by a real key and the target spreadsheet shared with the service-account address as editor before S7 can run.",
+   "path": "pygs.py:7-15"
+  },
+  {
+   "topic": "Dependencies",
+   "detail": "The two HubSpot scripts use only the Python standard library (urllib, csv, json, argparse). The Sheet deploy goes through pygs.py and therefore needs google-api-python-client, google-auth and pandas (pandas is imported by pygs even though the deploy does not use it).",
+   "path": "README.md"
+  },
+  {
+   "topic": "Deployed spreadsheet",
+   "detail": "Phase C is already done: a spreadsheet titled 'SEALSQ Revenue Model - LINE_ITEMS (making layer)' exists with tabs ONTOLOGY_MAP, LI_CATALOG and LI_VALUES. Its id is recorded in the runbook. It was published before the canonical company ids were frozen, so its LI_CATALOG tab is stale until S7 is re-run.",
+   "path": "revenue_model/WORKFLOW.md:207-216"
+  },
+  {
+   "topic": "Versioned schema",
+   "detail": "The custom object definition lives in git as the exact API payload; the UI path must recreate it field for field. The post-create gate checks li_key.hasUniqueValue == true and that COMPANY is the only associated object (isolation rule R1).",
+   "path": "revenue_model/schema_revenue_plan_line.json:8-10"
+  }
+ ],
+ "decisions": [
+  {
+   "decision": "A dedicated custom object (revenue_plan_line) instead of HubSpot native line items",
+   "why": "Native line items associate only with deals, quotes, invoices and similar commerce objects: no line_item-to-company association type exists, they are single-parent and cascade-deleted with the parent. The plan lines must hang on Companies.",
+   "alternative_rejected": "Native line_items (and the products catalog, which cannot be associated to other objects)",
+   "evidence": "revenue_model/implementation_design.md:109-112"
+  },
+  {
+   "decision": "Not a second 'planning' deal pipeline",
+   "why": "A deal pipeline still leaks into forecast and win-rate analytics. With company as the object's only edge (R1), plan lines are structurally unable to appear in pipelines or forecasts (R3). The portal's own rotted weighted_20XX deal properties confirm what happens when year figures are bolted onto the shared deal object.",
+   "alternative_rejected": "A separate deal pipeline or per-year custom properties on deals",
+   "evidence": "revenue_model/implementation_design.md:174-180"
+  },
+  {
+   "decision": "Object granularity: 1 record = 1 model line (20 records), years as six properties",
+   "why": "A company sidebar then shows at most 3 compact cards, the record maps 1:1 to an LI_CATALOG row and upserts idempotently by li_key. Extending the horizon is an annual governed event, whereas sidebar noise and 6x association maintenance would be a daily cost.",
+   "alternative_rejected": "One record per line x year (120 records)",
+   "evidence": "revenue_model/implementation_design.md:127-133"
+  },
+  {
+   "decision": "Amounts are plain numbers in $M, not HubSpot currency properties",
+   "why": "Matches the model exactly (a figure is read as $M) and avoids the multi-currency conversion machinery of a portal that runs USD and EUR, for figures that are planning numbers.",
+   "alternative_rejected": "Currency-typed properties",
+   "evidence": "revenue_model/implementation_design.md:134-139"
+  },
+  {
+   "decision": "System-of-record split: CRM owns identity and company relationship, the Sheet owns values; flow is one-way Sheet -> CRM",
+   "why": "Deciding the split once collapses every later granularity question, and a single write direction plus permission-locked amount_* fields plus a checksum is the mitigation for silent drift (RPN 175).",
+   "alternative_rejected": "Editing values in the CRM or two-way sync",
+   "evidence": "revenue_model/implementation_design.md:211-214"
+  },
+  {
+   "decision": "Record load (S4) and company association (S5) are two separate scripts",
+   "why": "Associations can then be run, re-run and audited independently, and in particular after the S1 deduplication merges so that every edge lands on a canonical record that still exists.",
+   "alternative_rejected": "Associating inside the upsert call",
+   "evidence": "revenue_model/crm_associate_companies.py:1-9"
+  },
+  {
+   "decision": "Merge duplicates before any association, with the canonical record always as PRIMARY",
+   "why": "HubSpot merges cannot be undone and the merged-away id stops resolving as itself, so an edge created to the wrong id would be lost or mis-bound.",
+   "alternative_rejected": "Associate first and clean up companies later",
+   "evidence": "revenue_model/WORKFLOW.md:56-62"
+  },
+  {
+   "decision": "[account] site records are not merged",
+   "why": "The six site-level records are legitimate site accounts, not duplicates. The operator-designated canonical record is used only as the association target, so [account] lines stay VERIFIED_WITH_DUPES by design.",
+   "alternative_rejected": "Merging all [account] records into one",
+   "evidence": "revenue_model/WORKFLOW.md:70-74"
+  },
+  {
+   "decision": "Upsert by unique idProperty=li_key, with li_key immutable",
+   "why": "Create-or-update without storing HubSpot record ids anywhere; re-running the script reconciles the mirror. The label may change freely because the key never does.",
+   "alternative_rejected": "Tracking HubSpot record ids in the catalog",
+   "evidence": "revenue_model/crm_upsert_plan_lines.py:16-17"
+  },
+  {
+   "decision": "Deploy through the HubSpot UI or a private-app token, not through the MCP connector",
+   "why": "Custom object types are not exposed through the MCP connection used for the probe, so schema, quota and records cannot be verified or written from there.",
+   "alternative_rejected": "Driving the deployment through the HubSpot MCP tools",
+   "evidence": "revenue_model/implementation_design.md:84-89"
+  }
+ ],
+ "gotchas": [
+  {
+   "issue": "HubSpot company merges are irreversible and the merged-away id stops resolving as itself.",
+   "consequence": "Associating a plan line to a duplicate that is later merged, or merging in the wrong direction, mis-binds revenue lines.",
+   "fix_or_guard": "Run S1 before S5 with the canonical record as primary; guard_companies re-reads every target id and aborts on any id not returned as itself.",
+   "path": "revenue_model/crm_associate_companies.py:64-76"
+  },
+  {
+   "issue": "The upsert hard-codes active = 'true' for every catalog row.",
+   "consequence": "The design says a line is retired with active=false, but the next upsert run sets it back to true for any line still in the catalog; the catalog has no active column.",
+   "fix_or_guard": "No guard in code. Remove the row from li_catalog.csv before retiring, or add an active column and read it in build_inputs.",
+   "path": "revenue_model/crm_upsert_plan_lines.py:65"
+  },
+  {
+   "issue": "pygs.py builds Google credentials at import time and the key file in the fork is a placeholder.",
+   "consequence": "Importing pygs fails until a real service-account key is in place, so the Sheet deploy cannot run out of the box.",
+   "fix_or_guard": "deploy_line_items.py imports Pygs inside main() rather than at module level; replace the key and share the spreadsheet with the service account as editor (S7 step 1).",
+   "path": "revenue_model/deploy_line_items.py:29"
+  },
+  {
+   "issue": "The already-deployed spreadsheet was published before the canonical company designation.",
+   "consequence": "Its LI_CATALOG tab shows pre-canonical binding modes and ids; reading it instead of the repo CSV gives the wrong targets.",
+   "fix_or_guard": "li_catalog.csv in the repo is the source of truth; re-run deploy_line_items.py (S7).",
+   "path": "revenue_model/WORKFLOW.md:207-211"
+  },
+  {
+   "issue": "[account] and [account] rows are still VERIFIED_WITH_DUPES in the committed catalog.",
+   "consequence": "The post-merge bookkeeping (flip the 6 rows to VERIFIED, note the merge date, commit) is not reflected in the repo, so the repo does not tell whether S1 has been executed.",
+   "fix_or_guard": "After the S1 gate passes, edit the catalog and commit; [account] rows stay VERIFIED_WITH_DUPES by design.",
+   "path": "revenue_model/WORKFLOW.md:85-87"
+  },
+  {
+   "issue": "The CRM search API does not return associations.",
+   "consequence": "An export built only on search silently drops the line-to-company mapping (DFMEA risk 6).",
+   "fix_or_guard": "Always make a second call (v4 associations batch read, or ?associations=companies on read) and reconcile row counts.",
+   "path": "revenue_model/implementation_design.md:92-94"
+  },
+  {
+   "issue": "Enum values in the schema are case-sensitive and the upsert sends catalog strings verbatim.",
+   "consequence": "A custom object recreated by hand in the UI with slightly different option values makes the upsert fail or reject rows.",
+   "fix_or_guard": "Prefer the API path with the versioned JSON; otherwise recreate the schema field for field.",
+   "path": "revenue_model/WORKFLOW.md:104-109"
+  },
+  {
+   "issue": "If the 'Plan line' label was not created (S3 skipped), the association script does not stop.",
+   "consequence": "Edges are created with the default unlabeled type: company cards do not read 'Plan line' and reports cannot filter on the label.",
+   "fix_or_guard": "resolve_type prints a WARNING on fallback; create the label first and re-run.",
+   "path": "revenue_model/crm_associate_companies.py:84-89"
+  },
+  {
+   "issue": "Double counting: a pursuit can enter the model through a plan line and again through the deal weighted pipe.",
+   "consequence": "Highest-scored risk (RPN 216). Example in the design: a transactional [account] hardware deal coexists with the [amount] cumulative '[account] Units' plan line.",
+   "fix_or_guard": "Rule R5: the weighted pipe feeds only the Catalog segment line; quarterly audit of deals on the 6 bound companies. No script exists for the audit yet.",
+   "path": "revenue_model/implementation_design.md:184-190"
+  },
+  {
+   "issue": "--verify demands that a line's associated companies equal exactly one id.",
+   "consequence": "A line that also carries a second company association (for example a leftover edge) is reported as MISMATCH and the gate exits 1, even though the canonical edge exists.",
+   "fix_or_guard": "Remove the extra association in HubSpot, then re-run --verify.",
+   "path": "revenue_model/crm_associate_companies.py:131-137"
+  }
+ ],
+ "glossary": [
+  {
+   "term": "making layer",
+   "meaning": "The feed of forward-looking revenue line items typed in manually by planners (granularity level 'Line item manual input'); the 20 lines this project covers."
+  },
+  {
+   "term": "baking layer",
+   "meaning": "The ARR aggregation feed built from the existing ARR-snapshot custom object; untouched by this project."
+  },
+  {
+   "term": "retrieval layer",
+   "meaning": "Sheets exports loaded by the model's 'ALL Sheet params' loader for the final computation."
+  },
+  {
+   "term": "revenue_plan_line",
+   "meaning": "The new HubSpot custom object, one record per model line; expected fullyQualifiedName p[id]_revenue_plan_line."
+  },
+  {
+   "term": "li_key",
+   "meaning": "Immutable unique text key of a line (for example li_<segment>_<account>_<offer>); the upsert idProperty and the join column between the CRM, LI_CATALOG and LI_VALUES."
+  },
+  {
+   "term": "binding_mode",
+   "meaning": "Company-association governance gate on each line: VERIFIED, VERIFIED_WITH_DUPES, AMBIGUOUS_MULTI_SITE, AMBIGUOUS_DUPLICATE, PROSPECTIVE, AGGREGATE. Only the first two are associated."
+  },
+  {
+   "term": "VERIFIED_WITH_DUPES",
+   "meaning": "The canonical company id is confirmed but other records for the same account still exist (duplicates awaiting merge, or site records kept by design)."
+  },
+  {
+   "term": "PROSPECTIVE / AGGREGATE",
+   "meaning": "Lines left unassociated on purpose: next-wave pursuits whose account is unknown (3 lines) and aggregate lines with no single account (2 lines)."
+  },
+  {
+   "term": "canonical record",
+   "meaning": "The one company record designated by the operator as the association target for an account; always the PRIMARY in a merge."
+  },
+  {
+   "term": "Plan line",
+   "meaning": "The named association label between Revenue Plan Line and Company, created in S3 and resolved by name in S5."
+  },
+  {
+   "term": "R1-R5",
+   "meaning": "Isolation rules: R1 company is the only edge; R2 no workflow writes in or out except the upsert; R3 no presence in pipelines or forecasts; R4 the deal weighted-pipe layer is read-only; R5 every dollar enters the model through exactly one feed."
+  },
+  {
+   "term": "DFMEA / RPN",
+   "meaning": "Design failure-mode analysis used at three checkpoints; RPN = Severity x Occurrence x Detection (1-10 each). Top risks: double counting 216, Sheet/CRM drift 175, mis-binding 126."
+  },
+  {
+   "term": "LI_CATALOG / LI_VALUES",
+   "meaning": "The two Sheet tabs mirroring the CSVs: the line catalog with bindings, and long-format per-year values plus the checksum block."
+  },
+  {
+   "term": "checksum block",
+   "meaning": "Six SUMIF rows appended under LI_VALUES giving the per-year total of the 20 lines; expected [amounts] $M for 2025-2030 (grand total [amount])."
+  },
+  {
+   "term": "entity / entity_share",
+   "meaning": "Delivering entity parsed from the label (SEALSQ, ICALPS or BLENDED) and its share as text such as 1/3 or 3/4; kept as properties rather than separate objects."
+  },
+  {
+   "term": "S0-S9",
+   "meaning": "The runbook steps: preflight, dedup, schema, label, record load, association, surfaces and permissions, Sheet re-sync, acceptance and R5 audit, DFMEA checkpoint 3."
+  }
+ ],
+ "relations": [],
+ "directions": [
+  "Write the Phase D export script (search active=true, v4 batch-read associations, write LI_VALUES staging, compare checksums): it is the only designed step with no code, and it is the detection mechanism for the drift risk.",
+  "Script the R5 anti-double-counting audit (list deals on the 6 canonical companies and compare with plan-line amounts) so the quarterly check is one command instead of a manual review.",
+  "Add an 'active' column to li_catalog.csv and read it in build_inputs, so retirement by active=false survives the next upsert instead of being reset to true.",
+  "Do the post-merge bookkeeping: flip the [account] and [account] rows to VERIFIED once S1 is verified, then re-run the Sheet deploy so the published LI_CATALOG matches the repo.",
+  "Prepare the annual horizon ritual: the year range 2025-2030 is hard-coded in the upsert (YEARS), in the deploy checksum loop and in the schema, so adding 2031 means three coordinated edits plus a new amount property.",
+  "Factor the duplicated urllib call() helper into one module and add per-row error inspection of batch responses, if the catalog grows beyond a handful of lines."
+ ],
+ "confidence": "high",
+ "coverage_notes": "Fork: only revenue_model/ is the owner's work and all 8 files there were read in full (WORKFLOW.md, implementation_design.md, the three scripts, the schema JSON, both CSVs, which hold company-level planning data, no persons). pygs.py was read because the deploy script depends on it; the upstream tutorial scripts 00-07, the sample sales CSV and the certificate were skipped. The service-account key file at the repo root was not opened (only its size was checked: a few bytes, consistent with the documented placeholder). Nothing was executed; expected outputs come from reading the code and summing the committed CSV (per-year totals and the 15/5 split were recomputed and match the docs). Status 'paused' is inferred from the single commit dated 2026-07-30; whether S0-S9 were actually executed in the portal cannot be known from the repository. One shallow commit, so no history."
+}

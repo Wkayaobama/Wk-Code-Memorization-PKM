@@ -99,6 +99,36 @@ class SchemaTests(RepoCase):
         allowed = good_card(explanation="clone with git@github.com:owner/repo.git")
         self.assertTrue(schema.validate_cards(self.deck(allowed), [self.repo]).ok)
 
+    def test_scanner_reads_credentials_in_their_common_shapes(self):
+        j = "".join    # every sample is assembled here so that no credential-shaped literal sits in this file
+        leaks = [
+            'HUBSPOT_API_KEY = "' + j(["a1b2c3d4e5", "f6a7b8c9d0", "e1f2a3b4c5"]) + '"',
+            "DB_PASSWORD = '" + j(["Sup3rSecret", "Passw0rd99"]) + "'",
+            '"api_key": "' + j(["9f8e7d6c5b4a", "3210fedcba98"]) + '"',
+            "API_KEY=" + j(["abcd1234", "efgh5678", "ijkl9012"]),
+            "Authorization: Bearer " + j(["abcDEF123456", "ghiJKL789012", "mnoPQR345678"]),
+            "postgres://etl:" + j(["S3cr3t", "Pw!"]) + "@db.internal.net:5432/crm",
+            j(["sk-", "proj-", "Abc123def456Ghi789jkl012Mno345"]),
+            j(["pat-", "eu1-", "12345678-1234-1234-1234-123456789abc"]),
+            "-----BEGIN PGP " + "PRIVATE KEY BLOCK-----",
+            "mail admin" + "@" + "realcompany.com",
+        ]
+        fine = [
+            "Set ANTHROPIC_API_KEY in the environment; the value is never logged.",
+            "token = os.environ['HUBSPOT_TOKEN']",
+            "api_key = settings.anthropic_api_key",
+            "API_KEY=<your-key-here>",
+            "postgres://user:password@localhost:5432/db",
+            "Authorization: Bearer $HUBSPOT_TOKEN",
+            "max_tokens = 4096",
+            "then [PagingToken = Text.From(Record.Field(results, offsetField))]",
+            "write to user@example.com or git@github.com:owner/repo.git",
+        ]
+        for text in leaks:
+            self.assertTrue(schema.scan_text(text), text[:40])
+        for text in fine:
+            self.assertEqual(schema.scan_text(text), [], text)
+
     def test_type_specific_fields(self):
         self.assertFalse(schema.validate_cards(self.deck(good_card(type="output")), [self.repo]).ok)
         self.assertFalse(schema.validate_cards(self.deck(good_card(type="cloze", cloze="no deletion here")), [self.repo]).ok)
@@ -324,7 +354,9 @@ class StoreAndBundleTests(RepoCase):
         self.assertEqual(first["explanation"], "Borrowed from [private project]. Runs against portal [id] in project [id].")
         self.assertEqual(_load(os.path.join(out, "data", "public", "projects.json"))["projects"][0]["aliases"][0:1], ["open demo"])
         self.assertNotIn("7700123", json.dumps(_load(os.path.join(out, "data", "public", "projects.json"))))
-        self.assertEqual(public_cards["cards"][1]["code_snippet"], "# secret_vault style\nmain()")   # verbatim code is never rewritten
+        # a snippet is written by the card author, not checked against the code: it is gated like prose
+        self.assertEqual(public_cards["cards"][1]["code_snippet"], "# [private project] style\nmain()")
+        self.assertEqual(public_cards["cards"][1]["evidence_quote"], "def main() -> int:")
         self.assertEqual(public_cards["cards"][1]["see_also"], ["open-demo:30"])     # the link into the private deck is gone
         self.assertEqual([r["project"] for r in public_map["relations"]], ["open-thing"])
         blob = json.dumps([_load(os.path.join(out, "data", "public", name)) for name in ("projects.json", "inventory.json")]).lower()
@@ -377,6 +409,11 @@ class StoreAndBundleTests(RepoCase):
         self.assertEqual(clean["evidence_quote"], "PORTAL = 7700123")       # a citation must keep matching the code
         self.assertEqual(clean["aliases"], ["the loader"])
         self.assertEqual((n, clean["n"]), (5, 7700123))
+        clean, n = store.scrub_terms({"why": "Plan line for Borealis Ltd totals $4.2M. The bridge is open to anyone. Borealis rows stay."},
+                                     [{"term": "Borealis Ltd", "as": "[account]"}, {"term": "Borealis", "as": "[account]"}, {"term": "$4.2M", "as": "[amount]"},
+                                      {"term": "The bridge is open to anyone.", "as": ""}])
+        self.assertEqual(clean["why"], "Plan line for [account] totals [amount]. [account] rows stay.")
+        self.assertEqual(n, 4)
         pmap = {"architecture": [{"component": "skill", "path": ".", "responsibility": "[.claude/skills/SKILL.md] gate before writes"},
                                  {"component": "app", "path": "src/app.py", "responsibility": "[not/a/path] stays"},
                                  {"component": "ghost", "path": ".", "responsibility": "[missing/file.py] stays too"}]}
@@ -389,7 +426,9 @@ class StoreAndBundleTests(RepoCase):
         data = bundle.build_bundle(edition, generated_at="2026-11-12T00:00:00Z")
         self.assertEqual(data["edition"], "public")
         self.assertEqual(len(data["cards"]), len(edition["cards"]))
-        self.assertIn("<\\/script>", bundle.js_literal({"x": "</script><b>"}))
+        literal = bundle.js_literal({"x": "</script><!--/BODY--><script>"})
+        self.assertNotIn("<", literal)                                   # nothing can close the script or fake a marker
+        self.assertEqual(json.loads(literal), {"x": "</script><!--/BODY--><script>"})
         html = bundle.inline_app(ROOT, data)
         self.assertNotIn('<script src="js/', html)
         self.assertNotIn('href="styles.css"', html)
@@ -423,6 +462,193 @@ class StoreAndBundleTests(RepoCase):
             self.assertGreater(os.path.getsize(path), 1000)
 
 
+class IngestRulesTests(RepoCase):
+    """What ingest promises: fail closed, plan first, keep what is filed, one tier per project."""
+
+    def stage(self, entries, decks=None):
+        work = os.path.join(self.tmp.name, "work")
+        os.makedirs(os.path.join(work, "maps"), exist_ok=True)
+        os.makedirs(os.path.join(work, "cards"), exist_ok=True)
+        base = _load(os.path.join(DEMO, "data", "public", "maps", "tide-loader.json"))
+        projects = []
+        for slug, visibility, extra in entries:
+            pmap = dict(base, slug=slug, repo=slug, relations=[], aliases=[])
+            for key in ("entry_points", "architecture", "key_functions", "infra", "decisions", "gotchas"):
+                pmap[key] = [dict(it, **{k: "src/app.py" for k in ("path", "evidence") if k in it}) for it in pmap[key]]
+            _dump(pmap, os.path.join(work, "maps", f"{slug}.json"))
+            _dump(dict((decks or {}).get(slug) or self.deck(), slug=slug), os.path.join(work, "cards", f"{slug}.json"))
+            entry = {"slug": slug, "repo": slug, "fork": False, "pushed_at": "2026-10-01T00:00:00Z", "dir": self.repo, "branch": "main", "alts": []}
+            if visibility is not None:
+                entry["visibility"] = visibility
+            entry.update(extra or {})
+            projects.append(entry)
+        _dump({"as_of": "2026-11-12", "owner": "me", "projects": projects}, os.path.join(work, "projects.json"))
+        return work
+
+    def run_ingest(self, work, codes, snapshot=None, **kw):
+        snap = None
+        if snapshot is not None:
+            snap = os.path.join(work, "snap.tsv")
+            with open(snap, "w") as fh:
+                fh.write(snapshot)
+        return store.ingest(self.out, manifest_path=os.path.join(work, "projects.json"), maps_dir=os.path.join(work, "maps"),
+                            cards_dir=os.path.join(work, "cards"), codes=codes, snapshot_path=snap, log=lambda *_: None, **kw)
+
+    def setUp(self):
+        super().setUp()
+        self.out = os.path.join(self.tmp.name, "out")
+
+    def tier_files(self, tier, kind="cards"):
+        path = os.path.join(self.out, "data", tier, kind)
+        return sorted(os.listdir(path)) if os.path.isdir(path) else []
+
+    def test_only_an_explicit_public_is_public(self):
+        entries = [("a-upper", "PRIVATE", None), ("b-internal", "internal", None), ("c-missing", None, None), ("d-padded", " private ", None),
+                   ("e-bool", True, None), ("f-open", " Public ", None)]
+        work = self.stage(entries)
+        codes = {slug: f"1{i}" for i, (slug, _, _) in enumerate(entries)}
+        report = self.run_ingest(work, codes, snapshot="vault-one\t2026-01-01T00:00:00Z\tPRIVATE\t0\nvault-two\t2026-01-01T00:00:00Z\tinternal\t0\n"
+                                                          "vault-three\t2026-01-01T00:00:00Z\tprivate \t0\nopen-one\t2026-01-01T00:00:00Z\tpublic\t0\n")
+        self.assertEqual({f["slug"]: f["tier"] for f in report["filed"]},
+                         {"a-upper": "private", "b-internal": "private", "c-missing": "private", "d-padded": "private", "e-bool": "private", "f-open": "public"})
+        self.assertEqual(self.tier_files("public"), ["f-open.json"])
+        self.assertEqual([r["name"] for r in _load(os.path.join(self.out, "data", "public", "inventory.json"))["repos"]], ["open-one"])
+        self.assertEqual(inventory.normal_visibility({"private": False}), "public")
+        self.assertEqual(inventory.normal_visibility({"isPrivate": True}), "private")
+        self.assertEqual(inventory.normal_visibility({}), "private")
+        with self.assertRaises(ValueError):
+            store.load_edition(self.out, ["public", "private/"], TODAY)
+
+    def test_no_checkout_no_filing_and_links_cannot_leave_it(self):
+        work = self.stage([("ghost", "public", {"dir": os.path.join(self.tmp.name, "nowhere")}), ("real", "public", None)])
+        report = self.run_ingest(work, {"ghost": "10", "real": "11"})
+        self.assertEqual([f["slug"] for f in report["filed"]], ["real"])
+        self.assertIn("checkout not found", report["skipped"][0]["why"])
+        outside = os.path.join(self.tmp.name, "outside.txt")
+        with open(outside, "w") as fh:
+            fh.write("def main() -> int:\n")
+        os.symlink(outside, os.path.join(self.repo, "link.txt"))
+        os.symlink(self.tmp.name, os.path.join(self.repo, "up"))
+        for ref in ("link.txt:1", "up/outside.txt"):
+            full, why = schema.resolve_source(ref, [self.repo])
+            self.assertIsNone(full, ref)
+            self.assertIn("leaves the checkout", why)
+        self.assertIsNone(schema.resolve_source("src/app.py:4", [self.repo])[0])    # three lines, no fourth
+        self.assertTrue(schema.resolve_source("src/app.py:3", [self.repo])[0])
+
+    def test_a_partial_run_keeps_what_is_filed_and_a_move_leaves_the_old_tier(self):
+        work = self.stage([("alpha", "public", None), ("beta", "public", None)])
+        self.run_ingest(work, {"alpha": "10", "beta": "11"})
+        # a later run that only carries gamma: alpha and beta stay in the edition
+        work = self.stage([("gamma", "private", None)])
+        self.run_ingest(work, {"gamma": "12"})
+        both = store.load_edition(self.out, None, TODAY)
+        self.assertEqual([p["slug"] for p in both["projects"]], ["alpha", "beta", "gamma"])
+        # beta turns private: its public files and manifest entry go away
+        work = self.stage([("beta", "private", None)])
+        report = self.run_ingest(work, {"beta": "11"})
+        self.assertEqual(report["moved"], [{"slug": "beta", "from": "public", "to": "private"}])
+        self.assertEqual(self.tier_files("public"), ["alpha.json"])
+        self.assertEqual(self.tier_files("public", "maps"), ["alpha.json"])
+        self.assertEqual(self.tier_files("private"), ["beta.json", "gamma.json"])
+        self.assertEqual([p["slug"] for p in store.load_edition(self.out, ["public"], TODAY)["projects"]], ["alpha"])
+        self.assertEqual(store.load_edition(self.out, ["public"], TODAY)["edition"], "public")
+        # a refreshed deck that fails validation keeps its last good version filed
+        bad = self.deck(good_card(evidence_quote="this sentence is not in the file"))
+        work = self.stage([("alpha", "public", None)], {"alpha": bad})
+        report = self.run_ingest(work, {"alpha": "10"})
+        self.assertEqual(report["filed"], [])
+        self.assertEqual([p["slug"] for p in store.load_edition(self.out, None, TODAY)["projects"]], ["alpha", "beta", "gamma"])
+
+    def test_a_late_failure_writes_nothing(self):
+        work = self.stage([("alpha", "public", None)])
+        self.run_ingest(work, {"alpha": "10"})
+        before = _text(os.path.join(self.out, "data", "public", "cards", "alpha.json"))
+        changed = self.deck(good_card(answer="python -m demo --changed"))
+        work = self.stage([("alpha", "public", None), ("gamma", "private", None)], {"alpha": changed})
+        with self.assertRaises(address.RegistryError):
+            self.run_ingest(work, {"alpha": "10", "gamma": "10"})          # duplicate code
+        self.assertEqual(_text(os.path.join(self.out, "data", "public", "cards", "alpha.json")), before)
+        self.assertEqual(self.tier_files("private"), [])
+
+    def test_redaction_that_breaks_the_contract_is_refused(self):
+        long_concept = ("entry point shared with vault " * 3).strip()[:76]            # 76 chars, close to the limit of 80
+        self.assertIn("vault", long_concept)
+        tight = self.deck(good_card(concept=long_concept))
+        work = self.stage([("open-demo", "public", None), ("vault", "private", None)], {"open-demo": tight})
+        report = self.run_ingest(work, {"open-demo": "50", "vault": "51"})
+        self.assertEqual([f["slug"] for f in report["filed"]], ["vault"])
+        self.assertIn("no longer fits the contract", report["skipped"][0]["why"])
+        self.assertEqual(self.tier_files("public"), [])
+
+    def test_names_glued_to_a_longer_name_are_not_public_vocabulary(self):
+        with open(os.path.join(self.repo, "src", "notes.md"), "w") as fh:
+            fh.write("deployed as tx-load-bridge next to pre_kp_load\n")
+        self.assertEqual(store.public_vocabulary(["TX-Load", "KP_Load"], [self.repo]), set())
+        clean, _ = store.privacy_gate({"detail": "runs as tx-load-bridge"}, ["TX-Load"])
+        self.assertEqual(clean["detail"], "runs as [private project]-bridge")       # the gate itself stays loose
+
+    def test_an_edited_public_deck_wins_over_its_stale_full_wording(self):
+        leaky = self.deck(good_card(answer="python -m demo, as in vault-core"))
+        work = self.stage([("open-demo", "public", None), ("vault-core", "private", None)], {"open-demo": leaky})
+        self.run_ingest(work, {"open-demo": "50", "vault-core": "51"})
+        both = store.load_edition(self.out, None, TODAY)
+        self.assertIn("vault-core", [c for c in both["cards"] if c["id"] == "open-demo:30"][0]["answer"])
+        self.assertEqual(both["warnings"], [])
+        path = os.path.join(self.out, "data", "public", "cards", "open-demo.json")
+        deck = _load(path)
+        deck["cards"][0]["answer"] = "python -m demo --fixed"
+        _dump(deck, path)
+        both = store.load_edition(self.out, None, TODAY)
+        self.assertEqual([c for c in both["cards"] if c["id"] == "open-demo:30"][0]["answer"], "python -m demo --fixed")
+        self.assertEqual(len(both["warnings"]), 1)
+
+    def test_unchecked_projects_keep_their_stale_marks(self):
+        work = self.stage([("alpha", "public", None), ("beta", "public", None)])
+        self.run_ingest(work, {"alpha": "10", "beta": "11"})
+        sources = os.path.join(self.tmp.name, "fresh")
+        for slug in ("alpha", "beta"):
+            os.makedirs(os.path.join(sources, slug, "src"))
+            with open(os.path.join(sources, slug, "src", "app.py"), "w") as fh:
+                fh.write("import sys\n\ndef start():\n    return 0\n")
+        store.write_stale(self.out, store.find_stale(self.out, sources))
+        self.assertEqual(sorted(_load(os.path.join(self.out, "data", "public", "stale.json"))), ["alpha", "beta"])
+        os.rename(os.path.join(sources, "beta"), os.path.join(sources, "beta-away"))
+        report = store.find_stale(self.out, sources)
+        self.assertEqual(report["unchecked"], ["beta"])
+        store.write_stale(self.out, report)
+        self.assertEqual(sorted(_load(os.path.join(self.out, "data", "public", "stale.json"))), ["alpha", "beta"])
+
+
+class GuardTests(unittest.TestCase):
+    def test_a_private_edition_is_refused_where_git_would_publish_it(self):
+        import argparse
+        from recurser import cli
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = os.path.join(tmp, "checkout")
+            os.makedirs(os.path.join(root, "docs"))
+            subprocess.run(["git", "init", "-q", root], check=True)
+            args = argparse.Namespace(root=root)
+            inside, docs = os.path.join(root, "out.xlsx"), os.path.join(root, "docs", "kb")
+            ignored, outside = os.path.join(root, "dist", "recurser.html"), os.path.join(tmp, "elsewhere.html")
+            # a checkout that commits data/private (the owner's private repository): only docs/ is off limits
+            cli._refuse_private_output(args, True, inside, ignored, outside)
+            with self.assertRaises(SystemExit):
+                cli._refuse_private_output(args, True, docs)
+            # the public checkout keeps data/private out of git: nothing private may land in a tracked place
+            with open(os.path.join(root, ".gitignore"), "w") as fh:
+                fh.write("data/private/\ndist/\n")
+            cli._refuse_private_output(args, True, ignored, outside, None)
+            for path in (inside, docs, os.path.join(root, "app", "recurser.html")):
+                with self.assertRaises(SystemExit):
+                    cli._refuse_private_output(args, True, path)
+            cli._refuse_private_output(args, False, inside, docs)        # a public edition goes anywhere
+            with self.assertRaises(SystemExit):
+                cli._tiers(argparse.Namespace(tiers="public,private/"))
+            self.assertEqual(cli._tiers(argparse.Namespace(tiers="public, private")), ["public", "private"])
+
+
 class ExportTests(unittest.TestCase):
     def test_anki_files(self):
         edition = demo_edition()
@@ -441,6 +667,12 @@ class ExportTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as again:
                 anki.export_all(edition, again, apkg=False)
                 self.assertEqual(_text(os.path.join(again, "recurser-cards.txt")), "\n".join(cards) + "\n")   # deterministic
+
+    def test_anki_inline_code(self):
+        tick = chr(96)
+        self.assertEqual(anki.rich(f"call {tick}load(<x>){tick} then {tick}merge(){tick}"), "call <code>load(&lt;x&gt;)</code> then <code>merge()</code>")
+        self.assertEqual(anki.rich(f"an odd {tick} tick"), f"an odd {tick} tick")      # unbalanced: left as typed
+        self.assertEqual(anki.rich("plain <b>"), "plain &lt;b&gt;")
 
     def test_anki_only_learned_and_set_aside(self):
         edition = demo_edition()

@@ -28,7 +28,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def _tiers(args) -> list[str] | None:
     value = getattr(args, "tiers", None)
-    return [t.strip() for t in value.split(",") if t.strip()] if value else None
+    tiers = [t.strip() for t in value.split(",") if t.strip()] if value else None
+    unknown = [t for t in tiers or [] if t not in store.TIERS]
+    if unknown:
+        sys.exit(f"Unknown tier {unknown[0]!r}: use {' or '.join(store.TIERS)}, separated by a comma.")
+    return tiers
 
 
 def _today(args) -> date:
@@ -44,7 +48,10 @@ def _edition(args) -> dict:
     tiers = _tiers(args) or store.present_tiers(_data(args))
     if not tiers:
         sys.exit("No data tier found under data/. Run `python -m recurser ingest ...` or add data/public.")
-    return store.load_edition(_data(args), tiers, _today(args))
+    edition = store.load_edition(_data(args), tiers, _today(args))
+    for warning in edition.get("warnings") or []:
+        print("note:", warning, file=sys.stderr)
+    return edition
 
 
 def _table(rows: list[dict], columns: list[str]) -> str:
@@ -67,6 +74,7 @@ def cmd_inventory(args) -> int:
             print(f"{exc}\nkeeping the stored snapshot.", file=sys.stderr)
             repos = None
         if repos and args.save:
+            _refuse_private_output(args, any(not inventory.is_public(r.get("visibility")) for r in repos), args.save)
             with open(args.save, "w", encoding="utf-8") as fh:
                 json.dump({"as_of": _today(args).isoformat(), "owner": args.owner or "", "repos": repos}, fh, indent=1)
             print(f"saved {args.save}", file=sys.stderr)
@@ -127,12 +135,42 @@ def cmd_ingest(args) -> int:
     return 0 if report["filed"] else 1
 
 
-def _refuse_private_in_docs(args, edition: dict, *paths) -> None:
-    """docs/ is the folder a public site is served from: a private edition must never be written there."""
-    docs = os.path.realpath(os.path.join(args.root, "docs")) + os.sep
+def _git_ignores(root: str, path: str) -> bool | None:
+    """True / False when git can tell whether ``path`` is ignored in the checkout at ``root``, else None."""
+    import subprocess
+
+    try:
+        out = subprocess.run(["git", "-C", root, "check-ignore", "-q", path], capture_output=True, timeout=20)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return {0: True, 1: False}.get(out.returncode)
+
+
+def _refuse_private_output(args, private: bool, *paths) -> None:
+    """A private edition must not land where it would be published.
+
+    ``docs/`` is the folder a public site is served from: never there.  And when this checkout keeps
+    ``data/private/`` out of git (it is the public repository), not in any other tracked place either:
+    ``dist/`` and other ignored folders, or anywhere outside the checkout, are fine."""
+    if not private:
+        return
+    root = os.path.realpath(args.root)
+    docs = os.path.join(root, "docs") + os.sep
+    public_checkout = _git_ignores(root, os.path.join(root, "data", "private", "x.json")) is True
     for path in paths:
-        if path and os.path.realpath(path).startswith(docs) and edition.get("edition") != "public":
+        if not path:
+            continue
+        real = os.path.realpath(path)
+        if (real + os.sep).startswith(docs):
             sys.exit(f"Refusing to write a private edition into docs/ ({path}). Build the public tier (--tiers public) or pick another folder.")
+        inside = (real + os.sep).startswith(root + os.sep)
+        if inside and public_checkout and _git_ignores(root, real) is False:
+            sys.exit(f"Refusing to write a private edition to {path}: git would track it in this public checkout. "
+                     "Write it under dist/ or outside the repository, or build with --tiers public.")
+
+
+def _refuse_private_in_docs(args, edition: dict, *paths) -> None:
+    _refuse_private_output(args, edition.get("edition") != "public", *paths)
 
 
 def cmd_build(args) -> int:
@@ -155,8 +193,10 @@ def cmd_stats(args) -> int:
 
 
 def cmd_sql(args) -> int:
-    con = db.build(_edition(args))
+    edition = _edition(args)
+    con = db.build(edition)
     if args.save:
+        _refuse_private_in_docs(args, edition, args.save)
         db.dump(con, args.save)
         print(f"saved {args.save}", file=sys.stderr)
     rows = db.query(con, args.query)
@@ -171,7 +211,9 @@ def cmd_xlsx(args) -> int:
     if args.progress:
         with open(args.progress, encoding="utf-8") as fh:
             progress = json.load(fh)
-    path = xlsx.build_workbook(_edition(args), args.out, progress=progress, keep_from=args.keep_from)
+    edition = _edition(args)
+    _refuse_private_in_docs(args, edition, args.out)
+    path = xlsx.build_workbook(edition, args.out, progress=progress, keep_from=args.keep_from)
     print("wrote", path)
     return 0
 
@@ -188,7 +230,9 @@ def cmd_anki(args) -> int:
 
     if args.only_learned and not args.progress:
         sys.exit("--only-learned needs --progress <history export from the app>")
-    for path in anki.export_all(_edition(args), args.out, apkg=not args.no_apkg, progress=_progress(args), only_learned=args.only_learned):
+    edition = _edition(args)
+    _refuse_private_in_docs(args, edition, args.out)
+    for path in anki.export_all(edition, args.out, apkg=not args.no_apkg, progress=_progress(args), only_learned=args.only_learned):
         print("wrote", path)
     return 0
 
@@ -196,7 +240,9 @@ def cmd_anki(args) -> int:
 def cmd_kb(args) -> int:
     from . import kb
 
-    paths = kb.export_kb(_edition(args), args.out, progress=_progress(args))
+    edition = _edition(args)
+    _refuse_private_in_docs(args, edition, args.out)
+    paths = kb.export_kb(edition, args.out, progress=_progress(args))
     print(f"wrote {len(paths)} pages to {args.out}")
     return 0
 

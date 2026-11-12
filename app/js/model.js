@@ -49,7 +49,10 @@
     return Math.pow(0.5, Math.max(0, (now - state.last) / DAY) / half);
   }
 
-  function isSuspended(progress, id) { return progress.flags && progress.flags[id] === 'suspended'; }
+  function isSuspended(progress, id) {
+    var f = progress.flags && progress.flags[id];
+    return (f && typeof f === 'object' ? f.v : f) === 'suspended';
+  }
 
   function projectStats(ix, progress, slug, now) {
     var p = ix.projectBySlug[slug], cards = ix.cardsBySlug[slug] || [];

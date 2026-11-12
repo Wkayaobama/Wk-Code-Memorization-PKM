@@ -1,0 +1,2182 @@
+{
+ "slug": "cloudbq",
+ "cards": [
+  {
+   "category": 0,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "CloudBQ new-deals pipeline",
+   "question": "What is cloudbq: what does it read, where does it land it, and what does it deliver?",
+   "answer": "HubSpot deals created since the last run -> `hubspot.new_deals` (hot score + duplicate flag) -> a weekly report.",
+   "explanation": "It reports by `createdate`, per entity (SEALSQ, ICALPS), independently of deal stage: orthogonal to the stage/probability reports. Three candidate orchestrators (lanes A, B, C) are scaffolded side by side so the choice is made on evidence; see 03.",
+   "anchor": "A maternity-ward register: every deal BORN since last Monday gets a line, a temperature reading and a 'twin?' tick, whatever stage it has grown to since.",
+   "confusables": "cf. ic-dbt-bq: same working session and the same four `.claude/skills`, but it is the dlt-to-BigQuery LOADER; the new-deals pipeline lives only here.",
+   "tags": [],
+   "source": [
+    "README.md:3-4",
+    "cloud_function_new_deals/main.py:4-5",
+    "README.md:41"
+   ],
+   "evidence_quote": "HubSpot deals created since the last run → `hubspot.new_deals` in BigQuery with a day-1 hot score and a duplicate flag",
+   "source_refs": [
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 3,
+     "end": 4
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 4,
+     "end": 5
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 41
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 1,
+   "type": "recall",
+   "level": 1,
+   "concept": "The idempotent outcome",
+   "question": "Which invariant does cloudbq exist to protect, whichever lane runs?",
+   "answer": "One idempotent outcome: re-running a window NEVER duplicates a deal, and a failed run leaves no gap.",
+   "explanation": "Three mechanisms carry it: `createdate` is immutable, so the half-open window is exact (see 22); rows MERGE on `deal_id` (see 40); the watermark advances only AFTER a successful MERGE (see 61).",
+   "tags": [
+    "idempotency"
+   ],
+   "source": [
+    "cloud_function_new_deals/main.py:7-11",
+    "CONVENTIONS.md:3-5"
+   ],
+   "evidence_quote": "Rows are MERGEd into BigQuery on deal_id → re-running a window never duplicates.",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 7,
+     "end": 11
+    },
+    {
+     "path": "CONVENTIONS.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 3,
+     "end": 5
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 2,
+   "type": "recall",
+   "level": 1,
+   "concept": "Raw root (term)",
+   "question": "In cloudbq, what does 'the raw root' mean?",
+   "answer": "`deals_raw` + `labels_raw`: a `run_ts`-keyed copy of what each run computed FROM, landed before anything is computed.",
+   "explanation": "Why it matters: before pass 3 the lanes persisted their outputs per run but never their inputs, so a past run's score, duplicates and labels could not be recomputed. See 60.",
+   "confusables": "`new_deals_history` — it keeps what a run PRODUCED (the shaped, scored rows); the raw root keeps what the run READ.",
+   "tags": [
+    "raw-root"
+   ],
+   "source": [
+    "cloud_function_new_deals/bigquery_schema.sql:41-45",
+    "CONVENTIONS.md:18-20"
+   ],
+   "evidence_quote": "the raw root (layers L4 + L13): what each run computed from, landed as delivered",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/bigquery_schema.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 41,
+     "end": 45
+    },
+    {
+     "path": "CONVENTIONS.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 18,
+     "end": 20
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 3,
+   "type": "recall",
+   "level": 1,
+   "concept": "Lanes A, B, C",
+   "question": "Which three orchestrator lanes does cloudbq scaffold side by side?",
+   "answer": "A = Cloud Run function · B = n8n on Cloud Run · C = hybrid: BigQuery scheduled queries + a Node 22 write-back job.",
+   "explanation": "A fourth letter, R, names the raw root plus the one SQL implementation every lane CALLs (since pass 3). The lanes are compared layer by layer (L0-L17) in the workbook built from `docs/execution_surfaces.yaml`.",
+   "tags": [],
+   "source": [
+    "README.md:6-10",
+    "README.md:22-24"
+   ],
+   "evidence_quote": "| **A** Cloud Run function | `cloud_function_new_deals/` |",
+   "source_refs": [
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 6,
+     "end": 10
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 22,
+     "end": 24
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 4,
+   "type": "compare",
+   "level": 2,
+   "concept": "n8n B1 delivery tail",
+   "question": "cloudbq: n8n lane `B1` vs `B2`: what is the ONE difference?",
+   "answer": "B1 uses n8n ONLY as the delivery tail (webhook -> XLSX -> e-mail) and is kept; B2 had n8n own the WHOLE pipeline and was retired in pass 3 (decision D6).",
+   "explanation": "Once the batch became one SQL procedure over the raw root, a second shaper had nothing left to mirror. B1 needs no BigQuery credential: the function renders the payload from the tables and POSTs it.",
+   "anchor": "A waiter who only carries the plate (B1) versus a waiter who insists on re-cooking the dish in the dining room (B2): the second was let go.",
+   "confusables": "`B2` — it carried its own JavaScript copy of the shaper and scorer; B1 computes NOTHING and only delivers the payload it receives.",
+   "tags": [
+    "n8n"
+   ],
+   "source": [
+    "README.md:9",
+    "docs/PASS3_RAW_ROOT.md:381-387"
+   ],
+   "evidence_quote": "B1 delivery tail (recommended); B2 whole pipeline retired in pass 3 (D6)",
+   "source_refs": [
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 9
+    },
+    {
+     "path": "docs/PASS3_RAW_ROOT.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 381,
+     "end": 387
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Slice key of a run",
+   "question": "Which three columns key one run's slice in cloudbq's `deals_raw` and `new_deals_history`?",
+   "answer": "`(run_ts, entity, orchestrator)` — re-landing the same key REPLACES the slice.",
+   "explanation": "`run_ts` is the start of the run truncated to the second. The same key finds the run's rows in `labels_raw` and `new_deals_runs`, so one run can be followed across all four tables.",
+   "anchor": "A cloakroom ticket in three parts, torn from one strip: the hour, the guest and the doorman who took the coat; the same ticket opens every locker of that evening.",
+   "tags": [
+    "raw-root"
+   ],
+   "source": [
+    "cloud_function_new_deals/main.py:166",
+    "cloud_function_new_deals/bigquery_schema.sql:41-45",
+    "cloud_function_new_deals/main.py:344"
+   ],
+   "evidence_quote": "keyed by (run_ts, entity, orchestrator) like the history slice",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 166
+    },
+    {
+     "path": "cloud_function_new_deals/bigquery_schema.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 41,
+     "end": 45
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 344
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 1,
+   "type": "cloze",
+   "level": 1,
+   "concept": "Frozen four columns",
+   "question": "cloudbq: complete the tuple of columns the MERGE never overwrites on a re-observation or a replay.",
+   "cloze": "FROZEN = (\"deal_id\", \"first_seen_run\", \"{{c1::day1_hot_score}}\", \"{{c1::day1_hot_flag}}\")",
+   "answer": "day1_hot_score · day1_hot_flag",
+   "explanation": "The day-1 score is a first-observation fact: a later run sees a deal that has moved on and would rewrite it. Enforced in `sql/new_deals_batch.sql`, whose UPDATE list omits the four; `tests/test_pass3_sql.py` pins it.",
+   "tags": [
+    "merge"
+   ],
+   "source": [
+    "cloud_function_new_deals/main.py:163",
+    "sql/new_deals_batch.sql:67-68",
+    "tests/test_pass3_sql.py:86-88"
+   ],
+   "evidence_quote": "FROZEN = (\"deal_id\", \"first_seen_run\", \"day1_hot_score\", \"day1_hot_flag\")",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 163
+    },
+    {
+     "path": "sql/new_deals_batch.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 67,
+     "end": 68
+    },
+    {
+     "path": "tests/test_pass3_sql.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 86,
+     "end": 88
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 2,
+   "type": "recall",
+   "level": 2,
+   "concept": "data_gaps on the runs row",
+   "question": "In cloudbq, what does the `data_gaps` column of `new_deals_runs` record, and who fills it?",
+   "answer": "An `ARRAY<STRING>` naming what a run could NOT read or compute, e.g. `raw_landing_failed` or `event_no_window`. The caller passes its gaps in `p_gaps`; the procedure adds `labels_missing` and `dedup_horizon_partial`.",
+   "explanation": "It makes a degraded run honest instead of silent: a run can be `OK` and still say that its duplicate horizon was partial or that an older slice was replaced (`raw_slice_replaced`).",
+   "confusables": "`error` — it holds the message of a run that FAILED; `data_gaps` can be non-empty on a run whose status is `OK`.",
+   "tags": [
+    "audit"
+   ],
+   "source": [
+    "cloud_function_new_deals/bigquery_schema.sql:65-67",
+    "sql/new_deals_batch.sql:14-15",
+    "tests/test_main_offline.py:184"
+   ],
+   "evidence_quote": "data_gaps: what a run could not read or compute",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/bigquery_schema.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 65,
+     "end": 67
+    },
+    {
+     "path": "sql/new_deals_batch.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 14,
+     "end": 15
+    },
+    {
+     "path": "tests/test_main_offline.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 184
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 3,
+   "type": "compare",
+   "level": 2,
+   "concept": "first_seen_run",
+   "question": "cloudbq · table `new_deals`: `first_seen_run` vs `last_seen_run`: what is the ONE difference?",
+   "answer": "`first_seen_run` is FROZEN at the first observation; `last_seen_run` moves to each newer run and is the guard that stops an older slice from overwriting a newer observation.",
+   "explanation": "The MERGE updates a matched row only when the incoming `last_seen_run` is at least the stored one, so a replayed run_time or a late retry cannot roll a deal back.",
+   "anchor": "A passport: the birth date is printed once; the border stamp is renewed at each crossing, and an older stamp is never inked over a newer one.",
+   "confusables": "`last_seen_run` — updated by every MERGE whose slice is at least as new; `first_seen_run` belongs to the frozen four and is NEVER updated.",
+   "tags": [
+    "merge"
+   ],
+   "source": [
+    "sql/new_deals_batch.sql:67-70",
+    "sql/new_deals_batch.sql:76",
+    "cloud_function_new_deals/main.py:163"
+   ],
+   "evidence_quote": "WHEN MATCHED AND s.last_seen_run >= IFNULL(t.last_seen_run, TIMESTAMP '1970-01-01') THEN UPDATE SET",
+   "source_refs": [
+    {
+     "path": "sql/new_deals_batch.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 67,
+     "end": 70
+    },
+    {
+     "path": "sql/new_deals_batch.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 76
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 163
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 0,
+   "type": "trace",
+   "level": 3,
+   "concept": "Lane A live window run",
+   "question": "cloudbq · lane A, one live window run: recite the 9 steps from the Cloud Scheduler GET to the delivered payload.",
+   "steps": [
+    "`new_deals_report(request)` -> `run_ts` = now truncated to the second",
+    "`read_watermark()` -> window start (first run: now minus 7 days)",
+    "`acquire_lease()` -> sets `lock_until`; a held lease answers 409",
+    "`hs.search_created()` -> deals created in the window, ALL pipelines",
+    "`land_raw()` + `land_labels()` -> the slice lands in `deals_raw` / `labels_raw`",
+    "`call_batch()` -> `CALL new_deals_batch`: score, MERGE, history, runs row",
+    "`read_batch()` -> payload rows read back from `new_deals_history`",
+    "`write_watermark()` -> watermark = `run_ts`, lease cleared",
+    "`_deliver()` -> POST the payload to `DELIVERY_WEBHOOK_URL`"
+   ],
+   "answer": "run_ts · watermark · lease · search · land · CALL · read back · advance · deliver",
+   "explanation": "The order is pinned by `test_live_lands_before_the_call_and_advances_the_watermark_after_it`. A dry run skips the lease, the watermark and the delivery (see 24); on any exception the lease is released and the watermark stays (see 61).",
+   "anchor": "A Monday milk round: read last week's marker, hang the 'on round' tag, count the new doorsteps, copy the addresses, hand the sheet to the dairy, read back the tally, move the marker, post the bill.",
+   "tags": [
+    "lane-a"
+   ],
+   "source": [
+    "cloud_function_new_deals/main.py:359-378",
+    "cloud_function_new_deals/main.py:344",
+    "cloud_function_new_deals/main.py:385-387",
+    "tests/test_main_offline.py:175-179"
+   ],
+   "evidence_quote": "if not dry and not event: write_watermark(client, entity, run_ts)",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 359,
+     "end": 378
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 344
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 385,
+     "end": 387
+    },
+    {
+     "path": "tests/test_main_offline.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 175,
+     "end": 179
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 1,
+   "type": "trace",
+   "level": 3,
+   "concept": "Steps inside new_deals_batch",
+   "question": "cloudbq · procedure `new_deals_batch`, a window run with `p_advance_state` TRUE: recite the 9 steps from the mode check to COMMIT.",
+   "steps": [
+    "`p_mode` not in window | event | dry -> RAISE",
+    "`report_state.lock_until` in the future -> RAISE: a lane-A run holds the lease",
+    "no labels slice or a short horizon -> `labels_missing` / `dedup_horizon_partial` added",
+    "`CREATE OR REPLACE TEMP TABLE batch` <- `new_deals_batch_rows(...)`",
+    "`BEGIN TRANSACTION` -> everything below commits or rolls back together",
+    "`MERGE new_deals` on `deal_id` -> `v_written` = `@@row_count`",
+    "history slice of the key deleted, then re-inserted from `batch`",
+    "runs row of the key replaced: status `OK`, `rows_written` = `v_written`",
+    "`MERGE report_state` -> watermark never rewinds; `COMMIT TRANSACTION`"
+   ],
+   "answer": "mode check · lease check · gaps · TEMP batch · BEGIN · MERGE · history · runs row · state + COMMIT",
+   "explanation": "On any error the handler rolls back, writes a `FAILED` runs row with the message and re-raises. With `p_mode = 'dry'` only ONE runs row is written. Lane A passes `p_advance_state = FALSE`, so the lease check and the state step are skipped and the function moves its own watermark (see 61).",
+   "anchor": "A notary: checks the form, checks the file is free, notes what is missing, spreads the papers, locks the door, signs the deed, files the copy, fills the register, moves the bookmark, unlocks.",
+   "tags": [
+    "procedure"
+   ],
+   "source": [
+    "sql/new_deals_batch.sql:64-78",
+    "sql/new_deals_batch.sql:28-53",
+    "sql/new_deals_batch.sql:80-104",
+    "sql/new_deals_batch.sql:107-115"
+   ],
+   "evidence_quote": "SET v_written = @@row_count;",
+   "source_refs": [
+    {
+     "path": "sql/new_deals_batch.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 64,
+     "end": 78
+    },
+    {
+     "path": "sql/new_deals_batch.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 28,
+     "end": 53
+    },
+    {
+     "path": "sql/new_deals_batch.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 80,
+     "end": 104
+    },
+    {
+     "path": "sql/new_deals_batch.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 107,
+     "end": 115
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 2,
+   "type": "recall",
+   "level": 2,
+   "concept": "createdate extraction window",
+   "question": "Which window of HubSpot deals does one cloudbq lane-A run search, and why is it exact?",
+   "answer": "The half-open window `[watermark - OVERLAP_MINUTES, run_ts)` on `createdate`, overlap 5 minutes. `createdate` is IMMUTABLE in HubSpot, so the same window always returns the same deals and a replay is exact.",
+   "explanation": "The overlap re-reads the deals at the edge; the MERGE on `deal_id` absorbs them. Lane C has no watermark search: it uses a 14-day lookback over its 90-day slice.",
+   "confusables": "`hs_lastmodifieddate` — a last-modified date MOVES with every edit, so a window on it would not be replayable; it is landed only to order re-observations.",
+   "tags": [
+    "watermark"
+   ],
+   "source": [
+    "cloud_function_new_deals/main.py:8",
+    "cloud_function_new_deals/main.py:365-366",
+    "sql/new_deals_weekly.sql:8",
+    "cloud_function_new_deals/main.py:65"
+   ],
+   "evidence_quote": "createdate is immutable in HubSpot → a half-open window [watermark − overlap, run_ts) is exact and replayable.",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 8
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 365,
+     "end": 366
+    },
+    {
+     "path": "sql/new_deals_weekly.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 8
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 65
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 3,
+   "type": "recall",
+   "level": 2,
+   "concept": "Duplicate suspect rule",
+   "question": "In cloudbq, when does `new_deals_batch_rows` flag a deal as `duplicate_suspect`?",
+   "answer": "When another deal the root knows has the SAME non-empty `name_key` and was created within the 90 days before `run_ts`: any entity, any orchestrator, in scope or not.",
+   "explanation": "`duplicate_of` lists the twins' ids ordered by `createdate`. Deals of other pipelines are landed with `in_scope = FALSE` precisely to serve as duplicate candidates. When the oldest deal the root holds is younger than 83 days, the run carries `dedup_horizon_partial`.",
+   "tags": [
+    "dedup"
+   ],
+   "source": [
+    "sql/deals_landed_v1.sql:59-67",
+    "sql/deals_landed_v1.sql:47-49",
+    "sql/new_deals_batch.sql:44-50"
+   ],
+   "evidence_quote": "JOIN horizon h ON h.name_key = w.name_key AND h.deal_id <> w.deal_id AND w.name_key <> ''",
+   "source_refs": [
+    {
+     "path": "sql/deals_landed_v1.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 59,
+     "end": 67
+    },
+    {
+     "path": "sql/deals_landed_v1.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 47,
+     "end": 49
+    },
+    {
+     "path": "sql/new_deals_batch.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 44,
+     "end": 50
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 4,
+   "type": "compare",
+   "level": 2,
+   "concept": "Dry run (decision D1)",
+   "question": "cloudbq: a `?dry_run=1` run vs a live window run: what is the ONE difference in what reaches BigQuery?",
+   "answer": "A dry run lands its slice with `mode = 'dry'` and leaves ONE runs row (`dry_run = TRUE`, `rows_written = 0`); a live run ALSO writes the sink, the history slice and the state.",
+   "explanation": "Dry reads the watermark like a live run but takes no lease and delivers nothing; its payload comes from the table function instead of the history slice. The rule since pass 3 is 'writes nothing to the sink or the state', no longer 'writes nothing at all'.",
+   "anchor": "A fire drill: everyone walks to the yard and the drill is entered in the logbook, but no hose is opened and no room is flooded.",
+   "confusables": "live window run — it takes the lease, MERGEs `new_deals`, moves the watermark and delivers; dry does NONE of these.",
+   "tags": [
+    "dry-run"
+   ],
+   "source": [
+    "cloud_function_new_deals/main.py:23-24",
+    "sql/new_deals_batch.sql:55-62",
+    "tests/test_main_offline.py:159-166"
+   ],
+   "evidence_quote": "Dry mode (decision D1) lands its slice with mode = 'dry' and CALLs with mode = 'dry': one runs row (dry_run = TRUE,",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 23,
+     "end": 24
+    },
+    {
+     "path": "sql/new_deals_batch.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 55,
+     "end": 62
+    },
+    {
+     "path": "tests/test_main_offline.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 159,
+     "end": 166
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "deploy.sh all",
+   "question": "Which command brings cloudbq's lane A up to, but not including, the dry gate?",
+   "answer": "`cloud_function_new_deals/deploy.sh all` — check-env, enable-apis, iam, tables, routines, secret, deploy, invoker.",
+   "explanation": "Every step is create-or-update, so re-running is safe. `DRYRUN=1` prints every gcloud/bq command instead of running it. Next come `deploy.sh dry`, then `enable` (see 90).",
+   "example": "DRYRUN=1 PROJECT=ci-project ./deploy.sh all  # prints the commands, runs nothing (the CI rehearsal)",
+   "tags": [
+    "lane-a"
+   ],
+   "source": [
+    "cloud_function_new_deals/deploy.sh:219",
+    "cloud_function_new_deals/deploy.sh:4-9",
+    ".github/workflows/ci.yml:22"
+   ],
+   "evidence_quote": "all) check_env; enable_apis; iam; tables; routines; secret; deploy; invoker ;;",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/deploy.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 219
+    },
+    {
+     "path": "cloud_function_new_deals/deploy.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 4,
+     "end": 9
+    },
+    {
+     "path": ".github/workflows/ci.yml",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 22
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 1,
+   "type": "output",
+   "level": 3,
+   "concept": "name_key() dealname fallback",
+   "question": "cloudbq · `name_key`: predict the exact return value of the call below.",
+   "code_snippet": "def name_key(p):\n    base = (p.get(\"final_customer\") or \"\").strip() or re.split(r\"[-/|(]\", p.get(\"dealname\") or \"\")[0]\n    return re.sub(r\"[^a-z0-9]\", \"\", base.lower())[:40]\n\nname_key({\"final_customer\": \" \", \"dealname\": \"Acme Corp. - Secure chip (2027)\"})",
+   "expected_output": "'acmecorp'",
+   "answer": "`'acmecorp'` — a blank `final_customer` falls back to the deal name cut at the first `-`, `/`, `|` or `(`, then lower-cased and stripped to `a-z0-9`.",
+   "explanation": "(1) `\" \".strip()` is empty, so the fallback runs. (2) The split keeps `\"Acme Corp. \"`. (3) Lower-casing and the regex drop the space and the dot. (4) `[:40]` changes nothing. The SQL twin in `deals_landed_v1` computes the same key; see 23 for its use.",
+   "confusables": "`dealname` — the raw label a salesperson typed; `name_key` is the NORMALISED customer token that two differently named deals can share.",
+   "tags": [
+    "grounded:logic",
+    "dedup"
+   ],
+   "source": [
+    "cloud_function_new_deals/main.py:299-301",
+    "sql/deals_landed_v1.sql:14-16"
+   ],
+   "evidence_quote": "return re.sub(r\"[^a-z0-9]\", \"\", base.lower())[:40]",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 299,
+     "end": 301
+    },
+    {
+     "path": "sql/deals_landed_v1.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 14,
+     "end": 16
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 2,
+   "type": "output",
+   "level": 3,
+   "concept": "call_batch() event NULLs",
+   "question": "cloudbq · `call_batch`: an event run has no window. Predict the argument list of the CALL statement it submits.",
+   "code_snippet": "# window = {\"mode\": \"event\", \"objectId\": \"2\"}  -> no watermark_in, query_start, query_end\nargs = []\nfor name in (\"watermark_in\", \"query_start\", \"query_end\"):\n    v = ts(window.get(name))\n    if v is None: args.append(\"NULL\")\n    else: args.append(\"@\" + name); params.append(...)\n# ...\nf\"CALL `...new_deals_batch`(@run_ts, @entity, @orchestrator, @mode, FALSE, NULL, {args[0]}, {args[1]}, {args[2]}, @started_ms, @gaps)\"",
+   "expected_output": "(@run_ts, @entity, @orchestrator, @mode, FALSE, NULL, NULL, NULL, NULL, @started_ms, @gaps)",
+   "answer": "Four NULLs in a row after FALSE: `p_state_report_id` plus the three missing window bounds, each written as the LITERAL `NULL`, never as a NULL-valued parameter.",
+   "explanation": "`FALSE` is `p_advance_state`: lane A keeps the lease and its own watermark. The event's `p_gaps` is `['event_no_window']`. A window run sends `@watermark_in, @query_start, @query_end` in the same three places.",
+   "tags": [
+    "grounded:test",
+    "event-mode"
+   ],
+   "source": [
+    "tests/test_main_offline.py:253",
+    "cloud_function_new_deals/main.py:243-248"
+   ],
+   "evidence_quote": "q.endswith(\"FALSE, NULL, NULL, NULL, NULL, @started_ms, @gaps)\")",
+   "source_refs": [
+    {
+     "path": "tests/test_main_offline.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 253
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 243,
+     "end": 248
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 3,
+   "type": "output",
+   "level": 3,
+   "concept": "Unknown entity guard",
+   "question": "cloudbq · `new_deals_report`: predict the tuple returned for the request below.",
+   "code_snippet": "# GET ?entity=acme        ENTITIES has two keys: \"SEALSQ\", \"ICALPS\"\nentity = (request.args.get(\"entity\") or body.get(\"entity\") or \"SEALSQ\").upper()\ndry = request.args.get(\"dry_run\") == \"1\" or body.get(\"dry_run\") is True\nif entity not in ENTITIES: return ({\"error\": f\"unknown entity {entity}\"}, 400)",
+   "expected_output": "({'error': 'unknown entity ACME'}, 400)",
+   "answer": "HTTP 400 with `unknown entity ACME` — the name is UPPER-cased first, then refused before any BigQuery client or HubSpot call is made.",
+   "explanation": "(1) `acme` is truthy, so the `SEALSQ` default is not used. (2) `.upper()` gives `ACME`. (3) It is not a key of `ENTITIES`. The guard sits above `client = bq()`: a typo costs nothing and writes no runs row.",
+   "tags": [
+    "grounded:logic",
+    "intended-error"
+   ],
+   "source": [
+    "cloud_function_new_deals/main.py:346-350",
+    "cloud_function_new_deals/main.py:57-60"
+   ],
+   "evidence_quote": "if entity not in ENTITIES: return ({\"error\": f\"unknown entity {entity}\"}, 400)",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 346,
+     "end": 350
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 57,
+     "end": 60
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 4,
+   "type": "output",
+   "level": 3,
+   "concept": "Tier boundary at 0.75",
+   "question": "cloudbq · view `deal_tiers_v1`: predict the `tier` of an OPEN deal whose certainty is exactly 0.75.",
+   "code_snippet": "-- certainty = 0.75, is_closed = FALSE, is_closed_won = FALSE\nCASE WHEN is_closed_won THEN 'Closed_won'\n     WHEN is_closed     THEN 'Closed_lost'\n     -- ...\n     WHEN certainty IS NULL THEN NULL\n     ELSE ['Tier4_pipeline', 'Tier3_opportunity', 'Tier2_opportunity', 'Tier1_opportunity'][OFFSET(RANGE_BUCKET(certainty, [0.5, 0.75, 0.9]))]\nEND AS tier",
+   "expected_output": "Tier2_opportunity",
+   "answer": "`Tier2_opportunity` — `RANGE_BUCKET(0.75, [0.5, 0.75, 0.9])` is 2: an edge belongs to the bucket ABOVE it, and the labels array runs from Tier4 up to Tier1.",
+   "explanation": "Certainty is a FRACTION (0-1), so the operator's 50 % / 75 % / 90 % are the edges 0.5 / 0.75 / 0.9. The test's reference binning uses `bisect_right`, the same semantics as `RANGE_BUCKET`; a NULL certainty is never tiered.",
+   "confusables": "`Tier3_opportunity` — the tempting answer if you think an edge closes the bucket BELOW it; 0.75 OPENS the bucket above.",
+   "tags": [
+    "grounded:test",
+    "l2-tiers"
+   ],
+   "source": [
+    "tests/test_deal_tiers.py:47",
+    "sql/deal_tiers_v1.sql:4-6",
+    "sql/deal_tiers_v1.sql:17-23"
+   ],
+   "evidence_quote": "assert tier_label(0.75) == \"Tier2_opportunity\"",
+   "source_refs": [
+    {
+     "path": "tests/test_deal_tiers.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 47
+    },
+    {
+     "path": "sql/deal_tiers_v1.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 4,
+     "end": 6
+    },
+    {
+     "path": "sql/deal_tiers_v1.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 17,
+     "end": 23
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 5,
+   "type": "locate",
+   "level": 1,
+   "concept": "new_deals_batch_rows",
+   "question": "Which cloudbq SQL object recomputes a past run's batch WITHOUT writing anything?",
+   "answer": "The table function `new_deals_batch_rows(run_ts, entity, orchestrator, window_start)` in `sql/deals_landed_v1.sql`.",
+   "explanation": "Pure and read-only: the in-scope deals of the slice, labels joined, `hot_score_v1` applied with `run_ts` as now, duplicates from the root. The procedure reads it into its TEMP table and dry runs render their payload from it.",
+   "example": "SELECT * FROM new_deals_batch_rows(X, 'SEALSQ', 'cloud-run-function', NULL)  -- the shaped, scored batch of run X, nothing written",
+   "confusables": "`new_deals_batch` (the procedure) — it WRITES (MERGE, history, runs row); `new_deals_batch_rows` only RETURNS the rows.",
+   "tags": [
+    "raw-root"
+   ],
+   "source": [
+    "sql/deals_landed_v1.sql:44-52",
+    "sql/new_deals_batch.sql:52-53"
+   ],
+   "evidence_quote": "Debug a past run X without writing: SELECT * FROM",
+   "source_refs": [
+    {
+     "path": "sql/deals_landed_v1.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 44,
+     "end": 52
+    },
+    {
+     "path": "sql/new_deals_batch.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 52,
+     "end": 53
+    }
+   ]
+  },
+  {
+   "category": 4,
+   "rank": 0,
+   "type": "locate",
+   "level": 1,
+   "concept": "The one write path",
+   "question": "Which is the ONLY object in cloudbq that MERGEs into `new_deals`?",
+   "answer": "The stored procedure `new_deals_batch` in `sql/new_deals_batch.sql` — every lane lands its slice, then CALLs it.",
+   "explanation": "The function neither MERGEs the sink nor writes the OK runs row; `tests/test_main_offline.py` asserts it. One SQL implementation replaced four live copies of the batch arithmetic. See 21 for its steps.",
+   "anchor": "A single turnstile into the stadium: three queues arrive by different streets, but every ticket is punched by the same machine.",
+   "tags": [
+    "procedure"
+   ],
+   "source": [
+    "sql/new_deals_batch.sql:1-2",
+    "tests/test_main_offline.py:180",
+    "CONVENTIONS.md:14-16"
+   ],
+   "evidence_quote": "the ONE write path of the new-deals pipeline, as a stored procedure",
+   "source_refs": [
+    {
+     "path": "sql/new_deals_batch.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 1,
+     "end": 2
+    },
+    {
+     "path": "tests/test_main_offline.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 180
+    },
+    {
+     "path": "CONVENTIONS.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 14,
+     "end": 16
+    }
+   ]
+  },
+  {
+   "category": 4,
+   "rank": 1,
+   "type": "compare",
+   "level": 2,
+   "concept": "hot_score() test oracle",
+   "question": "cloudbq: Python `hot_score()` vs the BigQuery UDF `hot_score_v1`: what is the ONE difference?",
+   "answer": "`hot_score_v1` is THE implementation every run executes since pass 3; `hot_score()` in `main.py` is ONLY a test oracle that nothing in the request path calls.",
+   "explanation": "Both must give the same score on the vectors of `tests/hot_score_vectors.json` (tolerance 0.1 in the generated SQL check). The constants live once in `scoring/hot_score_v1.constants.json`; a drift test compares them with `main.py`. A deal is hot at a score of 45 or more.",
+   "anchor": "A tailor's paper pattern pinned to the wall: every suit is cut by the machine; the pattern is only held against a finished suit to check it.",
+   "confusables": "`hot_score_v1` — the UDF computes EVERY production score; `hot_score()` only builds and checks the test vectors, so changing it alone changes no production score.",
+   "tags": [
+    "hot-score"
+   ],
+   "source": [
+    "cloud_function_new_deals/main.py:21-22",
+    "scoring/hot_score_v1.sql:1-4",
+    "tests/test_hot_score.py:81-91",
+    "cloud_function_new_deals/main.py:69"
+   ],
+   "evidence_quote": "shape() / hot_score() stay here as test oracles",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 21,
+     "end": 22
+    },
+    {
+     "path": "scoring/hot_score_v1.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 1,
+     "end": 4
+    },
+    {
+     "path": "tests/test_hot_score.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 81,
+     "end": 91
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 69
+    }
+   ]
+  },
+  {
+   "category": 4,
+   "rank": 2,
+   "type": "locate",
+   "level": 1,
+   "concept": "Write-back Cloud Run job",
+   "question": "Which cloudbq component writes the hot score back onto HubSpot deals?",
+   "answer": "`writeback/index.mjs`: a Node 22 Cloud Run JOB, no HTTP surface, that PATCHes the score in batches of 100.",
+   "explanation": "It writes the deal properties `hot_score_v1` / `hot_flag_v1`, reads the delta view `hot_deals_v1_writeback`, logs one row per deal to `writeback_log`, never sends a NULL score and stays DRY unless `WRITEBACK_APPROVE=1`. See 54 and 84.",
+   "confusables": "the Cloud Run function `new_deals_report` — a SERVICE that answers HTTP and only reads HubSpot; the write-back is a JOB with no URL, the only component that writes deal values to HubSpot.",
+   "tags": [
+    "lane-c",
+    "cloud-run-job"
+   ],
+   "source": [
+    "writeback/index.mjs:1-4",
+    "writeback/index.mjs:44-46",
+    "sql/hot_deals_v1.sql:24-32"
+   ],
+   "evidence_quote": "Node 22 Cloud Run *job*: no HTTP surface, started by Cloud Scheduler via jobs.run.",
+   "source_refs": [
+    {
+     "path": "writeback/index.mjs",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 1,
+     "end": 4
+    },
+    {
+     "path": "writeback/index.mjs",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 44,
+     "end": 46
+    },
+    {
+     "path": "sql/hot_deals_v1.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 24,
+     "end": 32
+    }
+   ]
+  },
+  {
+   "category": 5,
+   "rank": 0,
+   "type": "locate",
+   "level": 2,
+   "concept": "Asynchronous hand-off to BigQuery",
+   "question": "cloudbq · the owner's question: which function enables dbt-big-q to run asynchronously in the GCP platform?",
+   "answer": "`call_batch()` in `cloud_function_new_deals/main.py`: `client.query()` SUBMITS `CALL new_deals_batch(...)` as a BigQuery job that runs server-side; `job.result(timeout=CALL_TIMEOUT_S)` waits at most 240 s and `job.cancel()` stops the job on timeout.",
+   "explanation": "The asynchrony is JOB-based, not coroutine-based: there is no `async def` in the Python, and `new_deals_report` is a synchronous HTTP handler deployed with `--concurrency 1`. The landings use the same submit-then-wait pattern. Breaks if undone: without the cancel, a procedure outliving the request could land later as a surprise OK row. Second hand-off: see 54.",
+   "anchor": "A sender hands a parcel to the courier desk, takes the tracking slip and watches the clock: the courier works alone; after four minutes she recalls the parcel so nothing is delivered behind her back.",
+   "confusables": "`patchBatch()` in `writeback/index.mjs` — the only `async function` in the repo, but it awaits HubSpot HTTP calls in lane C's job; `call_batch()` hands the COMPUTE to BigQuery.",
+   "tags": [
+    "owner-question",
+    "bigquery-job"
+   ],
+   "source": [
+    "cloud_function_new_deals/main.py:248-254",
+    "cloud_function_new_deals/main.py:233-236",
+    "cloud_function_new_deals/main.py:341-342",
+    "writeback/index.mjs:22"
+   ],
+   "evidence_quote": "a procedure still running after the request gave up must not land later as a surprise OK row",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 248,
+     "end": 254
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 233,
+     "end": 236
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 341,
+     "end": 342
+    },
+    {
+     "path": "writeback/index.mjs",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 22
+    }
+   ]
+  },
+  {
+   "category": 5,
+   "rank": 1,
+   "type": "recall",
+   "level": 1,
+   "concept": "Lane A schedule",
+   "question": "When does Cloud Scheduler trigger cloudbq's lane A for each entity?",
+   "answer": "Mondays, Europe/Zurich: `0 7 * * 1` for SEALSQ and `20 7 * * 1` for ICALPS — 20 minutes apart.",
+   "explanation": "Both in the same minute was a bug (shared staging and 429s). Each job is an HTTP GET `?entity=E` with `--attempt-deadline 600s` and `--max-retry-attempts 3`; the jobs are created PAUSED (see 90).",
+   "confusables": "lane C's scheduled queries — `every monday 03:53` and `04:23` in UTC, which ignores DST; lane A's cron lines follow Europe/Zurich.",
+   "tags": [
+    "scheduler"
+   ],
+   "source": [
+    "cloud_function_new_deals/deploy.sh:22",
+    "cloud_function_new_deals/deploy.sh:132-134",
+    "docs/PASS1_SEQUENCE.md:126",
+    "sql/scheduled_query.sh:3-5"
+   ],
+   "evidence_quote": "\"${SCHEDULE_SEALSQ:=0 7 * * 1}\" \"${SCHEDULE_ICALPS:=20 7 * * 1}\"",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/deploy.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 22
+    },
+    {
+     "path": "cloud_function_new_deals/deploy.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 132,
+     "end": 134
+    },
+    {
+     "path": "docs/PASS1_SEQUENCE.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 126
+    },
+    {
+     "path": "sql/scheduled_query.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 3,
+     "end": 5
+    }
+   ]
+  },
+  {
+   "category": 5,
+   "rank": 2,
+   "type": "scenario",
+   "level": 3,
+   "concept": "Lease against overlapping runs",
+   "question": "cloudbq: a second live run for SEALSQ starts while the first still holds the lease. What does it answer, and what does it write?",
+   "answer": "HTTP 409 and NOTHING moves: `acquire_lease()` returns False because its guarded UPDATE of `lock_until` affects 0 rows, so there is no landing, no CALL and no watermark change.",
+   "explanation": "The lease is `lock_until = run_ts + LEASE_MINUTES` (default 12). After a crash that never released it, the next run also gets 409 until those minutes have passed: check with `deploy.sh status`. Dry runs take no lease.",
+   "example": "cloud_function_new_deals/deploy.sh status  # report_id, watermark, lock_until, updated_at",
+   "confusables": "`--max-instances 1 --concurrency 1` — it serialises requests on ONE service; the lease also stops a second CALLER, such as lane C's procedure advancing state.",
+   "tags": [
+    "lease",
+    "trap"
+   ],
+   "source": [
+    "cloud_function_new_deals/main.py:143-152",
+    "cloud_function_new_deals/main.py:361-364",
+    "tests/test_main_offline.py:238-241",
+    "cloud_function_new_deals/deploy.sh:202-205"
+   ],
+   "evidence_quote": "WHERE report_id = @rid AND (lock_until IS NULL OR lock_until < @ts)",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 143,
+     "end": 152
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 361,
+     "end": 364
+    },
+    {
+     "path": "tests/test_main_offline.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 238,
+     "end": 241
+    },
+    {
+     "path": "cloud_function_new_deals/deploy.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 202,
+     "end": 205
+    }
+   ]
+  },
+  {
+   "category": 5,
+   "rank": 3,
+   "type": "recall",
+   "level": 2,
+   "concept": "540 s time budget",
+   "question": "How many seconds can one cloudbq lane-A request spend at worst, and how is that figure built?",
+   "answer": "530 s, under Cloud Run's 540 s timeout: 4 landing jobs x `LAND_TIMEOUT_S` 45 + `CALL_TIMEOUT_S` 240 + 3 delivery tries x 30 + 20.",
+   "explanation": "The point of the time-boxes: a slow job must surface as a named failure INSIDE the request, with the lease released, never as a request killed by Cloud Run with the lease left set. The offline test pins 45 and 240. See 93 for the stale values in a document.",
+   "tags": [
+    "timeouts"
+   ],
+   "source": [
+    "cloud_function_new_deals/main.py:204-208",
+    "tests/test_main_offline.py:197",
+    "cloud_function_new_deals/deploy.sh:121"
+   ],
+   "evidence_quote": "Budget: 4 × 45 (landing) + CALL_TIMEOUT_S 240 + delivery 3 × 30 + 20 = 530 s < 540.",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 204,
+     "end": 208
+    },
+    {
+     "path": "tests/test_main_offline.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 197
+    },
+    {
+     "path": "cloud_function_new_deals/deploy.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 121
+    }
+   ]
+  },
+  {
+   "category": 5,
+   "rank": 4,
+   "type": "why",
+   "level": 2,
+   "concept": "jobs.run returns at once",
+   "question": "Why does cloudbq's write-back job exit non-zero on errors rather than rely on Cloud Scheduler's 3 retries?",
+   "answer": "Scheduler starts the job through `jobs.run`, which returns an Operation IMMEDIATELY: Scheduler sees success once the execution has started, so its retries cover only start failures. A non-zero exit makes Cloud Run's `--max-retries 2` re-run the task.",
+   "explanation": "Breaks if undone: a half-failed PATCH run would never be retried. The retry is cheap because OK rows are already in `writeback_log`, so the delta view offers only the rest. This is the repository's second asynchronous hand-off on GCP; see 50.",
+   "anchor": "A dispatcher who only checks that the taxi LEFT the rank: a breakdown on the road is the driver's own business, so the driver carries two spare tyres.",
+   "confusables": "lane A's Scheduler job — a plain HTTP GET that WAITS for the function's answer (deadline 600 s), so there Scheduler's retries DO re-run the work.",
+   "tags": [
+    "per-docs",
+    "cloud-run-job"
+   ],
+   "source": [
+    "writeback/index.mjs:57",
+    "writeback/deploy_job.sh:27-33",
+    "docs/discovery/scenario_C.md:601"
+   ],
+   "evidence_quote": "non-zero → Cloud Run retries the task (--max-retries); OK rows are logged, so the retry PATCHes only the rest",
+   "source_refs": [
+    {
+     "path": "writeback/index.mjs",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 57
+    },
+    {
+     "path": "writeback/deploy_job.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 27,
+     "end": 33
+    },
+    {
+     "path": "docs/discovery/scenario_C.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 601
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 0,
+   "type": "why",
+   "level": 2,
+   "concept": "Raw root, not an orchestrator",
+   "question": "Why does cloudbq fix its non-recomputable runs with a `run_ts`-keyed landing table rather than with another orchestrator?",
+   "answer": "Both lanes persisted their OUTPUTS per run but never their INPUTS. An orchestrator only sequences nodes; it cannot persist the node that is missing. Landing the inputs makes every later stage SQL over the root.",
+   "explanation": "Breaks if undone: `day1_hot_score`, `duplicate_of`, the labels and the delivered report of a past run cannot be recomputed from BigQuery. Three defects, one cause, so one table (plus `labels_raw`); it also let four live copies of the batch arithmetic shrink to one SQL implementation.",
+   "anchor": "Accountants argue over who should chair the audit while the real gap sits in the bin: nobody kept the receipts, so last month's total cannot be re-added.",
+   "confusables": "a DAG / orchestrator — it decides WHEN and in what order steps run; the raw root decides WHAT a past run can still be recomputed from.",
+   "tags": [
+    "raw-root"
+   ],
+   "source": [
+    "docs/PASS3_RAW_ROOT.md:163-189",
+    "README.md:35-36",
+    "cloud_function_new_deals/bigquery_schema.sql:41-45"
+   ],
+   "evidence_quote": "orchestrator sequences nodes; it does not persist the node that is missing",
+   "source_refs": [
+    {
+     "path": "docs/PASS3_RAW_ROOT.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 163,
+     "end": 189
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 35,
+     "end": 36
+    },
+    {
+     "path": "cloud_function_new_deals/bigquery_schema.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 41,
+     "end": 45
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 1,
+   "type": "why",
+   "level": 2,
+   "concept": "write_watermark() only after CALL",
+   "question": "Why must you NOT move `write_watermark()` ahead of `call_batch()` in cloudbq's `new_deals_report`?",
+   "answer": "A failure between the two would leave the watermark AHEAD of the data: the deals of that window would never be searched again. Advancing last means a failed run is simply retried on the next trigger with no gap.",
+   "explanation": "Breaks if undone: silent holes in `new_deals`, no error raised. With mark-last, a crashed run re-reads the same window and the MERGE on `deal_id` absorbs the repeats. The same UPDATE also clears the lease.",
+   "anchor": "A meter reader who notes the new reading in his book only AFTER the invoice has gone out: if the printer jams, next month's bill still starts from the old reading.",
+   "confusables": "`release_lease()` — it clears `lock_until` ONLY, on the failure path; `write_watermark()` moves the mark AND clears the lease, on success only.",
+   "tags": [
+    "watermark"
+   ],
+   "source": [
+    "cloud_function_new_deals/main.py:10",
+    "cloud_function_new_deals/main.py:378",
+    "cloud_function_new_deals/main.py:154-157",
+    "cloud_function_new_deals/main.py:390-395"
+   ],
+   "evidence_quote": "The watermark advances only after a successful MERGE → a failed run is retried on the next trigger with no gap.",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 10
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 378
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 154,
+     "end": 157
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 390,
+     "end": 395
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 2,
+   "type": "why",
+   "level": 2,
+   "concept": "Load first, delete older",
+   "question": "Why does cloudbq's `land_raw()` load the new rows first and then delete older rows of the same key rather than DELETE-then-INSERT?",
+   "answer": "A failure between the two jobs must never leave an EMPTY slice: with load-first the worst case is a doubled slice, which the table function reduces to one row per deal (latest `fetched_at`).",
+   "explanation": "Breaks if undone: a crash after the DELETE would erase a run's inputs, the very thing the raw root exists to keep. The delete is strict (`fetched_at < @f`), and landing runs outside the batch transaction so a failed batch still leaves its inputs queryable.",
+   "anchor": "A baker puts the fresh loaves on the shelf BEFORE taking yesterday's away: if the phone rings in between, the shelf holds two batches, never none.",
+   "confusables": "DELETE-then-INSERT — its failure window LOSES the slice; load-then-delete-older's failure window only DOUBLES it.",
+   "tags": [
+    "raw-root"
+   ],
+   "source": [
+    "cloud_function_new_deals/main.py:167",
+    "cloud_function_new_deals/main.py:186-188",
+    "sql/deals_landed_v1.sql:58",
+    "sql/land_raw.sql:6-7"
+   ],
+   "evidence_quote": "Load first, then drop older rows of the same key, so a failure between the two jobs never leaves an empty slice.",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 167
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 186,
+     "end": 188
+    },
+    {
+     "path": "sql/deals_landed_v1.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 58
+    },
+    {
+     "path": "sql/land_raw.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 6,
+     "end": 7
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 3,
+   "type": "scenario",
+   "level": 3,
+   "concept": "No streaming inserts",
+   "question": "cloudbq: someone replaces the load job in `land_raw()` with a streaming insert (`insert_rows_json`). What breaks on the next re-landing of the same key?",
+   "answer": "The slice DELETE: a streaming buffer blocks DML on its rows, so the delete-older step raises and the run fails as `raw_landing_failed`. That is why landings are LOAD jobs and audit rows are query INSERTs.",
+   "explanation": "The same rule protects `new_deals_runs`: the procedure every lane CALLs DELETEs and re-inserts the run's row there, so `write_run()` uses a query INSERT. Rule to keep: a table whose rows are later replaced by DML is never streamed into.",
+   "confusables": "`writeback_log` — the write-back job DOES stream into it (`table.insert`), which is safe only because nothing in the repo deletes from it.",
+   "tags": [
+    "trap",
+    "inferred"
+   ],
+   "source": [
+    "cloud_function_new_deals/main.py:168-169",
+    "cloud_function_new_deals/main.py:218",
+    "cloud_function_new_deals/main.py:373-374",
+    "writeback/index.mjs:50",
+    "sql/new_deals_batch.sql:87-88"
+   ],
+   "evidence_quote": "a streaming buffer would block the slice DELETE, see write_run",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 168,
+     "end": 169
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 218
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 373,
+     "end": 374
+    },
+    {
+     "path": "writeback/index.mjs",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 50
+    },
+    {
+     "path": "sql/new_deals_batch.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 87,
+     "end": 88
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 4,
+   "type": "why",
+   "level": 2,
+   "concept": "JSON properties column",
+   "question": "Why does cloudbq store a landed deal's properties as ONE JSON column rather than as typed columns?",
+   "answer": "Lane A delivers HubSpot strings, lane C typed sync values, and the property set keeps changing: with JSON a new property needs NO DDL and old slices stay readable. Typing happens once, with `SAFE_CAST`, in the view `deals_landed_v1`.",
+   "explanation": "Breaks if undone: with the rejected 28 typed columns, every `PROPS` change is a migration plus a view change and 'as delivered' is lost at the first cast. With `SAFE_CAST` in the view a malformed value reads NULL instead of failing the batch.",
+   "anchor": "A removals firm that tapes every box shut and labels only the room: sorting happens once, at the new house, whatever the family packed.",
+   "confusables": "typed columns — a schema change for every new property; the JSON column moves that change into ONE view.",
+   "tags": [
+    "raw-root"
+   ],
+   "source": [
+    "docs/PASS3_RAW_ROOT.md:226-230",
+    "sql/deals_landed_v1.sql:5-7",
+    "cloud_function_new_deals/bigquery_schema.sql:53"
+   ],
+   "evidence_quote": "with JSON a new property needs no DDL and old slices stay readable",
+   "source_refs": [
+    {
+     "path": "docs/PASS3_RAW_ROOT.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 226,
+     "end": 230
+    },
+    {
+     "path": "sql/deals_landed_v1.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 5,
+     "end": 7
+    },
+    {
+     "path": "cloud_function_new_deals/bigquery_schema.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 53
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 5,
+   "type": "why",
+   "level": 4,
+   "concept": "Lane A as production orchestrator",
+   "question": "Why does cloudbq recommend lane A (the Cloud Run function) as the production orchestrator rather than n8n owning the whole pipeline or BigQuery scheduled queries alone, and where do B and C still fit?",
+   "answer": "Verdict: A runs production; B and C keep only what they add. (1) A is the cheapest with the fewest parts and has the exact `createdate` window, read from HubSpot at run time. (2) n8n stays ONLY as the delivery tail B1; the whole-pipeline variant B2 is retired (D6). (3) C's compute plus write-back is added when the score must be visible INSIDE HubSpot; since pass 3 every lane CALLs the same `sql/new_deals_batch.sql`, so adding C adds no second arithmetic.",
+   "explanation": "Breaks if undone: n8n as owner needs a second shaper and scorer kept in parity by tests; scheduled queries alone read a daily full-refresh sync, so their window is a 14-day lookback rather than the exact watermark window.",
+   "anchor": "A relay team: the sprinter (A) runs the lap, the announcer (B) only reads out the result, the engraver (C) is called only when the score must be cut into the trophy.",
+   "confusables": "lane C as orchestrator — it computes from a SYNCED copy refreshed once a day; lane A reads HubSpot itself at run time.",
+   "tags": [
+    "lanes"
+   ],
+   "source": [
+    "docs/SCENARIOS.md:64-69",
+    "README.md:6-10",
+    "sql/new_deals_weekly.sql:8",
+    "sql/sync_transfer.sh:2-4"
+   ],
+   "evidence_quote": "Run **A** as the production orchestrator (cheapest, fewest parts, exact window, event path possible later)",
+   "source_refs": [
+    {
+     "path": "docs/SCENARIOS.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 64,
+     "end": 69
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 6,
+     "end": 10
+    },
+    {
+     "path": "sql/new_deals_weekly.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 8
+    },
+    {
+     "path": "sql/sync_transfer.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 2,
+     "end": 4
+    }
+   ]
+  },
+  {
+   "category": 7,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "report_state row per report_id",
+   "question": "Which BigQuery table holds cloudbq's watermark and lease?",
+   "answer": "`report_state`: one row per `report_id` (`NEW_DEALS_<entity>`) with `watermark` and the lease `lock_until`.",
+   "explanation": "`deploy.sh replay ENTITY FROM_ISO` rewinds lane A's watermark and runs once; the MERGE on `deal_id` keeps the replay idempotent. `deploy.sh status` prints the rows.",
+   "anchor": "A library index card carrying a date stamp and a 'reserved until' slip: one card per reader, nothing else in the drawer.",
+   "confusables": "`NEW_DEALS_<entity>_C` — lane C's OWN state row, advanced inside the procedure; lane A's row is moved only by the function.",
+   "tags": [
+    "watermark",
+    "lease"
+   ],
+   "source": [
+    "cloud_function_new_deals/bigquery_schema.sql:5-8",
+    "cloud_function_new_deals/main.py:140",
+    "sql/new_deals_weekly.sql:39-41",
+    "cloud_function_new_deals/deploy.sh:187-193"
+   ],
+   "evidence_quote": "lock_until TIMESTAMP -- lease: one run per report_id at a time",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/bigquery_schema.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 5,
+     "end": 8
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 140
+    },
+    {
+     "path": "sql/new_deals_weekly.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 39,
+     "end": 41
+    },
+    {
+     "path": "cloud_function_new_deals/deploy.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 187,
+     "end": 193
+    }
+   ]
+  },
+  {
+   "category": 7,
+   "rank": 1,
+   "type": "locate",
+   "level": 1,
+   "concept": "new_deals_runs audit row",
+   "question": "Which cloudbq table gets one summary row per run, including dry and failed runs?",
+   "answer": "`new_deals_runs` — the procedure writes it (`OK` / `FAILED`); the function only if the procedure never could.",
+   "explanation": "Columns that matter on re-entry: `status`, `error`, `rows_written`, `dry_run`, `data_gaps`. A failed delivery amends the row to `OK_DELIVERY_FAILED`. `deploy.sh probe` lists the last ten.",
+   "confusables": "`new_deals_history` — one row per DEAL per run (the slice); `new_deals_runs` is one SUMMARY row per run.",
+   "tags": [
+    "audit"
+   ],
+   "source": [
+    "cloud_function_new_deals/bigquery_schema.sql:20-28",
+    "cloud_function_new_deals/main.py:27-28",
+    "cloud_function_new_deals/main.py:387",
+    "cloud_function_new_deals/deploy.sh:199-200"
+   ],
+   "evidence_quote": "One row per run (window, event or dry",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/bigquery_schema.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 20,
+     "end": 28
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 27,
+     "end": 28
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 387
+    },
+    {
+     "path": "cloud_function_new_deals/deploy.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 199,
+     "end": 200
+    }
+   ]
+  },
+  {
+   "category": 7,
+   "rank": 2,
+   "type": "cloze",
+   "level": 2,
+   "concept": "Procedure watermark never rewinds",
+   "question": "cloudbq · procedure `new_deals_batch`: complete the assignment that stops a replayed older run from rewinding the state.",
+   "cloze": "WHEN MATCHED THEN UPDATE SET watermark = {{c1::GREATEST(t.watermark, s.watermark)}}, updated_at = CURRENT_TIMESTAMP()",
+   "answer": "GREATEST(t.watermark, s.watermark)",
+   "explanation": "It runs only when `p_advance_state` is TRUE (lane C's scheduled script), INSIDE the same transaction as the MERGE, so 'state only after the MERGE' is enforced by the engine.",
+   "confusables": "`write_watermark()` — lane A's own UPDATE to `run_ts`, issued by the function AFTER the CALL returns; the procedure's GREATEST runs INSIDE the batch transaction.",
+   "tags": [
+    "watermark",
+    "procedure"
+   ],
+   "source": [
+    "sql/new_deals_batch.sql:96-101",
+    "sql/new_deals_weekly.sql:42-46"
+   ],
+   "evidence_quote": "WHEN MATCHED THEN UPDATE SET watermark = GREATEST(t.watermark, s.watermark), updated_at = CURRENT_TIMESTAMP()",
+   "source_refs": [
+    {
+     "path": "sql/new_deals_batch.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 96,
+     "end": 101
+    },
+    {
+     "path": "sql/new_deals_weekly.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 42,
+     "end": 46
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 0,
+   "type": "recall",
+   "level": 2,
+   "concept": "Scheduler OIDC identity",
+   "question": "What makes Cloud Scheduler able to call cloudbq's private Cloud Run service?",
+   "answer": "An OIDC token: each Scheduler job signs its GET as the function's own service account, which holds `roles/run.invoker` on the service, with the service URL as the token audience.",
+   "explanation": "The service is deployed `--no-allow-unauthenticated`, so the `invoker` step grants the role first and then creates the two jobs. The URL is read from `status.url` and used both as `--uri` base and as audience.",
+   "anchor": "A night porter who opens only for a badge issued by the building itself, and only if the badge names THIS door.",
+   "confusables": "`--oauth-service-account-email` on the write-back's Scheduler job — an OAuth token for the Google API `jobs.run`; OIDC is for calling YOUR service URL.",
+   "tags": [
+    "scheduler",
+    "iam"
+   ],
+   "source": [
+    "cloud_function_new_deals/deploy.sh:126-134",
+    "cloud_function_new_deals/deploy.sh:30",
+    "writeback/deploy_job.sh:33"
+   ],
+   "evidence_quote": "--oidc-service-account-email \"$(sa)\" --oidc-token-audience \"$u\"",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/deploy.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 126,
+     "end": 134
+    },
+    {
+     "path": "cloud_function_new_deals/deploy.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 30
+    },
+    {
+     "path": "writeback/deploy_job.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 33
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 1,
+   "type": "cloze",
+   "level": 1,
+   "concept": "Function deploy flags",
+   "question": "cloudbq: complete the flags that keep the function private and single-flight in `deploy.sh deploy`.",
+   "cloze": "gcloud run deploy \"$FN\" ... --source \"$HERE\" --function new_deals_report --base-image python312 {{c1::--no-allow-unauthenticated}} ... --timeout 540 --memory 512Mi {{c2::--max-instances 1 --concurrency 1}}",
+   "answer": "--no-allow-unauthenticated · --max-instances 1 --concurrency 1",
+   "explanation": "Private: only an identity holding `roles/run.invoker` can call it (see 80). One instance, one request at a time: two entity runs cannot interleave on the service; the lease covers the rest (see 52).",
+   "tags": [
+    "cloud-run"
+   ],
+   "source": [
+    "cloud_function_new_deals/deploy.sh:118-122"
+   ],
+   "evidence_quote": "--timeout 540 --memory 512Mi --max-instances 1 --concurrency 1",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/deploy.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 118,
+     "end": 122
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 2,
+   "type": "recall",
+   "level": 1,
+   "concept": "HUBSPOT_TOKEN source",
+   "question": "Where does cloudbq's function get `HUBSPOT_TOKEN` from at run time?",
+   "answer": "Secret Manager: the secret `hubspot-token`, a pinned version, mounted with `--set-secrets`; NEVER from `.env`.",
+   "explanation": "`deploy.sh check-env` dies if `.env` holds a `HUBSPOT_TOKEN` line; the token is given in the shell only for the `secret` step, which creates the secret or adds a version. The write-back job reads a separate secret, `hubspot-token-write`.",
+   "tags": [
+    "secrets"
+   ],
+   "source": [
+    "cloud_function_new_deals/deploy.sh:39-41",
+    "cloud_function_new_deals/deploy.sh:93-104",
+    "cloud_function_new_deals/deploy.sh:116",
+    "writeback/deploy_job.sh:30"
+   ],
+   "evidence_quote": "HUBSPOT_TOKEN belongs in the shell for the secret step only, never in .env",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/deploy.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 39,
+     "end": 41
+    },
+    {
+     "path": "cloud_function_new_deals/deploy.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 93,
+     "end": 104
+    },
+    {
+     "path": "cloud_function_new_deals/deploy.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 116
+    },
+    {
+     "path": "writeback/deploy_job.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 30
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 3,
+   "type": "recall",
+   "level": 1,
+   "concept": "DTS HubSpot sync",
+   "question": "Which Google service copies HubSpot deals into BigQuery for cloudbq's lane C, and how often?",
+   "answer": "The BigQuery Data Transfer Service HubSpot connector: a FULL refresh of Deals + Owners every day at 02:00 UTC.",
+   "explanation": "Lane C's scheduled queries (Mondays 03:53 and 04:23 UTC) refuse a sync older than 36 h: they write an `ABORTED` runs row with `sync_stale` and raise.",
+   "confusables": "lane A's `search_created()` — it reads HubSpot's API at run time; the DTS sync is a COPY that can be up to a day old.",
+   "tags": [
+    "lane-c"
+   ],
+   "source": [
+    "sql/sync_transfer.sh:2-4",
+    "sql/new_deals_weekly.sql:18-24",
+    "sql/sync_transfer.sh:19-21"
+   ],
+   "evidence_quote": "full refresh on every run). Creates or reports the transfer config for assets Deals + Owners, daily 02:00 UTC",
+   "source_refs": [
+    {
+     "path": "sql/sync_transfer.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 2,
+     "end": 4
+    },
+    {
+     "path": "sql/new_deals_weekly.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 18,
+     "end": 24
+    },
+    {
+     "path": "sql/sync_transfer.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 19,
+     "end": 21
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 4,
+   "type": "scenario",
+   "level": 3,
+   "concept": "WRITEBACK_APPROVE reset on redeploy",
+   "question": "cloudbq: after you redeploy the write-back job, HubSpot scores stop changing and `writeback_log` shows only `DRY` rows. What happened, and what is the fix?",
+   "answer": "The redeploy reset `WRITEBACK_APPROVE` to the `.env` value, default 0, and the job is DRY whenever the variable is not exactly `1`. Fix: run `writeback/deploy_job.sh live` again, and set `WRITEBACK_APPROVE=1` in `.env` so the next deploy keeps it.",
+   "explanation": "`deploy_job.sh deploy` always passes the variable in `--set-env-vars`; `live` only flips it on the deployed job, so the next deploy overwrites it. In dry mode every candidate is logged with status `DRY` and nothing is PATCHed.",
+   "example": "writeback/deploy_job.sh live  # gcloud run jobs update ... --update-env-vars WRITEBACK_APPROVE=1",
+   "tags": [
+    "trap",
+    "lane-c"
+   ],
+   "source": [
+    "writeback/deploy_job.sh:13",
+    "writeback/deploy_job.sh:29",
+    "writeback/deploy_job.sh:38",
+    "writeback/index.mjs:9"
+   ],
+   "evidence_quote": "a redeploy resets WRITEBACK_APPROVE to the .env value (default 0 = dry)",
+   "source_refs": [
+    {
+     "path": "writeback/deploy_job.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 13
+    },
+    {
+     "path": "writeback/deploy_job.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 29
+    },
+    {
+     "path": "writeback/deploy_job.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 38
+    },
+    {
+     "path": "writeback/index.mjs",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 9
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Dry gate before enable",
+   "question": "Which cloudbq command is the gate before the schedulers are enabled, and what must it show?",
+   "answer": "`deploy.sh dry`: `?dry_run=1` for both entities must return `rows_written == 0` and `dry_run` true.",
+   "explanation": "If an assertion fails the script dies with 'dry run failed — do not enable the schedulers'. The two Scheduler jobs are created PAUSED by `invoker`; only `deploy.sh enable` resumes them. See 24 for what a dry run writes.",
+   "example": "deploy.sh dry  # then: deploy.sh run SEALSQ, deploy.sh probe, deploy.sh enable",
+   "anchor": "A pilot's run-up at the end of the runway: engines roar, every gauge is read, the wheels never leave the ground; the tower clears take-off only after that.",
+   "tags": [
+    "dry-run"
+   ],
+   "source": [
+    "cloud_function_new_deals/deploy.sh:155-169",
+    "cloud_function_new_deals/deploy.sh:138-139",
+    "cloud_function_new_deals/deploy.sh:173-177"
+   ],
+   "evidence_quote": "assert p.get(\"rows_written\") == 0, \"dry run wrote rows\"",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/deploy.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 155,
+     "end": 169
+    },
+    {
+     "path": "cloud_function_new_deals/deploy.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 138,
+     "end": 139
+    },
+    {
+     "path": "cloud_function_new_deals/deploy.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 173,
+     "end": 177
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 1,
+   "type": "recall",
+   "level": 1,
+   "concept": "Nothing has run on GCP yet",
+   "question": "What has cloudbq actually executed against Google Cloud so far?",
+   "answer": "NOTHING: every step is rehearsed offline only (`bash -n`, `DRYRUN=1`, the tests); the Evidence sections are empty.",
+   "explanation": "So every 'verified' claim is an offline test or a rendered command; CI repeats the rehearsal with a placeholder project. A `bq --dry_run` of a CALL proves existence and signature only, so the batch logic stays unproven until the vectors run in a dev dataset. See 99.",
+   "tags": [
+    "per-docs",
+    "status"
+   ],
+   "source": [
+    "docs/PASS1_SEQUENCE.md:9-10",
+    ".github/workflows/ci.yml:22",
+    "docs/PASS3_RAW_ROOT.md:404-411"
+   ],
+   "evidence_quote": "Pass 1 has not run against Google Cloud yet. Every command below was rehearsed offline",
+   "source_refs": [
+    {
+     "path": "docs/PASS1_SEQUENCE.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 9,
+     "end": 10
+    },
+    {
+     "path": ".github/workflows/ci.yml",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 22
+    },
+    {
+     "path": "docs/PASS3_RAW_ROOT.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 404,
+     "end": 411
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 2,
+   "type": "scenario",
+   "level": 3,
+   "concept": "json.dumps() lands a scalar",
+   "question": "cloudbq: a refactor makes `land_raw()` send `json.dumps(d[\"properties\"])` instead of the dict. What happens to that run's batch?",
+   "answer": "The batch keeps its rows but LOSES every value typed from the JSON: names NULL, amounts 0 (`IFNULL`), `name_key` '' so no duplicate can match, and a score computed from the promoted `pipeline_id` alone. Cause: the JSON column receives a string scalar instead of an object, so `JSON_VALUE(properties, '$.dealname')` and its siblings in `deals_landed_v1` find no keys and read NULL.",
+   "explanation": "Guard: `test_landing_lands_the_whole_search_with_ddl_columns` asserts that the landed `properties` is a dict. The docstring states the rule: the dict itself, never `json.dumps()`.",
+   "tags": [
+    "trap",
+    "inferred",
+    "raw-root"
+   ],
+   "source": [
+    "cloud_function_new_deals/main.py:168",
+    "tests/test_main_offline.py:313",
+    "sql/deals_landed_v1.sql:12",
+    "sql/deals_landed_v1.sql:14-16",
+    "sql/deals_landed_v1.sql:77-78",
+    "sql/deals_landed_v1.sql:90-92"
+   ],
+   "evidence_quote": "`properties` is the dict itself — never json.dumps() — so the JSON column receives an inline object",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 168
+    },
+    {
+     "path": "tests/test_main_offline.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 313
+    },
+    {
+     "path": "sql/deals_landed_v1.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 12
+    },
+    {
+     "path": "sql/deals_landed_v1.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 14,
+     "end": 16
+    },
+    {
+     "path": "sql/deals_landed_v1.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 77,
+     "end": 78
+    },
+    {
+     "path": "sql/deals_landed_v1.sql",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 90,
+     "end": 92
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 3,
+   "type": "recall",
+   "level": 1,
+   "concept": "Timeout defaults drift",
+   "question": "cloudbq's `docs/PASS3_RAW_ROOT.md` still gives `LAND_TIMEOUT_S` 90 s and `CALL_TIMEOUT_S` 300 s in places; which defaults does the code pin?",
+   "answer": "45 s and 240 s — `main.py` reads them as defaults and `tests/test_main_offline.py` asserts both.",
+   "explanation": "With 90 and 300 the worst case would be 4 x 90 + 300 + 90 + 20 = 770 s, far over Cloud Run's 540 s, and a killed request leaves the lease set. Code wins; see 53.",
+   "tags": [
+    "drift",
+    "timeouts"
+   ],
+   "source": [
+    "cloud_function_new_deals/main.py:208",
+    "cloud_function_new_deals/main.py:250",
+    "tests/test_main_offline.py:197",
+    "docs/PASS3_RAW_ROOT.md:37",
+    "docs/PASS3_RAW_ROOT.md:122"
+   ],
+   "evidence_quote": "return int(os.environ.get(\"LAND_TIMEOUT_S\", \"45\"))",
+   "source_refs": [
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 208
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 250
+    },
+    {
+     "path": "tests/test_main_offline.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 197
+    },
+    {
+     "path": "docs/PASS3_RAW_ROOT.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 37
+    },
+    {
+     "path": "docs/PASS3_RAW_ROOT.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 122
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 4,
+   "type": "scenario",
+   "level": 4,
+   "concept": "Event path unreachable",
+   "question": "cloudbq must show a new deal within minutes of its creation instead of on Monday. Which mechanism blocks the event path that already exists in `new_deals_report`, and what is the smallest change?",
+   "answer": "Verdict: the code is ready, the door is shut. (1) `POST {objectId, mode: event}` already lands ONE deal, CALLs with mode `event` and never touches the watermark or the lease. (2) Blocker: the service is deployed `--no-allow-unauthenticated`, and a HubSpot workflow webhook cannot present a Google OIDC token. (3) Smallest change: a relay that holds a Google identity (the n8n lane B) or a public route that validates the HubSpot signature; lane A itself stays private.",
+   "explanation": "The docstring of `main.py` still calls the event mode near-real-time; as deployed, new deals appear only at the weekly window run. An event slice is one deal, so two events in the same second never delete each other.",
+   "confusables": "`?dry_run=1` — also leaves the watermark alone, but its caller (the operator, `deploy.sh dry`) holds a Google identity; the event POST's intended caller, a HubSpot workflow webhook, CANNOT authenticate.",
+   "tags": [
+    "event-mode",
+    "per-docs"
+   ],
+   "source": [
+    "docs/PASS1_SEQUENCE.md:123-124",
+    "cloud_function_new_deals/main.py:355-357",
+    "cloud_function_new_deals/deploy.sh:120",
+    "docs/PASS2_L2_TIERS.md:100",
+    "cloud_function_new_deals/main.py:15"
+   ],
+   "evidence_quote": "a HubSpot workflow webhook cannot present a Google OIDC token to a private service",
+   "source_refs": [
+    {
+     "path": "docs/PASS1_SEQUENCE.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 123,
+     "end": 124
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 355,
+     "end": 357
+    },
+    {
+     "path": "cloud_function_new_deals/deploy.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 120
+    },
+    {
+     "path": "docs/PASS2_L2_TIERS.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 100
+    },
+    {
+     "path": "cloud_function_new_deals/main.py",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 15
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 9,
+   "type": "scenario",
+   "level": 4,
+   "concept": "Resume: first authenticated run",
+   "question": "cloudbq: you return after six months and want the first real weekly report. What is the next step, and what must hold before the schedulers are enabled?",
+   "answer": "Next step: run pass 1 for real, phase by phase, from `docs/RUNBOOK_CLOUD_SHELL.md`. (1) Apply tables and routines BEFORE deploying: the function CALLs the procedure from its first request. (2) Run the vectors check (`tests/pass3_batch_vectors.sql`) in a dev dataset: the first authenticated proof of the UDF, the adapter view and the table function; it does not CALL the procedure. (3) `deploy.sh dry` must pass for both entities, then one live `run` and `probe`, and only then `enable`; paste the outputs into the empty Evidence sections.",
+   "explanation": "Why this first: every claim in the repository is still an offline rehearsal (see 91). After it, the open items are lane C's first sync run and the write-back going live (`writeback/deploy_job.sh live`).",
+   "tags": [
+    "status"
+   ],
+   "source": [
+    "README.md:39",
+    "docs/PASS3_RAW_ROOT.md:155-159",
+    "cloud_function_new_deals/deploy.sh:169",
+    "docs/PASS1_SEQUENCE.md:9-10",
+    "README.md:10",
+    "docs/PASS3_RAW_ROOT.md:84-89"
+   ],
+   "evidence_quote": "Next: the authenticated checks and the first live runs.",
+   "source_refs": [
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 39
+    },
+    {
+     "path": "docs/PASS3_RAW_ROOT.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 155,
+     "end": 159
+    },
+    {
+     "path": "cloud_function_new_deals/deploy.sh",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 169
+    },
+    {
+     "path": "docs/PASS1_SEQUENCE.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 9,
+     "end": 10
+    },
+    {
+     "path": "README.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 10
+    },
+    {
+     "path": "docs/PASS3_RAW_ROOT.md",
+     "branch": "main",
+     "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+     "line": 84,
+     "end": 89
+    }
+   ]
+  }
+ ]
+}

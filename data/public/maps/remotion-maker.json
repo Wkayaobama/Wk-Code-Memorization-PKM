@@ -1,0 +1,555 @@
+{
+ "slug": "remotion-maker",
+ "repo": "Wkayaobama/remotion-maker",
+ "title": "Remotion Maker - brand video workflow + SEALCOIN 75 s promo",
+ "one_liner": "A repeatable workflow that turns a website's brand identity plus an operator script into a Remotion explainer video rendered in 30-second chunks; sealcoin-promo is its first full instance.",
+ "purpose": "The owner makes short motion-graphics explainer videos in code (Remotion = React components rendered frame by frame to MP4). The repo holds two things. First, a reusable 'Brand Video Maker' pipeline (workflow/): decompose a brand into a 12-section token dictionary, take the operator's script through a hard gate, scaffold a Remotion app, build scenes and procedural SVG assets, then render in 1800-frame chunks and verify the files with ffprobe. Second, sealcoin-promo/: a finished 75-second, 8-scene explainer for the Eco Wave Power x SEALCOIN x SEALSQ renewable-energy marketplace proof of concept, built by following that pipeline. The earlier H2Evo hydrogen-water promo is the exemplar the workflow was distilled from; its design system survives as root workflow.md, but its code (h2-promo/) is deliberately excluded from this repository.",
+ "domain": "Programmatic video rendering / motion graphics",
+ "status": "paused",
+ "stack": [
+  "TypeScript 5.9",
+  "React 19.2",
+  "Remotion 4.0.438 (pinned)",
+  "@remotion/transitions",
+  "@remotion/google-fonts",
+  "@remotion/renderer + @remotion/bundler",
+  "Electron 40 + Electron Forge (Vite plugin)",
+  "Tailwind CSS 4 (Electron UI only)",
+  "ESLint 9 (@remotion/eslint-config-flat)",
+  "Node ESM scripts",
+  "ffmpeg / ffprobe"
+ ],
+ "aliases": [
+  "remotion maker",
+  "the brand video maker",
+  "the sealcoin promo",
+  "the chunked render thing",
+  "the H2Evo video workflow",
+  "the Eco Wave Power video"
+ ],
+ "entry_points": [
+  {
+   "command": "npm run studio   (cwd sealcoin-promo)",
+   "what": "Starts Remotion Studio for local preview: the master composition SealcoinPromo plus the three chunk compositions are all scrubbable.",
+   "path": "sealcoin-promo/package.json:49"
+  },
+  {
+   "command": "npm run lint",
+   "what": "eslint (ignoring .vite and out) followed by tsc --noEmit; must be clean before any render.",
+   "path": "sealcoin-promo/package.json:60"
+  },
+  {
+   "command": "npm run render:chunks",
+   "what": "Runs render:chunk1..3 in sequence: remotion render SealcoinChunk0N out/sealcoin-chunk-0N.mp4 --muted (30 s / 30 s / 15 s).",
+   "path": "sealcoin-promo/package.json:55"
+  },
+  {
+   "command": "npm run render:full",
+   "what": "Single-pass 75 s reference render of SealcoinPromo to out/sealcoin-promo-full.mp4, muted.",
+   "path": "sealcoin-promo/package.json:56"
+  },
+  {
+   "command": "npm run concat",
+   "what": "Joins every out/sealcoin-chunk-NN.mp4 into out/sealcoin-promo-75s.mp4 with the ffmpeg concat demuxer and stream copy (no re-encode).",
+   "path": "sealcoin-promo/scripts/concat-chunks.mjs:32"
+  },
+  {
+   "command": "npm run verify:media",
+   "what": "ffprobes each chunk and the concatenated file and fails unless video-stream durations match the chunk map within one frame.",
+   "path": "sealcoin-promo/scripts/verify-media.mjs:45"
+  },
+  {
+   "command": "npm run dev",
+   "what": "electron-forge start: opens the inherited Electron render UI. Its export button is known broken in this project (see gotchas).",
+   "path": "sealcoin-promo/package.json:48"
+  }
+ ],
+ "architecture": [
+  {
+   "component": "Workflow pipeline docs",
+   "path": "workflow/README.md",
+   "responsibility": "Defines the six stages (0 checkpoint, 1 brand decomposition, 2 script intake, 3 scaffold, 4 scenes + assets, 5 chunked render + verify), the hard rules and the Remotion version caveat. Each stage ends in a commit and a reviewable artifact.",
+   "talks_to": [
+    "Brand decomposition template",
+    "Scene manifest template",
+    "Chunk render runbook"
+   ]
+  },
+  {
+   "component": "Templates and runbook",
+   "path": "workflow/CHUNK-RENDER.md",
+   "responsibility": "CHUNK-RENDER.md is the render/verify runbook with the learned caveats; BRAND-DECOMPOSITION.template.md and SCENE-MANIFEST.template.md are the blank forms a new project fills in.",
+   "talks_to": [
+    "sealcoin-promo docs"
+   ]
+  },
+  {
+   "component": "H2Evo exemplar design system",
+   "path": "workflow.md",
+   "responsibility": "Completed 12-section key=value design dictionary from the H2Evo promo (colours, type, shape, motion, layout, scenes, assets, copy, production rules). Reference for every later brand decomposition. Step1-4.md and Agents.md are the original phase prompts.",
+   "talks_to": [
+    "Brand decomposition template"
+   ]
+  },
+  {
+   "component": "Operator script",
+   "path": "sealcoin/synopsis.md",
+   "responsibility": "Read-only ground truth for the SEALCOIN video: summary, seven steps to illustrate, and the section 3 timed map of eight segments from 0 to 75 s that fixes every scene duration and every on-screen line.",
+   "talks_to": [
+    "Scene manifest",
+    "manifest.ts"
+   ]
+  },
+  {
+   "component": "Project docs (BRAND / SCENE-MANIFEST / script)",
+   "path": "sealcoin-promo/docs/BRAND.md",
+   "responsibility": "Human-readable instances of the templates: brand tokens with [V]/[I] provenance, the scene table tracing each on-screen line to the script, and the chunk math worksheet. They mirror the code; the code wins on disagreement.",
+   "talks_to": [
+    "theme.ts",
+    "manifest.ts"
+   ]
+  },
+  {
+   "component": "Design tokens",
+   "path": "sealcoin-promo/remotion/theme.ts",
+   "responsibility": "COLORS, FONTS, FONT_SIZES, SPRING, DURATIONS (motion micro-timing) and VIDEO (1920x1080 at 60 fps). Tokens only: no scene timing lives here.",
+   "talks_to": [
+    "manifest.ts",
+    "components",
+    "assets",
+    "scenes"
+   ]
+  },
+  {
+   "component": "Timing manifest",
+   "path": "sealcoin-promo/remotion/manifest.ts",
+   "responsibility": "Single source of truth for timing: SCENES, TRANSITION_FRAMES, CHUNK_FRAMES, TOTAL_FRAMES, seriesDuration, sceneStart, CHUNKS, plus a module-scope drift guard that throws when the scenes stop summing to 4500 frames.",
+   "talks_to": [
+    "Root.tsx",
+    "SealcoinPromo",
+    "SealcoinChunk"
+   ]
+  },
+  {
+   "component": "Composition registry",
+   "path": "sealcoin-promo/remotion/Root.tsx",
+   "responsibility": "Loads the three Google Fonts before registration, then registers the master composition and one composition per entry of CHUNKS. index.ts calls registerRoot on it.",
+   "talks_to": [
+    "manifest.ts",
+    "theme.ts",
+    "Remotion Studio / CLI"
+   ]
+  },
+  {
+   "component": "Master composition",
+   "path": "sealcoin-promo/remotion/SealcoinPromo.tsx",
+   "responsibility": "Maps SCENES onto a TransitionSeries with 12-frame fade transitions, looking each scene component up in SCENE_COMPONENTS by manifest id.",
+   "talks_to": [
+    "manifest.ts",
+    "scenes"
+   ]
+  },
+  {
+   "component": "Chunk window",
+   "path": "sealcoin-promo/remotion/SealcoinChunk.tsx",
+   "responsibility": "Wraps the master in a Sequence shifted back by fromFrame so chunk frame 0 shows master frame fromFrame. This is what makes chunk boundaries continuous.",
+   "talks_to": [
+    "SealcoinPromo"
+   ]
+  },
+  {
+   "component": "Scenes, assets and reusable components",
+   "path": "sealcoin-promo/remotion/scenes/SceneAutonomy.tsx",
+   "responsibility": "Eight scene files (ocean, identity, marketplace, autonomy, trust, scale, pqc, finale) compose seven generic components (SceneBackdrop, AnimatedText, FadeSlideIn, GlowCircle, Bubble, BubbleField, StatCallout) and eight procedural SVG assets (WaveField, WaveEnergyUnit, IdentityShield, MarketNetwork, BuyerIcon, SequenceChips, CheckItem, HexBadge).",
+   "talks_to": [
+    "theme.ts"
+   ]
+  },
+  {
+   "component": "Concat and verify scripts",
+   "path": "sealcoin-promo/scripts/verify-media.mjs",
+   "responsibility": "Plain Node ESM helpers: concat-chunks.mjs discovers chunk files in out/ and stream-copies them into one MP4; verify-media.mjs asserts probed durations against the expected chunk map.",
+   "talks_to": [
+    "ffmpeg",
+    "ffprobe",
+    "out/ directory"
+   ]
+  },
+  {
+   "component": "Electron shell (inherited template)",
+   "path": "sealcoin-promo/src/main.ts",
+   "responsibility": "Electron main/preload/renderer plus render-video.ts and forge.config.ts from the Remotion Electron template. Kept only for structure parity with h2-promo; the render button still targets the template's HelloWorld composition.",
+   "talks_to": [
+    "@remotion/renderer",
+    "@remotion/bundler"
+   ]
+  },
+  {
+   "component": "Vendored Remotion skill",
+   "path": "skills-lock.json",
+   "responsibility": "Third-party remotion-best-practices rule set (SKILL.md plus 38 files under .agents/skills/remotion-best-practices/rules/) pulled from remotion-dev/skills and pinned by hash in skills-lock.json. Reference material, not the owner's code.",
+   "talks_to": []
+  }
+ ],
+ "data_flow": [
+  "1. Stage 0 checkpoint: commit and push the baseline before starting a new video.",
+  "2. Stage 1 brand decomposition: probe the brand website (computed styles) and fill docs/BRAND.md, tagging every value [VERIFIED] or [INFERRED]; for SEALCOIN the verified items are the orange #FF9C1E, the Poppins and Bai Jamjuree fonts and the hexagon + lightning-bolt logo geometry.",
+  "3. Stage 2 script gate: the operator supplies the script (sealcoin/synopsis.md). Its timed map is used as-is; docs/SCENE-MANIFEST.md lists each scene with seconds, frames (seconds x 60) and on-screen copy traced to a script line. Until a script exists, scenes are only neutral timing stubs.",
+  "4. Stage 3 scaffold: copy the h2-promo app structure, write BRAND.md tokens into remotion/theme.ts and the scene durations into remotion/manifest.ts.",
+  "5. manifest.ts derives everything else: TOTAL_FRAMES = sum of scene durations (4500), CHUNKS = ceil(4500 / 1800) = 3 windows, and it throws 'Manifest drift' at import time if the total is not EXPECTED_TOTAL_FRAMES.",
+  "6. Stage 4 scenes: each scene wraps content in SceneBackdrop (gradient, glow, particles) and places text components and SVG assets with frame delays; all colours, fonts and springs come from theme.ts.",
+  "7. SealcoinPromo lays the scenes on a TransitionSeries; each scene except the last is lengthened by the 12-frame crossfade so the overlaps cancel and the timeline is still exactly 4500 frames.",
+  "8. Root.tsx registers SealcoinPromo (4500 f) and SealcoinChunk01/02/03 (1800 / 1800 / 900 f), each chunk being the master shifted by -fromFrame.",
+  "9. Stage 5 render: npm run lint, then npm run render:chunks writes out/sealcoin-chunk-01..03.mp4 with --muted.",
+  "10. npm run concat stream-copies the chunks into out/sealcoin-promo-75s.mp4; npm run verify:media probes the video stream of every file and asserts 30 s / 30 s / 15 s / 75 s within one frame.",
+  "11. Boundary proof: a still of the master at frame k x 1800 and a still of chunk k+1 at frame 0 must be byte-identical PNGs."
+ ],
+ "key_functions": [
+  {
+   "name": "SCENES",
+   "path": "sealcoin-promo/remotion/manifest.ts:24",
+   "signature": "export const SCENES: readonly SceneSpec[]",
+   "does": "The eight scene specs (id, label, durationInFrames, scriptRef). Retiming or reordering the video means editing this array and nothing else in the Remotion tree.",
+   "expected_output": "Durations in order: ocean 480, identity 540, marketplace 660, autonomy 720, trust 540, scale 660, pqc 540, finale 360 = 4500 frames (75 s)."
+  },
+  {
+   "name": "seriesDuration",
+   "path": "sealcoin-promo/remotion/manifest.ts:44",
+   "signature": "export const seriesDuration = (index: number): number",
+   "does": "Duration handed to TransitionSeries.Sequence: the scene's script-true length plus TRANSITION_FRAMES for every scene except the last, because a crossfade overlaps two neighbours and would otherwise shorten the timeline.",
+   "input_example": "seriesDuration(0); seriesDuration(7)",
+   "expected_output": "492 (480 + 12) and 360 (last scene, no extension). Sum of all eight = 4584; 4584 - 7 x 12 = 4500."
+  },
+  {
+   "name": "sceneStart",
+   "path": "sealcoin-promo/remotion/manifest.ts:49",
+   "signature": "export const sceneStart = (index: number): number",
+   "does": "Script-true start frame of a scene: the sum of the durations before it (segment boundary, not the TransitionSeries offset).",
+   "input_example": "sceneStart(3)",
+   "expected_output": "1680 (480 + 540 + 660), i.e. the autonomy scene starts at 28 s."
+  },
+  {
+   "name": "CHUNKS",
+   "path": "sealcoin-promo/remotion/manifest.ts:59",
+   "signature": "export const CHUNKS: readonly ChunkSpec[]",
+   "does": "Computes the render windows: ceil(TOTAL_FRAMES / CHUNK_FRAMES) entries with a 1-based index, a zero-padded composition id, fromFrame = i x 1800 and a duration capped by what is left.",
+   "expected_output": "[{index 1, id SealcoinChunk01, fromFrame 0, durationInFrames 1800}, {index 2, SealcoinChunk02, 1800, 1800}, {index 3, SealcoinChunk03, 3600, 900}]"
+  },
+  {
+   "name": "Manifest drift guard",
+   "path": "sealcoin-promo/remotion/manifest.ts:70",
+   "signature": "if (TOTAL_FRAMES !== EXPECTED_TOTAL_FRAMES) throw new Error(...)",
+   "does": "Module-scope check that fails Studio and every render loudly when the scene durations no longer sum to the script's 75 s.",
+   "expected_output": "Error message starting 'Manifest drift: scene durations sum to <n> frames, expected 4500.'"
+  },
+  {
+   "name": "SealcoinChunk",
+   "path": "sealcoin-promo/remotion/SealcoinChunk.tsx:14",
+   "signature": "export const SealcoinChunk: React.FC<{ fromFrame: number }>",
+   "does": "Renders the master inside <Sequence from={-fromFrame} durationInFrames={TOTAL_FRAMES}>. A negative 'from' shifts the master back in time, so the chunk is a window onto the same timeline and never a separate edit.",
+   "input_example": "fromFrame = 1800",
+   "expected_output": "Chunk frame 0 shows master frame 1800."
+  },
+  {
+   "name": "SealcoinPromo",
+   "path": "sealcoin-promo/remotion/SealcoinPromo.tsx:30",
+   "signature": "export const SealcoinPromo: React.FC",
+   "does": "Master composition. flatMaps SCENES into TransitionSeries.Sequence elements (duration from seriesDuration) with a fade() transition of linearTiming TRANSITION_FRAMES between consecutive scenes; components come from the SCENE_COMPONENTS record keyed by SceneId."
+  },
+  {
+   "name": "RemotionRoot",
+   "path": "sealcoin-promo/remotion/Root.tsx:16",
+   "signature": "export const RemotionRoot: React.FC",
+   "does": "Registers the compositions. Fonts (Poppins, Inter, Bai Jamjuree) are loaded at module top before registration so no frame renders with a fallback font; chunk compositions get defaultProps { fromFrame }.",
+   "expected_output": "Four compositions: SealcoinPromo plus SealcoinChunk01, SealcoinChunk02, SealcoinChunk03, all 1920x1080 at 60 fps."
+  },
+  {
+   "name": "SceneBackdrop",
+   "path": "sealcoin-promo/remotion/components/SceneBackdrop.tsx:23",
+   "signature": "export const SceneBackdrop: React.FC<SceneBackdropProps>",
+   "does": "The standard scene canvas implementing the three depth layers: vertical gradient bgDeep to bgSurface, one or two pulsing GlowCircles, a BubbleField of particles, then the scene's children on top."
+  },
+  {
+   "name": "AnimatedText",
+   "path": "sealcoin-promo/remotion/components/AnimatedText.tsx:53",
+   "signature": "export const AnimatedText: React.FC<AnimatedTextProps>",
+   "does": "Text that enters on the smooth spring (damping 200): opacity 0 to 1 and translateY 30 px to 0, delayed by 'delay' frames. A variant (headline, subheadline, body, stats, caption) picks size, weight and font from the theme."
+  },
+  {
+   "name": "seededRandom",
+   "path": "sealcoin-promo/remotion/components/BubbleField.tsx:14",
+   "signature": "const seededRandom = (seed: number) => number",
+   "does": "Deterministic pseudo-random (fraction of sin(seed x 9301 + 49297) x 233280) used for particle position, size, speed and delay, so every render and every chunk draws identical particles. Math.random would break chunk continuity."
+  },
+  {
+   "name": "MarketNetwork",
+   "path": "sealcoin-promo/remotion/assets/MarketNetwork.tsx:41",
+   "signature": "export const MarketNetwork: React.FC<MarketNetworkProps>  // hub, nodes[], delay, edgeColor, pulses, labelSize",
+   "does": "Parameterised hub-and-satellites graph reused by four scenes (marketplace, autonomy, scale, finale). The hub pops in on the snappy spring, edges grow from the hub with a 6-frame stagger, nodes pop on the bouncy spring, and optional pulses travel each edge on a 90-frame loop."
+  },
+  {
+   "name": "SequenceChips",
+   "path": "sealcoin-promo/remotion/assets/SequenceChips.tsx:20",
+   "signature": "export const SequenceChips: React.FC<{ steps: string[]; delay?: number; color?: string; stepEvery?: number }>",
+   "does": "Chip rail for IDENTIFY, DISCOVER, VERIFY, TRANSACT, SETTLE, RECORD. Chips pop in staggered, then a highlight moves one chip every stepEvery (34) frames and wraps round, reading as an automated sequence.",
+   "input_example": "SceneAutonomy: 6 steps, delay 70",
+   "expected_output": "Sweep starts at scene frame 130 (70 + 6 x 6 + 24)."
+  },
+  {
+   "name": "concat-chunks.mjs",
+   "path": "sealcoin-promo/scripts/concat-chunks.mjs:12",
+   "signature": "node scripts/concat-chunks.mjs",
+   "does": "Lists out/ for files matching sealcoin-chunk-<digits>.mp4, sorts them, writes out/concat-list.txt and runs ffmpeg -f concat -safe 0 -c copy. Uses 'npx remotion ffmpeg' unless the env var FFMPEG is set to 'ffmpeg'.",
+   "expected_output": "out/sealcoin-promo-75s.mp4; exits 1 with 'No chunk files found in out/' when nothing was rendered."
+  },
+  {
+   "name": "verify-media.mjs probe loop",
+   "path": "sealcoin-promo/scripts/verify-media.mjs:26",
+   "signature": "const probe = (file) => number  // seconds",
+   "does": "Runs ffprobe with -select_streams v:0 -show_entries stream=duration and compares against the expected chunk durations with a tolerance of 1/60 s. Uses 'npx remotion ffprobe' unless FFPROBE is set to 'ffprobe'.",
+   "expected_output": "Expected 30.00 s, 30.00 s, 15.00 s for the chunks and 75.00 s for sealcoin-promo-75s.mp4; prints 'All media checks passed.' or exits 1."
+  },
+  {
+   "name": "renderVideo",
+   "path": "sealcoin-promo/src/render-video.ts:90",
+   "signature": "export const renderVideo = async ({ isPackaged, outputPath, projectRoot, titleText, onUpdate, cancelSignal }) => Promise<RenderResult>",
+   "does": "Inherited Electron render path: ensureBrowser, bundle or reuse the prebuilt bundle, selectComposition, renderMedia with h264, reporting progress and honouring cancellation. Not usable here because compositionId is still the template value 'HelloWorld'."
+  }
+ ],
+ "infra": [
+  {
+   "topic": "Runtime",
+   "detail": "Everything runs locally on the owner's machine (Windows paths in the docs): Remotion Studio for preview, the Remotion CLI for renders. No CI workflow, no cloud deployment, no Dockerfile in the repository.",
+   "path": "sealcoin-promo/README.md:10"
+  },
+  {
+   "topic": "Version pin",
+   "detail": "remotion, @remotion/cli, @remotion/renderer and @remotion/bundler are pinned to exactly 4.0.438; react and react-dom 19.2.3; electron 40.8.0; typescript 5.9.3. An 'upgrade' script (remotion upgrade) exists but the workflow treats the pin as authoritative.",
+   "path": "sealcoin-promo/package.json:19"
+  },
+  {
+   "topic": "CLI render config",
+   "detail": "remotion.config.ts sets the intermediate frame format to jpeg and overwrite-output to true. It applies to CLI and Studio only; the Node renderMedia() API ignores it.",
+   "path": "sealcoin-promo/remotion.config.ts:10"
+  },
+  {
+   "topic": "ffmpeg / ffprobe selection",
+   "detail": "Scripts default to the binaries bundled with Remotion (npx remotion ffmpeg / ffprobe). Setting env FFMPEG=ffmpeg or FFPROBE=ffprobe switches to system binaries; the runbook asks to record which was used.",
+   "path": "sealcoin-promo/scripts/concat-chunks.mjs:28"
+  },
+  {
+   "topic": "Browser download",
+   "detail": "The first render on a machine downloads Chrome Headless Shell and must be allowed once.",
+   "path": "workflow/CHUNK-RENDER.md:21"
+  },
+  {
+   "topic": "Electron packaging (inherited)",
+   "detail": "forge.config.ts packageAfterCopy pre-bundles the Remotion project into remotion-bundle/, stages the platform compositor package into app.asar.unpacked, and packs Chrome Headless Shell only when REMOTION_ELECTRON_PACKAGE_BROWSER=true (not supported for macOS universal builds).",
+   "path": "sealcoin-promo/forge.config.ts:172"
+  },
+  {
+   "topic": "Git hygiene",
+   "detail": "Root .gitignore (lines 6-8) excludes node_modules/, out/, .vite/, .specstory/ and the whole h2-promo/ directory because that folder owns its own nested git repo; the pristine copy lives outside this repo. Rendered MP4s are therefore never committed.",
+   "path": "workflow/README.md:5"
+  },
+  {
+   "topic": "Vendored agent skill",
+   "detail": "skills-lock.json pins the remotion-best-practices skill (source remotion-dev/skills, github) by computed hash; the files live under .agents/skills/.",
+   "path": "skills-lock.json:4"
+  }
+ ],
+ "decisions": [
+  {
+   "decision": "Render chunks are registered compositions that window the master timeline, not separately edited videos.",
+   "why": "With <Sequence from={-fromFrame}> every chunk shows the same frames the master would, so chunk boundaries are pixel-continuous by construction and the split can fall anywhere, even mid-scene.",
+   "alternative_rejected": "Building or cutting each 30 s chunk as its own edit.",
+   "evidence": "workflow/README.md:25"
+  },
+  {
+   "decision": "One timing source of truth: scene durations live only in remotion/manifest.ts; theme.ts holds design tokens only.",
+   "why": "The H2Evo exemplar kept a SCENES table in its theme that drifted from the real durations in the master composition. A single source plus a module-scope throw makes drift impossible to miss.",
+   "alternative_rejected": "Scene timing inside theme.ts (theme.SCENES).",
+   "evidence": "workflow/README.md:23"
+  },
+  {
+   "decision": "Hard script gate: scene visuals and copy are built only from the operator's script, never inferred.",
+   "why": "Final on-screen copy must be ground truth. Until the script is provided, scenes are neutral timing stubs; once the decomposition is approved the build switches to auto-mode.",
+   "alternative_rejected": "Letting the assistant draft the narrative and copy from the website.",
+   "evidence": "workflow/SCENE-MANIFEST.template.md:6-9"
+  },
+  {
+   "decision": "Every brand token and on-screen line carries provenance: VERIFIED (seen on the live site or in the script) or INFERRED (proposed, needs sign-off).",
+   "why": "Keeps observed brand facts separate from art-direction guesses; inferred values are never silently promoted and stay retunable in one file.",
+   "alternative_rejected": "An untagged token dictionary.",
+   "evidence": "workflow/README.md:22"
+  },
+  {
+   "decision": "Semantic colour role names (accentPrimary / Secondary / Tertiary) instead of brand-substance names.",
+   "why": "A name like accentHydrogen does not survive a brand swap; role names let the same components serve the next brand unchanged.",
+   "alternative_rejected": "accentHydrogen-style keys from the H2Evo theme.",
+   "evidence": "workflow/README.md:24"
+  },
+  {
+   "decision": "Dark canvas for the SEALCOIN video although the live site is light (white background, black text).",
+   "why": "Art-direction choice tagged inferred: standard for kinetic explainers, fits the script's ocean and night-infrastructure imagery, and lets the verified orange accent carry the brand.",
+   "alternative_rejected": "Mirroring the site's light theme.",
+   "evidence": "sealcoin-promo/docs/BRAND.md:5"
+  },
+  {
+   "decision": "Procedural SVG assets only; partner names are styled text wordmarks.",
+   "why": "Assets must be parameterised, flat-filled from theme tokens, layered for independent animation and scene-agnostic; drawing a partner's logo would be fabricating brand artwork.",
+   "alternative_rejected": "Raster images or recreated partner logos.",
+   "evidence": "workflow/README.md:26"
+  },
+  {
+   "decision": "When a vendored skill rule and the pinned Remotion version disagree, the pinned version wins.",
+   "why": "The remotion-best-practices rules describe newer APIs that do not exist at 4.0.438, notably Sequence premountFor, which had to be stripped from the H2Evo project.",
+   "alternative_rejected": "Following the skill rules verbatim or upgrading Remotion mid-project.",
+   "evidence": "workflow/README.md:30"
+  },
+  {
+   "decision": "Render chunks with --muted and concatenate by stream copy.",
+   "why": "Without --muted Remotion embeds a silent AAC track slightly longer than the video; the concat demuxer aligns on the longest stream and leaves gaps of about three frames at each boundary. Stream copy avoids re-encoding.",
+   "alternative_rejected": "Unmuted chunk renders, or a re-encoding concat.",
+   "evidence": "workflow/CHUNK-RENDER.md:39"
+  },
+  {
+   "decision": "Verify by artifacts, not exit codes, and assert on the video stream duration.",
+   "why": "A clean exit proves nothing; the MP4 with the right probed duration is the proof. Format duration includes container overhead (chunk 1 read 30.059 s) while the stream is frame-exact (30.000 s, 1800 frames).",
+   "alternative_rejected": "Trusting the render's exit status or ffprobe format=duration.",
+   "evidence": "workflow/CHUNK-RENDER.md:35-40"
+  }
+ ],
+ "gotchas": [
+  {
+   "issue": "Chunks rendered without --muted carry a silent AAC track longer than the video.",
+   "consequence": "The concatenated file gets timestamp gaps of about three frames at every boundary (75.117 s instead of 75.000 s).",
+   "fix_or_guard": "All render scripts pass --muted while the composition has no audio.",
+   "path": "sealcoin-promo/package.json:52"
+  },
+  {
+   "issue": "ffprobe format=duration over-reports because of MP4 muxing overhead.",
+   "consequence": "A correct 1800-frame chunk looks like 30.059 s and fails a one-frame tolerance.",
+   "fix_or_guard": "verify-media.mjs probes -select_streams v:0 stream=duration.",
+   "path": "sealcoin-promo/scripts/verify-media.mjs:29"
+  },
+  {
+   "issue": "The Electron export button is broken: render-video.ts hardcodes composition id 'HelloWorld', which Root.tsx does not register (types.ts still only holds HelloWorldProps).",
+   "consequence": "Rendering from the Electron UI fails at selectComposition.",
+   "fix_or_guard": "Render through the npm CLI scripts; the src/ tree is kept only for parity with the template.",
+   "path": "sealcoin-promo/src/render-video.ts:25"
+  },
+  {
+   "issue": "Retiming is not truly one-file: verify-media.mjs repeats CHUNK_FRAMES and EXPECTED_TOTAL_FRAMES, package.json has exactly three render:chunkN scripts, and the concat output name contains '75s'.",
+   "consequence": "Changing the total length or chunk count without touching these leaves stale checks, an unrendered chunk or a misleading file name.",
+   "fix_or_guard": "Only a 'keep in sync' comment guards it; update manifest.ts (SCENES and EXPECTED_TOTAL_FRAMES), verify-media.mjs and package.json together.",
+   "path": "sealcoin-promo/scripts/verify-media.mjs:10"
+  },
+  {
+   "issue": "The vendored remotion-best-practices rules use APIs missing at the 4.0.438 pin (for example Sequence premountFor, shown in .agents/skills/remotion-best-practices/rules/sequencing.md line 15).",
+   "consequence": "Code written from the skill fails type-checking; ten usages had to be stripped in the H2Evo project.",
+   "fix_or_guard": "Pinned version wins; run npm run lint before rendering.",
+   "path": "workflow/README.md:30"
+  },
+  {
+   "issue": "remotion.config.ts is ignored by the Node renderMedia() API.",
+   "consequence": "Settings such as the jpeg frame format do not apply to the Electron render path.",
+   "fix_or_guard": "Pass options explicitly when using the Node API.",
+   "path": "sealcoin-promo/remotion.config.ts:2"
+  },
+  {
+   "issue": "Root-level briefs are stale and mixed: Agents.md and Step2/Step4 describe the H2Evo hydrogen-water video, Step1 still says the topic is Mars, and task.md tracks an h2-promo build that is gitignored here.",
+   "consequence": "Reading the root files first gives the wrong idea of what the repository currently contains; the H2Evo code is not in this repo.",
+   "fix_or_guard": "Start from workflow/README.md and sealcoin-promo/README.md.",
+   "path": "task.md:1"
+  },
+  {
+   "issue": "One benign lint warning in theme.ts: the @remotion/non-pure-animation rule pattern-matches the token name 'transition:'.",
+   "consequence": "Looks like a real finding but is a false positive.",
+   "fix_or_guard": "Documented as known and inherited from h2-promo.",
+   "path": "sealcoin-promo/README.md:27"
+  }
+ ],
+ "glossary": [
+  {
+   "term": "Remotion",
+   "meaning": "React framework where a video is a function of the current frame; compositions are rendered frame by frame in a headless browser and encoded to MP4."
+  },
+  {
+   "term": "Composition",
+   "meaning": "A registered renderable video (id, component, duration, fps, size). This project registers one master and three chunks."
+  },
+  {
+   "term": "Master composition",
+   "meaning": "SealcoinPromo: the full 4500-frame, 75 s timeline that all chunks window."
+  },
+  {
+   "term": "Chunk",
+   "meaning": "A 1800-frame (30 s at 60 fps) window onto the master, registered as its own composition so it can be rendered separately; the last chunk may be partial."
+  },
+  {
+   "term": "Manifest",
+   "meaning": "remotion/manifest.ts, the code-truth for scene and chunk timing. docs/SCENE-MANIFEST.md is only its human mirror."
+  },
+  {
+   "term": "Drift guard",
+   "meaning": "The module-scope throw in manifest.ts that fires when scene durations stop summing to EXPECTED_TOTAL_FRAMES."
+  },
+  {
+   "term": "Script gate",
+   "meaning": "Hard stop at stage 2: no scene visuals or copy until the operator provides the script."
+  },
+  {
+   "term": "[V] / [I] provenance",
+   "meaning": "VERIFIED (observed on the live site, in computed CSS, or stated in the operator's script) versus INFERRED (proposed by the assistant, needs sign-off)."
+  },
+  {
+   "term": "Brand decomposition",
+   "meaning": "The 12-section key=value token dictionary (identity, colour, type, shape, background, icons, motion, layout, scenes, assets, copy, production) written to docs/BRAND.md."
+  },
+  {
+   "term": "TransitionSeries",
+   "meaning": "@remotion/transitions component that plays sequences back to back with overlapping transitions; each overlap shortens the total, hence seriesDuration."
+  },
+  {
+   "term": "Script-true",
+   "meaning": "A duration taken directly from the script's timed map (seconds x 60), as opposed to an inferred or series-extended one."
+  },
+  {
+   "term": "Auto-mode",
+   "meaning": "After the script is received and the decomposition approved, scenes, assets and chunked render run without stopping for review at each step."
+  },
+  {
+   "term": "H2Evo / h2-promo",
+   "meaning": "The earlier hydrogen-water promo (10 s, 5 scenes) that served as exemplar and structural template; its code is outside this repo."
+  },
+  {
+   "term": "PoC",
+   "meaning": "The Eco Wave Power x SEALCOIN x SEALSQ proof of concept: wave-generated energy offered to buyers through a machine-to-machine marketplace with hardware-rooted identity."
+  },
+  {
+   "term": "Safe zone",
+   "meaning": "80 px margin on all sides of the 1920x1080 canvas where no critical content may sit."
+  }
+ ],
+ "relations": [
+  {
+   "project": "cloudbq",
+   "relation": "Shared business context only: its discovery docs treat SEALCOIN as one of the SEALSQ deal pipelines; this repo makes the marketing video for that same product line."
+  },
+  {
+   "project": "presentation-builder",
+   "relation": "Loose parallel: both turn a brief into a visual deliverable through evidence-traced, staged artifacts, and its crm-three-scenarios brief mentions the SEALCOIN pipeline. No shared code."
+  }
+ ],
+ "directions": [
+  "Add audio: the scene manifest says all voice-over text is production metadata only in this pass, and task.md lists voiceover integration as future work. Chunks would then need audio-aware concat instead of --muted.",
+  "Make retiming genuinely one-file: have verify-media.mjs and the render scripts read chunk count and totals from manifest.ts (or a generated JSON) instead of repeating 1800 / 4500 and three hardcoded scripts.",
+  "Repair or remove the Electron shell: point render-video.ts at SealcoinPromo (or a chosen chunk) and drop HelloWorldProps, or delete src/ and forge config if CLI rendering is the only path.",
+  "Turn the workflow into a real scaffolder: stage 3 is currently a manual copy of h2-promo, which is not even in this repo; a template directory or generator would make the next brand video start in minutes.",
+  "Clean the root: Agents.md, Step1-4.md and task.md still describe H2Evo and Mars; move them under an exemplar folder and write a real root README (currently a single heading).",
+  "Resolve the inferred tokens: the secondary cyan, tertiary green, dark backgrounds and Inter body font are all tagged inferred and await operator sign-off."
+ ],
+ "confidence": "high",
+ "coverage_notes": "Read in full: workflow/ (README, runbook, both templates), root workflow.md, Agents.md, Step1-4, task.md, the sealcoin-promo README, package.json, docs (BRAND, SCENE-MANIFEST, script), manifest.ts, theme.ts, Root, SealcoinPromo, SealcoinChunk, all seven components, six of eight scenes fully (identity and marketplace partly), MarketNetwork, SequenceChips, WaveField, IdentityShield, both scripts, src/main.ts, render-video.ts, remotion-bundle.ts, preload, electron-api and the forge packaging hook. Skimmed: BuyerIcon, CheckItem, HexBadge, WaveEnergyUnit, App.tsx, packaged-browser.ts, synopsis.md. Skipped: the 38 vendored skill rule files (third-party), ressources/1studio.md (a copy of Remotion's Studio docs page), package-lock.json. Single branch, single shallow commit ('Phase 6: chunked render pipeline verified frame-exact'). Nothing was executed, so the frame-exact render claims come from the runbook, not from my own check. Rendered outputs (out/) and the h2-promo exemplar code are not in the repository."
+}

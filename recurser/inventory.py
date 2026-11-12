@@ -75,18 +75,29 @@ def retention(days_since_touch: float, mastery: float = 0.0) -> float:
 # --------------------------------------------------------------------------
 # Loading
 # --------------------------------------------------------------------------
+def is_public(visibility) -> bool:
+    """Fail closed: a repository is public only when it says exactly that.  ``PRIVATE``, ``internal``,
+    a missing value, a boolean or a typo all count as private."""
+    return isinstance(visibility, str) and visibility.strip().lower() == "public"
+
+
+def normal_visibility(rec: dict) -> str:
+    """'public' or 'private' for one record, from ``visibility`` or the ``private`` / ``isPrivate`` booleans."""
+    visibility = rec.get("visibility")
+    if visibility is None and ("private" in rec or "isPrivate" in rec):
+        visibility = "private" if rec.get("private", rec.get("isPrivate")) else "public"
+    return "public" if is_public(visibility) else "private"
+
+
 def _norm(rec: dict) -> dict:
     """Normalise one repository record from any supported source."""
     name = rec.get("name") or (rec.get("full_name") or rec.get("nameWithOwner") or "").split("/")[-1]
-    visibility = rec.get("visibility")
-    if visibility is None:
-        private = rec.get("private", rec.get("isPrivate"))
-        visibility = "private" if private else "public"
+    visibility = normal_visibility(rec)
     pushed = rec.get("pushed_at") or rec.get("pushedAt") or rec.get("updated_at") or ""
     out = {
         "name": name,
         "pushed_at": pushed,
-        "visibility": str(visibility).lower(),
+        "visibility": visibility,
         "fork": bool(rec.get("fork", rec.get("isFork", False))),
     }
     for src, dst in (("description", "description"), ("language", "language"), ("html_url", "url"), ("url", "url"),
@@ -104,8 +115,10 @@ def load_snapshot(path: str) -> list[dict]:
             for row in csv.reader(fh, delimiter="\t"):
                 if not row or row[0].startswith("#"):
                     continue
-                repos.append({"name": row[0], "pushed_at": row[1], "visibility": row[2],
-                              "fork": len(row) > 3 and row[3] in ("1", "true", "True")})
+                if len(row) < 3:
+                    raise ValueError(f"{path}: a snapshot row needs name, pushed_at and visibility ({row!r})")
+                repos.append({"name": row[0].strip(), "pushed_at": row[1].strip(), "visibility": "public" if is_public(row[2]) else "private",
+                              "fork": len(row) > 3 and row[3].strip().lower() in ("1", "true", "yes")})
         return repos
     with open(path, encoding="utf-8") as fh:
         data = json.load(fh)

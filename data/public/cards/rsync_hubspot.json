@@ -1,0 +1,660 @@
+{
+ "slug": "rsync_hubspot",
+ "cards": [
+  {
+   "category": 0,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "mr-load plan scaffold",
+   "question": "rsync_hubspot: what is `mr-load/`, the one directory this rsync fork was made for?",
+   "answer": "The PLAN and Phase-5 skeletons for loading the Miraex estate into HubSpot, replicating the icalps loading system.",
+   "explanation": "Miraex = legacy CRM entities plus a document library that exists only as a Google Drive account with no index. The upstream rsync C sources are unrelated. Only the rclone sync, the path indexer and the staging DDL are code; every other phase is a plan.",
+   "anchor": "A borrowed toolbox full of someone else's file-copy tools; taped under the lid is your own hand-drawn map for carrying one firm's archive into the CRM.",
+   "confusables": "cf. [private project]: the SUCCESSOR repo where the Miraex load was actually built; rsync_hubspot holds only the plan and the Phase-5 skeletons.",
+   "tags": [
+    "per-docs"
+   ],
+   "source": [
+    "mr-load/README.md:3-11",
+    "mr-load/README.md:44-54"
+   ],
+   "evidence_quote": "`mr-load` replicates the proven **icalps loading system** for a new source estate",
+   "source_refs": [
+    {
+     "path": "mr-load/README.md",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 3,
+     "end": 11
+    },
+    {
+     "path": "mr-load/README.md",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 44,
+     "end": 54
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 1,
+   "type": "recall",
+   "level": 1,
+   "concept": "Gate before live write",
+   "question": "rsync_hubspot (mr-load): which one-sentence safety invariant governs every phase of the plan?",
+   "answer": "NOTHING writes to the live portal without passing its phase gate; every run is a dry-run by default.",
+   "explanation": "Inherited from icalps as non-negotiable: dry-run default, preview == execution, ledgers everywhere, sandbox-first, portal constants discovered and never copied. The one executable instance here is the sync script's `--live` switch (see 30).",
+   "tags": [
+    "per-docs",
+    "dry-run-default"
+   ],
+   "source": [
+    "mr-load/PLAN.md:5",
+    "mr-load/README.md:56-67"
+   ],
+   "evidence_quote": "Nothing writes to the live portal without passing its gates.",
+   "source_refs": [
+    {
+     "path": "mr-load/PLAN.md",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 5
+    },
+    {
+     "path": "mr-load/README.md",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 56,
+     "end": 67
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 0,
+   "type": "trace",
+   "level": 3,
+   "concept": "Seven-phase sequential flow",
+   "question": "rsync_hubspot · mr-load plan: recite the 7 phases from Phase 0 to Phase 6 in execution order.",
+   "steps": [
+    "Phase 0 Foundations -> write path fixed, `miraex_*` id properties, staging schema, sandbox",
+    "Phase 1 Companies -> every legacy company loaded once, checked against duplicates",
+    "Phase 2 Fair contacts -> loaded without dedup, idempotent through a deterministic key",
+    "Phase 3 Associations -> cardinality and blast radius assessed BEFORE any link is written",
+    "Phase 4 Deals -> loaded only after the property set and pipeline/stage IDs exist",
+    "Phase 5 Library -> rclone mirror, path index, file-to-company FK, two-phase upload",
+    "Phase 6 Two-way sync -> internal sync independent of the vendor mirror, shadow mode first"
+   ],
+   "answer": "foundations · companies · fair contacts · associations · deals · library · two-way sync",
+   "explanation": "Phase 0 is run by the operator and blocks every agent team. Parents (companies, contacts) load before the links, and the library comes late because each file needs a loaded company to attach to. Only Phase 5 steps 1-2 have runnable scripts here (the staging DDL is declared, with no loader).",
+   "anchor": "Moving day into a new tower: pour the slab, seat the firms, let in the expo visitors, string badges between them, wheel in the contracts, shelve the archive, switch on a lift that runs both ways.",
+   "tags": [
+    "per-docs"
+   ],
+   "source": [
+    "mr-load/README.md:18-36",
+    "mr-load/AGENTS.md:20-27",
+    "mr-load/PLAN.md:212-228"
+   ],
+   "evidence_quote": "7. **Phase 6 — Internal two-way sync**: if the above succeeds, it becomes the ground",
+   "source_refs": [
+    {
+     "path": "mr-load/README.md",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 18,
+     "end": 36
+    },
+    {
+     "path": "mr-load/AGENTS.md",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 20,
+     "end": 27
+    },
+    {
+     "path": "mr-load/PLAN.md",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 212,
+     "end": 228
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 1,
+   "type": "locate",
+   "level": 1,
+   "concept": "map_folder_company lookup table",
+   "question": "Which table in rsync_hubspot (mr-load) is declared to resolve a file's top-level folder name to a `miraex_company_id`?",
+   "answer": "`map_folder_company` — curated, PK `(tree, company_key_raw)`; unresolved folders are SKIPPED, never guessed.",
+   "explanation": "Folder names alias across trees (`YYYY_` prefixes, trailing spaces), so pure fuzzy matching is unsafe (Q4). DESIGN TARGET: the table is declared in `init_silver_library.sql`, but the resolver that fills `stg_library_normalised.miraex_company_id` is not in the repository.",
+   "confusables": "`stg_library_normalised` — one row per FILE, with `company_key_raw` as found on disk; `map_folder_company` holds one reviewed row per FOLDER name.",
+   "tags": [
+    "folder-company-fk"
+   ],
+   "source": [
+    "mr-load/scripts/indexer/init_silver_library.sql:38-49",
+    "mr-load/BINDING-QUESTIONS.md:57-61"
+   ],
+   "evidence_quote": "makes a reviewed table mandatory; unresolved folders are -- skipped and reported, never guessed",
+   "source_refs": [
+    {
+     "path": "mr-load/scripts/indexer/init_silver_library.sql",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 38,
+     "end": 49
+    },
+    {
+     "path": "mr-load/BINDING-QUESTIONS.md",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 57,
+     "end": 61
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 0,
+   "type": "locate",
+   "level": 1,
+   "concept": "sync_miraex_drive.sh entry point",
+   "question": "Which script in rsync_hubspot (mr-load) mirrors the Drive trees to local disk, the first command of Phase 5?",
+   "answer": "`mr-load/scripts/rclone/sync_miraex_drive.sh` — a DRY-RUN diff unless you pass `--live`.",
+   "explanation": "`--dry-run` is appended to the rclone flags unless `--live` was parsed. `MRLOAD_LOCAL_ROOT` is mandatory: the script aborts when it is unset. Each tree lands in `$MRLOAD_LOCAL_ROOT/<tree>` with one timestamped log.",
+   "anchor": "A photocopier that first prints only the list of pages it WOULD copy, and feeds paper only when you press the green button.",
+   "example": "./sync_miraex_drive.sh --tree companies  # dry-run diff to review / ./sync_miraex_drive.sh --tree companies --live  # real rclone sync",
+   "confusables": "`walk_index.py` — runs AFTER the mirror exists and only reads local disk; `sync_miraex_drive.sh` is the only script that talks to Drive.",
+   "tags": [
+    "dry-run-default"
+   ],
+   "source": [
+    "mr-load/scripts/rclone/sync_miraex_drive.sh:4-12",
+    "mr-load/scripts/rclone/sync_miraex_drive.sh:52-61"
+   ],
+   "evidence_quote": "[ \"$LIVE\" -eq 1 ] || FLAGS+=(--dry-run)",
+   "source_refs": [
+    {
+     "path": "mr-load/scripts/rclone/sync_miraex_drive.sh",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 4,
+     "end": 12
+    },
+    {
+     "path": "mr-load/scripts/rclone/sync_miraex_drive.sh",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 52,
+     "end": 61
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 1,
+   "type": "output",
+   "level": 3,
+   "concept": "walk() index row",
+   "question": "rsync_hubspot · `walk()` in `walk_index.py`: predict the values of `path_segments`, `depth` and `company_key_raw` in the row yielded for the file below.",
+   "code_snippet": "# file on disk: <root>/Acme/Contracts/nda.pdf\n# call: walk(root, \"companies\")\nrel = path.relative_to(root)\nrelposix = rel.as_posix()\nsegments = relposix.split(\"/\")\n# ...\nyield {\n    # ...\n    \"path_segments\": \"|\".join(segments[:-1]),\n    \"depth\": len(segments) - 1,\n    \"company_key_raw\": segments[0] if len(segments) > 1 else \"\",\n}",
+   "expected_output": "path_segments: 'Acme|Contracts'\ndepth: 2\ncompany_key_raw: 'Acme'",
+   "answer": "`'Acme|Contracts'`, `2`, `'Acme'` — the directory segments are joined with `|`, depth counts DIRECTORIES only, and the top-level folder is taken as the company key.",
+   "explanation": "(1) `segments` = Acme, Contracts, nda.pdf. (2) `segments[:-1]` drops the file name, giving Acme|Contracts. (3) 3 - 1 = 2. (4) More than one segment, so `segments[0]`. Edge: a file directly at the tree root gets depth 0 and an EMPTY company key, so it cannot be linked.",
+   "tags": [
+    "grounded:logic",
+    "path-index"
+   ],
+   "source": [
+    "mr-load/scripts/indexer/walk_index.py:61-87"
+   ],
+   "evidence_quote": "\"company_key_raw\": segments[0] if len(segments) > 1 else \"\",",
+   "source_refs": [
+    {
+     "path": "mr-load/scripts/indexer/walk_index.py",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 61,
+     "end": 87
+    }
+   ]
+  },
+  {
+   "category": 4,
+   "rank": 0,
+   "type": "compare",
+   "level": 2,
+   "concept": "rclone exclude.txt filter",
+   "question": "rsync_hubspot (mr-load): rclone's `exclude.txt` vs the indexer's `excluded` column: what is the ONE difference?",
+   "answer": "`exclude.txt` makes rclone SKIP the file, so it never reaches the local mirror; `excluded` only FLAGS a mirrored file (`ext` or `oversize`), which still gets its index row.",
+   "explanation": "The two lists overlap (`desktop.ini`, `Thumbs.db`, `.DS_Store`, `*.tmp`, `*.lnk`), so the flag also catches junk that reached the mirror anyway, and it is the only home of the 100 MiB size guard. The summary line counts flagged rows as excluded, not loadable.",
+   "anchor": "At the door a bouncer turns junk away on the pavement; inside, a clerk writes every guest in the book but pins a red tag on those who may not go upstairs.",
+   "confusables": "`excluded` column — `exclude.txt` removes a file BEFORE the mirror; `excluded` marks a row that stays in the index as not loadable.",
+   "tags": [
+    "exclusion-policy"
+   ],
+   "source": [
+    "mr-load/scripts/indexer/walk_index.py:69-73",
+    "mr-load/scripts/indexer/walk_index.py:104-111",
+    "mr-load/scripts/rclone/sync_miraex_drive.sh:48",
+    "mr-load/scripts/rclone/exclude.txt:1-8"
+   ],
+   "evidence_quote": "loadable = sum(1 for r in rows if not r[\"excluded\"])",
+   "source_refs": [
+    {
+     "path": "mr-load/scripts/indexer/walk_index.py",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 69,
+     "end": 73
+    },
+    {
+     "path": "mr-load/scripts/indexer/walk_index.py",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 104,
+     "end": 111
+    },
+    {
+     "path": "mr-load/scripts/rclone/sync_miraex_drive.sh",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 48
+    },
+    {
+     "path": "mr-load/scripts/rclone/exclude.txt",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 1,
+     "end": 8
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 0,
+   "type": "why",
+   "level": 2,
+   "concept": "rclone mirror before indexing",
+   "question": "Why does rsync_hubspot's mr-load mirror the Drive tree to local disk with rclone first rather than download the Drive files directly?",
+   "answer": "A direct download would NOT preserve parts of the folder hierarchy, and the hierarchy is the only metadata there is: the index and each file's company link are derived by walking it.",
+   "explanation": "icalps got per-file metadata (path, file name, CRM FKs) from a legacy database; Miraex has only a Drive account, so the walked mirror replaces that contract. The replica is also a safety net for messy data and the seedbed of Phase 6. Breaks if undone: no stable paths, so no `company_key_raw` and no file-to-company FK.",
+   "anchor": "Emptying a filing cabinet into one sack: every sheet arrives, but nobody can say which drawer, and so which client, it came from.",
+   "confusables": "cf. [private project] `dfs_entries`: the successor walks the Drive API depth-first and REPLACED the rclone mirror; here the tree is first copied to local disk.",
+   "tags": [
+    "per-docs",
+    "drive-mirror"
+   ],
+   "source": [
+    "mr-load/README.md:38-42",
+    "mr-load/README.md:5-11",
+    "mr-load/scripts/rclone/sync_miraex_drive.sh:54-61"
+   ],
+   "evidence_quote": "Drive directly would not preserve parts of the hierarchical structure we want to keep",
+   "source_refs": [
+    {
+     "path": "mr-load/README.md",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 38,
+     "end": 42
+    },
+    {
+     "path": "mr-load/README.md",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 5,
+     "end": 11
+    },
+    {
+     "path": "mr-load/scripts/rclone/sync_miraex_drive.sh",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 54,
+     "end": 61
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 1,
+   "type": "why",
+   "level": 2,
+   "concept": "Tree-prefixed miraex_doc_id",
+   "question": "Why does rsync_hubspot's `walk_index.py` hash `tree/relpath` into `miraex_doc_id` rather than the relative path alone, as the icalps walker did?",
+   "answer": "Identical relative paths in DIFFERENT trees would collide on one id, and that id is the primary key of the path index and of both upload ledgers.",
+   "explanation": "`walk()` passes the tree name, a slash and the relative posix path to `synthetic_id()`, which returns `fs:` plus the first 12 hex characters of the SHA-1, stable across re-runs. Breaks if undone: a file under opportunities collides with the same-path file under companies. Drift on this formula: see 91.",
+   "anchor": "Two cloakrooms both hand out ticket 12 for different coats; stamp the room's name on every ticket and the mix-up cannot happen.",
+   "confusables": "cf. ic-load `walker.py` `fs:<sha1(relpath)[:12]>`: hashes the relative path ALONE, which is safe only when there is a single tree.",
+   "tags": [
+    "synthetic-id"
+   ],
+   "source": [
+    "mr-load/scripts/indexer/walk_index.py:4-9",
+    "mr-load/scripts/indexer/walk_index.py:57-58",
+    "mr-load/scripts/indexer/walk_index.py:75",
+    "mr-load/scripts/indexer/init_silver_library.sql:19",
+    "mr-load/scripts/indexer/init_silver_library.sql:54-66"
+   ],
+   "evidence_quote": "the tree prefixed so identical relative paths in different trees cannot collide",
+   "source_refs": [
+    {
+     "path": "mr-load/scripts/indexer/walk_index.py",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 4,
+     "end": 9
+    },
+    {
+     "path": "mr-load/scripts/indexer/walk_index.py",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 57,
+     "end": 58
+    },
+    {
+     "path": "mr-load/scripts/indexer/walk_index.py",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 75
+    },
+    {
+     "path": "mr-load/scripts/indexer/init_silver_library.sql",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 19
+    },
+    {
+     "path": "mr-load/scripts/indexer/init_silver_library.sql",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 54,
+     "end": 66
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 2,
+   "type": "recall",
+   "level": 1,
+   "concept": "Q1 hybrid write path",
+   "question": "Which write path did rsync_hubspot's mr-load plan choose for binding question Q1?",
+   "answer": "HYBRID, as in icalps: companies/contacts/deals via mirror-Postgres upserts; library files/notes via direct API + ledger.",
+   "explanation": "Q1 is the biggest fork: it binds the whole gold layer, the association mechanism and the checkpoint stage. Consequence: a sync connection for the Miraex objects must exist, and its mirror record-id columns are DISCOVERED in Phase 0, never copied.",
+   "confusables": "Pure direct API — everything through batch upsert and per-object ledgers; the hybrid keeps the mirror for CRM OBJECTS and uses the API only for files and notes.",
+   "tags": [
+    "per-docs",
+    "write-path"
+   ],
+   "source": [
+    "mr-load/BINDING-QUESTIONS.md:7-19",
+    "mr-load/PLAN.md:14-19"
+   ],
+   "evidence_quote": "**Hybrid, like icalps** — mirror-Postgres upserts for",
+   "source_refs": [
+    {
+     "path": "mr-load/BINDING-QUESTIONS.md",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 7,
+     "end": 19
+    },
+    {
+     "path": "mr-load/PLAN.md",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 14,
+     "end": 19
+    }
+   ]
+  },
+  {
+   "category": 7,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Two-phase upload ledgers",
+   "question": "rsync_hubspot (mr-load): which two ledger tables are declared to make a re-run of the two-phase library upload a no-op?",
+   "answer": "`fct_files_uploaded` (file upload) and `fct_file_notes_posted` (note + association), both keyed by `miraex_doc_id`.",
+   "explanation": "Re-runs skip rows that already succeeded; `unmigrate` reads `status='attached'` as its rollback index. DESIGN TARGET: only the DDL exists here, the uploader that writes the ledgers is not in the repository.",
+   "anchor": "A courier with two receipt books: one stamp when the parcel is dropped at the depot, a second when it is pinned to the right door; a stamped line is never walked twice.",
+   "confusables": "cf. [private project] `SqliteLedger`: the successor keeps its ledger in a local SQLITE file; here both ledgers are Postgres tables in the staging schema.",
+   "tags": [
+    "idempotency"
+   ],
+   "source": [
+    "mr-load/scripts/indexer/init_silver_library.sql:51-75"
+   ],
+   "evidence_quote": "upload, phase 2 note+association. Re-runs skip rows already succeeded;",
+   "source_refs": [
+    {
+     "path": "mr-load/scripts/indexer/init_silver_library.sql",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 51,
+     "end": 75
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 0,
+   "type": "recall",
+   "level": 2,
+   "concept": "One rclone remote per tree",
+   "question": "What makes the rclone setup of rsync_hubspot's mr-load able to reach Drive trees that are shared item by item?",
+   "answer": "One rclone remote PER tree, each with its own `root_folder_id`: item-shared trees have no visible parent, so a single remote for the whole drive could not reach them.",
+   "explanation": "`TREES` maps companies, opportunities and tradeshows to the remotes `miraex-companies:`, `miraex-opportunities:` and `miraex-tradeshows:`. Every remote is `type = drive` with the read-only scope; the filled `rclone.conf` is git-ignored.",
+   "example": "[miraex-companies] / type = drive / scope = drive.readonly / root_folder_id = FILL_ME",
+   "anchor": "The front entrance of the archive is bricked up, so each wing gets its own side door and its own key.",
+   "tags": [
+    "rclone-remote"
+   ],
+   "source": [
+    "mr-load/scripts/rclone/sync_miraex_drive.sh:4-7",
+    "mr-load/scripts/rclone/sync_miraex_drive.sh:23-28",
+    "mr-load/scripts/rclone/rclone.conf.example:1-20"
+   ],
+   "evidence_quote": "gets its own remote with root_folder_id rather than one remote for the drive.",
+   "source_refs": [
+    {
+     "path": "mr-load/scripts/rclone/sync_miraex_drive.sh",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 4,
+     "end": 7
+    },
+    {
+     "path": "mr-load/scripts/rclone/sync_miraex_drive.sh",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 23,
+     "end": 28
+    },
+    {
+     "path": "mr-load/scripts/rclone/rclone.conf.example",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 1,
+     "end": 20
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Ontology probe dry-run gate",
+   "question": "Which command validates the filled ontology YAML of rsync_hubspot's mr-load, the Phase 0 gate?",
+   "answer": "`python -m ontology_substrate probe --ontology miraex_ontology.yaml --dry-run`",
+   "explanation": "The skeleton is copied to the git-ignored `ontology/miraex_ontology.yaml`, its FILL_ME constants are probed from the live portal, then the dry-run must accept it. The package comes from ic-ontology, not from this fork. Watch whether cardinality \"N:1\" parses: the documented vocabulary is 1:1 / 1:N / N:M.",
+   "tags": [
+    "per-docs"
+   ],
+   "source": [
+    "mr-load/ontology/miraex_ontology.skeleton.yaml:7-14",
+    "mr-load/PLAN.md:35-38"
+   ],
+   "evidence_quote": "python -m ontology_substrate probe --ontology miraex_ontology.yaml --dry-run",
+   "source_refs": [
+    {
+     "path": "mr-load/ontology/miraex_ontology.skeleton.yaml",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 7,
+     "end": 14
+    },
+    {
+     "path": "mr-load/PLAN.md",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 35,
+     "end": 38
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 1,
+   "type": "recall",
+   "level": 2,
+   "concept": "Document key comment drift",
+   "question": "rsync_hubspot (mr-load): the ontology skeleton comments the document key as `fs:<sha1(relpath)[:12]>`. Which string does `walk_index.py` actually hash?",
+   "answer": "The tree name, a slash, then the relative posix path: the tree is PREFIXED. Trust the indexer; ids rebuilt from the YAML comment match neither the index nor the ledgers.",
+   "explanation": "The staging DDL comment and PLAN.md agree with the code; only the `bronze_pk` comment of the `document` entity in `miraex_ontology.skeleton.yaml` kept the older icalps idiom. Fix: correct that comment. Why the prefix exists: see 61.",
+   "confusables": "`fs:<sha1(relpath)[:12]>` — the STALE idiom left in the YAML comment; the code and the DDL say `fs:<sha1(tree/relpath)[:12]>`.",
+   "tags": [
+    "drift",
+    "synthetic-id"
+   ],
+   "source": [
+    "mr-load/scripts/indexer/walk_index.py:75",
+    "mr-load/ontology/miraex_ontology.skeleton.yaml:87",
+    "mr-load/scripts/indexer/init_silver_library.sql:19",
+    "mr-load/PLAN.md:186-192"
+   ],
+   "evidence_quote": "\"miraex_doc_id\": synthetic_id(f\"{tree}/{relposix}\"),",
+   "source_refs": [
+    {
+     "path": "mr-load/scripts/indexer/walk_index.py",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 75
+    },
+    {
+     "path": "mr-load/ontology/miraex_ontology.skeleton.yaml",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 87
+    },
+    {
+     "path": "mr-load/scripts/indexer/init_silver_library.sql",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 19
+    },
+    {
+     "path": "mr-load/PLAN.md",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 186,
+     "end": 192
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 2,
+   "type": "output",
+   "level": 3,
+   "concept": "Live sync without --tree",
+   "question": "rsync_hubspot · `sync_miraex_drive.sh`: predict how many `rclone sync` calls the command below makes.",
+   "code_snippet": "./sync_miraex_drive.sh --live\n\n# inside the script:\nONLY=\"\"   # filled only by --tree\n# ...\nfor tree in \"${!TREES[@]}\"; do   # companies, opportunities, tradeshows\n  [ -n \"$ONLY\" ] && [ \"$tree\" != \"$ONLY\" ] && continue\n  dest=\"$MRLOAD_LOCAL_ROOT/$tree\"\n  # ...\n  rclone sync \"${TREES[$tree]}\" \"$dest\" \"${FLAGS[@]}\" # ...\ndone",
+   "expected_output": "3",
+   "answer": "3 — with no `--tree`, `ONLY` stays empty, so the loop never skips: companies, opportunities AND tradeshows are all mirrored live.",
+   "explanation": "(1) `--live` sets `LIVE=1`, so `--dry-run` is not appended. (2) `ONLY` is empty, the first test fails and `continue` never runs. (3) `TREES` has 3 keys, so 3 syncs (while each one succeeds). Trap: Q4 fixed the v1 scope to the per-company tree only, so pass `--tree companies`.",
+   "example": "./sync_miraex_drive.sh --tree companies --live  # 1 rclone sync, the v1 scope",
+   "tags": [
+    "grounded:logic",
+    "trap"
+   ],
+   "source": [
+    "mr-load/scripts/rclone/sync_miraex_drive.sh:24-39",
+    "mr-load/scripts/rclone/sync_miraex_drive.sh:52-61",
+    "mr-load/BINDING-QUESTIONS.md:57-61"
+   ],
+   "evidence_quote": "[ -n \"$ONLY\" ] && [ \"$tree\" != \"$ONLY\" ] && continue",
+   "source_refs": [
+    {
+     "path": "mr-load/scripts/rclone/sync_miraex_drive.sh",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 24,
+     "end": 39
+    },
+    {
+     "path": "mr-load/scripts/rclone/sync_miraex_drive.sh",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 52,
+     "end": 61
+    },
+    {
+     "path": "mr-load/BINDING-QUESTIONS.md",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 57,
+     "end": 61
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 9,
+   "type": "scenario",
+   "level": 4,
+   "concept": "Resume: provisional Phase-5 values",
+   "question": "You reopen rsync_hubspot's mr-load to take Phase 5 to its first live upload. Which three values hard-coded in the two skeleton scripts are provisional, and what must be done about them first?",
+   "answer": "Answer the open Library binding questions first; three values are placeholders: (1) `MAX_UPLOAD_BYTES = 100 * 1024 * 1024` in `walk_index.py`: the real HubSpot Files limit is unverified. (2) `EXCLUDED_EXTS` / `EXCLUDED_NAMES`: a pattern borrowed from the prior walker; mr-load's own extension policy is pending. (3) `--drive-export-formats \"docx,xlsx,pptx\"` in `sync_miraex_drive.sh`: a provisional default for native Google files.",
+   "explanation": "Each value decides which files are mirrored, flagged or uploaded. Still unbuilt after that: the loader for the index CSV, the folder-to-company resolver and the uploader. The Miraex work itself continued in the successor project (see 00).",
+   "tags": [
+    "binding-questions"
+   ],
+   "source": [
+    "mr-load/scripts/indexer/walk_index.py:33-41",
+    "mr-load/scripts/rclone/sync_miraex_drive.sh:47",
+    "mr-load/BINDING-QUESTIONS.md:109-117"
+   ],
+   "evidence_quote": "Placeholder pre-upload size guard — the actual HubSpot Files API limit must be",
+   "source_refs": [
+    {
+     "path": "mr-load/scripts/indexer/walk_index.py",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 33,
+     "end": 41
+    },
+    {
+     "path": "mr-load/scripts/rclone/sync_miraex_drive.sh",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 47
+    },
+    {
+     "path": "mr-load/BINDING-QUESTIONS.md",
+     "branch": "claude/mr-load-library-system-3b63h0",
+     "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+     "line": 109,
+     "end": 117
+    }
+   ]
+  }
+ ]
+}

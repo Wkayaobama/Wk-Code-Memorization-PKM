@@ -1,0 +1,726 @@
+{
+ "as_of": "2026-11-12",
+ "owner": "Wkayaobama",
+ "repos": [
+  {
+   "name": "Wk-Code-Memorization-PKM",
+   "pushed_at": "2026-11-12T13:16:24Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "Standard-RAG",
+   "pushed_at": "2026-11-12T12:37:50Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "Bhead-Claude",
+   "pushed_at": "2026-10-25T20:45:53Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "CloudBQ",
+   "pushed_at": "2026-10-22T17:55:58Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "presentation-builder",
+   "pushed_at": "2026-10-12T13:12:09Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "remotion-maker",
+   "pushed_at": "2026-08-31T15:02:48Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "Ghost-CRM",
+   "pushed_at": "2026-08-31T08:06:40Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "GPT3.5_VBA",
+   "pushed_at": "2026-08-28T14:04:51Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "deep-seek-harness",
+   "pushed_at": "2026-08-23T18:59:05Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "packt-workshop",
+   "pushed_at": "2026-08-15T12:50:47Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "rsync_hubspot",
+   "pushed_at": "2026-08-06T16:30:42Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "google-sheets-api-python",
+   "pushed_at": "2026-07-30T08:36:44Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "Memory_systems_-_Anki_decks",
+   "pushed_at": "2026-07-13T15:40:30Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "FrontierWeekHack",
+   "pushed_at": "2026-06-26T08:04:21Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "wkayaobama-skills",
+   "pushed_at": "2026-06-10T11:34:45Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "IC-Ontology",
+   "pushed_at": "2026-05-29T15:00:14Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "ttrpg-convert-cli",
+   "pushed_at": "2026-05-06T00:44:27Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "DevBluePrint",
+   "pushed_at": "2026-04-04T16:01:04Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "CRM-Blueprint",
+   "pushed_at": "2026-03-25T11:20:42Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "gstack",
+   "pushed_at": "2026-03-14T16:04:46Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "deploy-to-azure",
+   "pushed_at": "2026-01-22T04:02:04Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "publish-docker-images",
+   "pushed_at": "2026-01-21T18:42:11Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "graph-analysis",
+   "pushed_at": "2026-01-12T15:59:10Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "Cert-Brain",
+   "pushed_at": "2026-01-11T15:11:09Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "SEALSQ-Assistant",
+   "pushed_at": "2026-01-09T13:34:30Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "ut-assistant-app",
+   "pushed_at": "2026-01-08T09:37:25Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "analysis-changes",
+   "pushed_at": "2026-01-05T14:39:58Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "CB_Presenter",
+   "pushed_at": "2025-12-03T11:51:22Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "OBAN",
+   "pushed_at": "2025-12-02T16:43:17Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "azure-bicep",
+   "pushed_at": "2025-11-30T10:42:21Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "Malware_Analysis",
+   "pushed_at": "2025-11-23T20:55:13Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "Python_Deob",
+   "pushed_at": "2025-11-23T17:27:20Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "blender_typst_importer",
+   "pushed_at": "2025-11-13T13:41:25Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "utf8-cleaner",
+   "pushed_at": "2025-10-31T15:54:07Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "Anto-Nat",
+   "pushed_at": "2025-09-17T22:22:52Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "certificate-management-api",
+   "pushed_at": "2025-09-17T17:55:02Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "scapy",
+   "pushed_at": "2025-09-04T11:23:20Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "XLwings",
+   "pushed_at": "2025-09-02T15:06:28Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "grok-tiddlywiki",
+   "pushed_at": "2025-08-27T20:34:55Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "questera-greta-1752329302141",
+   "pushed_at": "2025-08-25T15:51:41Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "xlwings_lite",
+   "pushed_at": "2025-08-25T14:49:18Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "TiddlyRemember",
+   "pushed_at": "2025-08-04T21:22:18Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "adt16",
+   "pushed_at": "2025-07-12T13:53:27Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "scaffoldagent",
+   "pushed_at": "2025-06-27T13:11:14Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "Agents-Over-The-Weekend",
+   "pushed_at": "2025-06-21T15:14:31Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "Develop-a-multi-agent-solution-with-Semantic-Kernel",
+   "pushed_at": "2025-06-19T16:24:16Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "Build-And-Deploy-Azure-AI-Agents",
+   "pushed_at": "2025-06-10T17:35:01Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "crm-customization-dev-bootcamp",
+   "pushed_at": "2025-06-04T15:42:35Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "build-your-first-agent-with-azure-ai-agent-service-workshop",
+   "pushed_at": "2025-06-02T05:42:59Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "ploomber",
+   "pushed_at": "2025-05-29T22:02:03Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "agent_hack",
+   "pushed_at": "2025-05-20T18:50:50Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "OpenGVAClone",
+   "pushed_at": "2025-05-08T09:49:34Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "AIGVA",
+   "pushed_at": "2025-05-07T14:16:25Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "kubernetes-the-hard-way",
+   "pushed_at": "2025-04-10T06:11:47Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "openai-agents-python",
+   "pushed_at": "2025-03-13T18:44:14Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "awesome-n8n",
+   "pushed_at": "2025-03-04T12:59:38Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "cms-theme-boilerplate",
+   "pushed_at": "2025-02-19T16:29:10Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "alasql",
+   "pushed_at": "2025-01-18T04:34:46Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "azure-ai-rag-workshop",
+   "pushed_at": "2024-12-18T17:03:44Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "markitdown",
+   "pushed_at": "2024-12-17T02:14:10Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "streamlit-openai-chat",
+   "pushed_at": "2024-10-11T15:54:19Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "meta-prompting",
+   "pushed_at": "2024-09-17T06:46:55Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "LLama_assistant",
+   "pushed_at": "2024-09-02T13:07:15Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "AssistantV2",
+   "pushed_at": "2024-09-01T13:24:12Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "Assistant-Sealcoin",
+   "pushed_at": "2024-08-28T12:25:44Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "openai-api",
+   "pushed_at": "2024-08-26T22:28:02Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "awesome-shell",
+   "pushed_at": "2024-08-21T06:53:29Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "math-bootcamp",
+   "pushed_at": "2024-08-06T05:50:29Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "AnkiLPCG",
+   "pushed_at": "2024-07-25T18:28:28Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "ai-workshop-code",
+   "pushed_at": "2024-07-18T01:49:30Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "auto-subtitle",
+   "pushed_at": "2024-07-12T08:59:25Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "LLMsPracticalGuide",
+   "pushed_at": "2024-05-31T06:39:37Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "Tasnimul-Moshiur-iwh-i-practicum",
+   "pushed_at": "2024-05-22T05:59:59Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "MOpenAI",
+   "pushed_at": "2024-03-20T11:12:53Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "auto-cot",
+   "pushed_at": "2024-03-13T12:25:02Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "M",
+   "pushed_at": "2024-03-08T14:03:07Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "deals-summary",
+   "pushed_at": "2024-02-22T21:45:47Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "M2",
+   "pushed_at": "2024-02-02T12:35:50Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "React95",
+   "pushed_at": "2024-01-14T20:52:31Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "langflow",
+   "pushed_at": "2023-12-29T10:48:21Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "databaker",
+   "pushed_at": "2023-12-14T01:38:32Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "my-first-binder",
+   "pushed_at": "2023-11-15T19:23:18Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "ProjectBinder",
+   "pushed_at": "2023-11-13T09:09:24Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "ngrok",
+   "pushed_at": "2023-11-07T08:57:07Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "frontend",
+   "pushed_at": "2023-10-24T13:40:01Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "FlowiseAI-Railway",
+   "pushed_at": "2023-10-24T13:37:47Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "Flowise",
+   "pushed_at": "2023-10-24T13:34:45Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "apex-insights-presentations",
+   "pushed_at": "2023-10-16T10:58:57Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "meta-learning-curiosity-algorithms",
+   "pushed_at": "2023-10-03T21:22:38Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "entities-extraction-web-scraper",
+   "pushed_at": "2023-10-01T12:24:03Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "unionml",
+   "pushed_at": "2023-09-27T00:32:09Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "my-garden",
+   "pushed_at": "2023-09-04T09:08:39Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "devopscourse",
+   "pushed_at": "2023-06-15T08:04:41Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "Forecastpipeline",
+   "pushed_at": "2023-04-18T09:40:42Z",
+   "visibility": "public",
+   "fork": false
+  },
+  {
+   "name": "How-to-use-Lambda-and-API-Gateway-to-consume-XML-instead-of-JSON",
+   "pushed_at": "2023-04-10T23:08:41Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "python-for-excel",
+   "pushed_at": "2023-04-02T18:53:33Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "free_r_tips",
+   "pushed_at": "2023-03-31T22:09:11Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "compare_data",
+   "pushed_at": "2023-03-14T05:28:13Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "Datagathering_Automation",
+   "pushed_at": "2023-03-02T01:23:52Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "chat-your-data-self-hosted",
+   "pushed_at": "2023-02-14T02:22:25Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "flask-app-template",
+   "pushed_at": "2023-01-08T08:18:53Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "How-to-deploy-a-static-website-to-Elastic-BeanStalk-for-the-Enterprise",
+   "pushed_at": "2022-12-10T04:34:34Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "xlwings-demo",
+   "pushed_at": "2022-10-26T12:02:28Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "hubspot-extend-workshop",
+   "pushed_at": "2022-10-25T20:54:28Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "Numpy-Tutorial-SciPyConf-2022",
+   "pushed_at": "2022-08-24T23:55:17Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "DevOps",
+   "pushed_at": "2022-08-14T06:58:16Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "fastapi-crud-api",
+   "pushed_at": "2022-06-24T14:01:25Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "hubspot-project-boilerplate",
+   "pushed_at": "2022-05-20T12:18:05Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "bash-boilerplate",
+   "pushed_at": "2022-02-19T09:57:16Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "pymontecarlo",
+   "pushed_at": "2022-01-16T17:02:44Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "intro_to_shiny",
+   "pushed_at": "2021-10-05T18:12:29Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "meetup-2021-rmd-business-report",
+   "pushed_at": "2021-10-05T17:41:23Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "retail-customer-analytics",
+   "pushed_at": "2021-06-27T09:43:14Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "pquery",
+   "pushed_at": "2021-04-06T07:41:18Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "flask-api-template",
+   "pushed_at": "2021-01-09T15:06:10Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "LAMA",
+   "pushed_at": "2020-11-09T04:15:00Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "DS112tutorials",
+   "pushed_at": "2020-09-04T20:21:26Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "m-tools",
+   "pushed_at": "2018-03-26T15:49:25Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "the-art-of-command-line",
+   "pushed_at": "2015-07-08T15:16:01Z",
+   "visibility": "public",
+   "fork": true
+  },
+  {
+   "name": "ipynb-examples",
+   "pushed_at": "2013-10-30T13:31:18Z",
+   "visibility": "public",
+   "fork": true
+  }
+ ]
+}

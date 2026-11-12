@@ -1,0 +1,261 @@
+{
+ "as_of": "2026-11-12",
+ "owner": "Wkayaobama",
+ "projects": [
+  {
+   "slug": "wkayaobama-skills",
+   "repo": "wkayaobama-skills",
+   "code": "03",
+   "visibility": "public",
+   "fork": false,
+   "pushed_at": "2026-06-10T11:34:45Z",
+   "branch": "master",
+   "commit": "5bb549447b96c74710a571242b7bcf72dd5b698e",
+   "alts": [],
+   "aliases": [
+    "the skills repo",
+    "my personal skills library",
+    "CLAUDE__ROOT repo",
+    "the pipeline salvation skill",
+    "the rigor hook",
+    "the PDF salvage skill",
+    "workflowps skill"
+   ],
+   "analyzed_at": "2026-11-12"
+  },
+  {
+   "slug": "rsync_hubspot",
+   "repo": "rsync_hubspot",
+   "code": "13",
+   "visibility": "public",
+   "fork": true,
+   "pushed_at": "2026-08-06T16:30:42Z",
+   "branch": "claude/mr-load-library-system-3b63h0",
+   "commit": "fe922cb1bd9b0d3668fcb7e48eaee878faa41192",
+   "alts": [],
+   "aliases": [
+    "mr-load",
+    "the rsync fork",
+    "the Miraex plan",
+    "mr-load scaffold",
+    "rsync hubspot",
+    "the rclone Drive mirror plan"
+   ],
+   "analyzed_at": "2026-11-12"
+  },
+  {
+   "slug": "cloudbq",
+   "repo": "CloudBQ",
+   "code": "20",
+   "visibility": "public",
+   "fork": false,
+   "pushed_at": "2026-10-22T17:55:58Z",
+   "branch": "main",
+   "commit": "e4d40b27c4ad8f6e08478e4212fa64b79c6e9cf9",
+   "alts": [],
+   "aliases": [
+    "cloud run bigquery pipeline",
+    "big query cloud run",
+    "CloudBQ",
+    "the new-deals pipeline",
+    "the Cloud Run to BigQuery thing",
+    "the three lanes",
+    "the raw root project",
+    "the hot score pipeline"
+   ],
+   "analyzed_at": "2026-11-12"
+  },
+  {
+   "slug": "google-sheets-api-python",
+   "repo": "google-sheets-api-python",
+   "code": "35",
+   "visibility": "public",
+   "fork": true,
+   "pushed_at": "2026-07-30T08:36:44Z",
+   "branch": "claude/workflow-design-framework-hg4q2l",
+   "commit": "214847b190a4b14fda1c7121ad4ef8ae48856c7b",
+   "alts": [],
+   "aliases": [
+    "revenue plan line",
+    "the making layer",
+    "the line-item integration layer",
+    "plan lines custom object",
+    "the Pygs fork",
+    "workflow-design-framework branch"
+   ],
+   "analyzed_at": "2026-11-12"
+  },
+  {
+   "slug": "ic-ontology",
+   "repo": "IC-Ontology",
+   "code": "40",
+   "visibility": "public",
+   "fork": false,
+   "pushed_at": "2026-05-29T15:00:14Z",
+   "branch": "main",
+   "commit": "0684d6dd0970f94c28307cd3a4e26d255d81ea45",
+   "alts": [],
+   "aliases": [
+    "ontology substrate",
+    "ontology_substrate",
+    "the ontology probe",
+    "the metagraph tool",
+    "IC ontology",
+    "the 7-flag drift thing"
+   ],
+   "analyzed_at": "2026-11-12"
+  },
+  {
+   "slug": "bhead-claude",
+   "repo": "Bhead-Claude",
+   "code": "50",
+   "visibility": "public",
+   "fork": false,
+   "pushed_at": "2026-10-25T20:45:53Z",
+   "branch": "claude/standalone-app",
+   "commit": "863b75fa5abee86a19e5b37bbed616c7ecbf518b",
+   "alts": [
+    {
+     "branch": "main",
+     "note": "earlier template-based version (88 files)",
+     "commit": "9b6b3fa7f61568262fa56bfb6fa78efd277fe94d"
+    }
+   ],
+   "aliases": [
+    "headless-bun-claude",
+    "headless bun claude",
+    "HR Scout",
+    "Bhead",
+    "the job scraper",
+    "claude-template",
+    "the headless claude scaffold",
+    "the standalone-app refactor"
+   ],
+   "analyzed_at": "2026-11-12"
+  },
+  {
+   "slug": "deep-seek-harness",
+   "repo": "deep-seek-harness",
+   "code": "51",
+   "visibility": "public",
+   "fork": false,
+   "pushed_at": "2026-08-23T18:59:05Z",
+   "branch": "main",
+   "commit": "54739fdc68c41fc5e1c6c04fcdbb3a36580d63cb",
+   "alts": [],
+   "aliases": [
+    "deepseek harness",
+    "the dsh launcher",
+    "start-harness",
+    "the DeepSeek web UI thing",
+    "deep seek harness"
+   ],
+   "analyzed_at": "2026-11-12"
+  },
+  {
+   "slug": "memory-systems-anki-decks",
+   "repo": "Memory_systems_-_Anki_decks",
+   "code": "62",
+   "visibility": "public",
+   "fork": true,
+   "pushed_at": "2026-07-13T15:40:30Z",
+   "branch": "claude/programming-memory-system-mqtcef",
+   "commit": "e2d922443a26a779055cbfa0e54436f03e4465a1",
+   "alts": [],
+   "aliases": [
+    "anki decks",
+    "programming millenium",
+    "PAO matrix",
+    "Programming Millenium",
+    "the 1000 programming concepts matrix",
+    "the matrix method",
+    "PAO starter kit",
+    "the Anki decks fork",
+    "PAO multiple encoding"
+   ],
+   "analyzed_at": "2026-11-12"
+  },
+  {
+   "slug": "remotion-maker",
+   "repo": "remotion-maker",
+   "code": "70",
+   "visibility": "public",
+   "fork": false,
+   "pushed_at": "2026-08-31T15:02:48Z",
+   "branch": "main",
+   "commit": "85a506cb64b251f8e7b2177abe69c28f0c4e8a26",
+   "alts": [],
+   "aliases": [
+    "remotion maker",
+    "the brand video maker",
+    "the sealcoin promo",
+    "the chunked render thing",
+    "the H2Evo video workflow",
+    "the Eco Wave Power video"
+   ],
+   "analyzed_at": "2026-11-12"
+  },
+  {
+   "slug": "presentation-builder",
+   "repo": "presentation-builder",
+   "code": "71",
+   "visibility": "public",
+   "fork": true,
+   "pushed_at": "2026-10-12T13:12:09Z",
+   "branch": "claude/affectionate-brahmagupta-r8n7t5",
+   "commit": "25552bdacac7409af2ce8373d8012913a2c92194",
+   "alts": [],
+   "aliases": [
+    "presentation builder",
+    "the three-scenarios deck",
+    "three stories three scenarios",
+    "the citation metagraph",
+    "structured-citation-metagraph skill",
+    "the evidence ledger deck",
+    "the iceberg / speedometer / landlord deck",
+    "the pptx recovery pattern"
+   ],
+   "analyzed_at": "2026-11-12"
+  },
+  {
+   "slug": "ghost-crm",
+   "repo": "Ghost-CRM",
+   "code": "80",
+   "visibility": "public",
+   "fork": false,
+   "pushed_at": "2026-08-31T08:06:40Z",
+   "branch": "claude/ghost-crm-skill-library-x37l4e",
+   "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+   "alts": [],
+   "aliases": [
+    "Ghost CRM",
+    "the Skhokho docs rebuild",
+    "the Skhokho import",
+    "the Django rebuild campaign",
+    "ghost-crm skill library"
+   ],
+   "analyzed_at": "2026-11-12"
+  },
+  {
+   "slug": "gpt3.5_vba",
+   "repo": "GPT3.5_VBA",
+   "code": "81",
+   "visibility": "public",
+   "fork": true,
+   "pushed_at": "2026-08-28T14:04:51Z",
+   "branch": "main",
+   "commit": "5216c8eb31d5b455f1cbe01cf6a1628fdb4a5cb3",
+   "alts": [],
+   "aliases": [
+    "the GPT VBA fork",
+    "GPT in a cell",
+    "the Excel OpenAI macro",
+    "the API Logic Server skill library",
+    "apilogicserver skills",
+    "the Genai-Logic runbooks",
+    "the spreadsheet modernization campaign"
+   ],
+   "analyzed_at": "2026-11-12"
+  }
+ ]
+}

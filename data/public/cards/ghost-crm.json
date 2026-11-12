@@ -1,0 +1,1201 @@
+{
+ "slug": "ghost-crm",
+ "cards": [
+  {
+   "category": 0,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Ghost-CRM in one line",
+   "question": "What is ghost-crm, and what does its repository hold today?",
+   "answer": "A DOCS-ONLY repo: the imported Skhokho user docs (VuePress) plus a skill library that specifies the Django rebuild.",
+   "explanation": "No `manage.py` exists anywhere. The only code is `rewrite_links.py` and five read-only diagnostics. The docs are the product spec, the skills are the knowledge transfer. see 01",
+   "anchor": "A GHOST town: the tourist guide describes every shop in detail, but behind each painted front there is no building yet.",
+   "tags": [
+    "skill-library"
+   ],
+   "source": [
+    ".claude/skills/architecture-contract/SKILL.md:20-24",
+    "package.json:8-9"
+   ],
+   "evidence_quote": "You are working in a repository that contains **no application code**.",
+   "source_refs": [
+    {
+     "path": ".claude/skills/architecture-contract/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 20,
+     "end": 24
+    },
+    {
+     "path": "package.json",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 8,
+     "end": 9
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 1,
+   "type": "recall",
+   "level": 1,
+   "concept": "Docs are ground truth",
+   "question": "Which rule does ghost-crm exist to protect when code and `docs/` disagree?",
+   "answer": "The docs are the product ground truth: code conforms to `docs/`, NEVER the reverse; a gap gets a ruling first.",
+   "explanation": "No original team and no running system can be consulted, so `docs/` plus the ruling register is the only arbiter (rule N3). Breaks if undone: code and docs drift with nothing left to settle them. see 03",
+   "confusables": "Editing `docs/` to match the code (fenced wrong path W7) — the docs change ONLY through a ruling or a reviewed behaviour change, never to follow code.",
+   "tags": [
+    "per-docs",
+    "ground-truth"
+   ],
+   "source": [
+    ".claude/skills/campaign-django-rebuild/SKILL.md:87-89",
+    ".claude/skills/change-control/SKILL.md:229-233"
+   ],
+   "evidence_quote": "**Docs are the product ground truth.** Code conforms to `docs/`; never edit `docs/` to match code",
+   "source_refs": [
+    {
+     "path": ".claude/skills/campaign-django-rebuild/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 87,
+     "end": 89
+    },
+    {
+     "path": ".claude/skills/change-control/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 229,
+     "end": 233
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 2,
+   "type": "recall",
+   "level": 1,
+   "concept": "The References block",
+   "question": "In ghost-crm, what is a `References block` on a docs page?",
+   "answer": "The trailing `## References (original links)` list `rewrite_links.py` appends: the page's ORIGINAL skhokho.io links.",
+   "explanation": "43 of the 45 pages carry one. It is machine output and is never edited by hand. Why it is irreplaceable: see 60. Its exact separator: see 10.",
+   "confusables": "The flattened body link — it points at the bare repo URL and carries NO route; only the block keeps the original deep link.",
+   "tags": [
+    "provenance"
+   ],
+   "source": [
+    "rewrite_links.py:21",
+    "rewrite_links.py:41-42"
+   ],
+   "evidence_quote": "REFERENCES_HEADER = \"## References (original links)\"",
+   "source_refs": [
+    {
+     "path": "rewrite_links.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 21
+    },
+    {
+     "path": "rewrite_links.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 41,
+     "end": 42
+    }
+   ]
+  },
+  {
+   "category": 0,
+   "rank": 3,
+   "type": "recall",
+   "level": 1,
+   "concept": "Ruling in the R-register",
+   "question": "In ghost-crm, what is a `ruling` (R1 to R10)?",
+   "answer": "A recorded design decision where the docs are silent or contradictory; cited as a ruling, NEVER as documented fact.",
+   "explanation": "The register lives in the `architecture-contract` skill (see 40). A new ruling goes through change control, never silently into code. Example: see 64.",
+   "confusables": "An `[open]` item — a question with NO answer yet; a ruling is the recorded answer.",
+   "tags": [
+    "per-docs"
+   ],
+   "source": [
+    ".claude/skills/architecture-contract/SKILL.md:57-58",
+    ".claude/skills/campaign-django-rebuild/SKILL.md:57"
+   ],
+   "evidence_quote": "a recorded architecture decision made 2026-08-30 where the docs are silent or contradictory.",
+   "source_refs": [
+    {
+     "path": ".claude/skills/architecture-contract/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 57,
+     "end": 58
+    },
+    {
+     "path": ".claude/skills/campaign-django-rebuild/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 57
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 0,
+   "type": "recall",
+   "level": 2,
+   "concept": "Machine separator bytes",
+   "question": "ghost-crm: which exact byte sequence must precede a References block for `rewrite_links.py` to strip the old block before regenerating it?",
+   "answer": "Blank line, `---`, blank line, then the header: `\\n\\n---\\n\\n## References (original links)`. `rewrite_file()` splits on that EXACT string to drop the old block.",
+   "explanation": "The footer builder writes the same string the split looks for, so the script only parses its own untouched output. One removed blank line defeats the split: see 91.",
+   "example": "MACHINE_SEP = \"\\n\\n---\\n\\n\" + REF_HEADER + \"\\n\\n\"  # the constant check_references_integrity.py tests for",
+   "confusables": "`REFERENCES_HEADER` alone — the `in` test needs only the header; the split needs the separator PLUS the header, so a page can pass the first and fail the second.",
+   "tags": [
+    "provenance"
+   ],
+   "source": [
+    "rewrite_links.py:42-45",
+    ".claude/skills/diagnostics-and-tooling/scripts/check_references_integrity.py:27-28"
+   ],
+   "evidence_quote": "new_text = new_text.split(f\"\\n\\n---\\n\\n{REFERENCES_HEADER}\")[0]",
+   "source_refs": [
+    {
+     "path": "rewrite_links.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 42,
+     "end": 45
+    },
+    {
+     "path": ".claude/skills/diagnostics-and-tooling/scripts/check_references_integrity.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 27,
+     "end": 28
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 1,
+   "type": "cloze",
+   "level": 1,
+   "concept": "Baseline counts in EXPECTED",
+   "question": "ghost-crm: complete the baseline that `docs_inventory.py` pins for References blocks and archived URLs (45 pages in total).",
+   "cloze": "EXPECTED: \"md_total\": 45, \"references_blocks\": {{c1::43}}, \"skhokho_urls_md\": {{c2::69}}",
+   "answer": "43 · 69",
+   "explanation": "43 of 45 pages carry a block (`docs/client/portal.md` and `docs/okr/keyresults.md` have none); 69 original URLs are archived. Any other measurement prints DEVIATION and exits 1.",
+   "tags": [
+    "baseline"
+   ],
+   "source": [
+    ".claude/skills/diagnostics-and-tooling/scripts/docs_inventory.py:23-32",
+    ".claude/skills/diagnostics-and-tooling/scripts/check_references_integrity.py:16-17"
+   ],
+   "evidence_quote": "\"references_blocks\": 43,",
+   "source_refs": [
+    {
+     "path": ".claude/skills/diagnostics-and-tooling/scripts/docs_inventory.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 23,
+     "end": 32
+    },
+    {
+     "path": ".claude/skills/diagnostics-and-tooling/scripts/check_references_integrity.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 16,
+     "end": 17
+    }
+   ]
+  },
+  {
+   "category": 1,
+   "rank": 2,
+   "type": "compare",
+   "level": 2,
+   "concept": "github_links_md: 73 body links",
+   "question": "ghost-crm: `github_links_md` (73) vs `skhokho_urls_md` (69) in the `docs_inventory.py` baseline: what is the ONE difference that explains the gap?",
+   "answer": "73 counts every flattened link in page bodies, repeats included; 69 counts archived originals, which `rewrite_file()` DEDUPES per page by `(label, url)`.",
+   "explanation": "`repl()` appends to `originals` only when the pair is not yet in `seen`, while every match is still replaced. A page that links the same target twice has two body links and one archive entry.",
+   "anchor": "A cloakroom: 73 guests hand in coats, but guests with the very same coat share one hook, so only 69 hooks are used.",
+   "confusables": "`skhokho_urls_md` (69) — body links are counted per OCCURRENCE; archive entries are unique `(label, url)` pairs per page.",
+   "tags": [
+    "baseline",
+    "dedupe"
+   ],
+   "source": [
+    ".claude/skills/diagnostics-and-tooling/scripts/docs_inventory.py:29-30",
+    "rewrite_links.py:29-35",
+    ".claude/skills/change-control/SKILL.md:167-169"
+   ],
+   "evidence_quote": "\"github_links_md\": 73, # flattened body links to the repo root URL",
+   "source_refs": [
+    {
+     "path": ".claude/skills/diagnostics-and-tooling/scripts/docs_inventory.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 29,
+     "end": 30
+    },
+    {
+     "path": "rewrite_links.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 29,
+     "end": 35
+    },
+    {
+     "path": ".claude/skills/change-control/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 167,
+     "end": 169
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 0,
+   "type": "trace",
+   "level": 3,
+   "concept": "rewrite_file() end to end",
+   "question": "ghost-crm · `rewrite_file()`: recite the 7 steps from reading one docs page to the returned `(count, originals)`.",
+   "steps": [
+    "`path.read_text()` -> the page text",
+    "`LINK_RE.subn(repl, text)` -> skhokho.io links flattened to `NEW_URL`, originals collected",
+    "`count == 0` -> return `(0, [])`, page untouched",
+    "build `footer` -> separator, header, one `- [label](url)` line per original",
+    "header already present -> `split()` on the exact separator, keep the part before it",
+    "`new_text.rstrip() + footer` -> one fresh block at the end of the page",
+    "`apply` true -> `path.write_text()`; then return `(count, originals)`"
+   ],
+   "answer": "read · flatten + collect · zero-exit · footer · strip old block · append · write if apply",
+   "explanation": "The old block is dropped AFTER the substitution, so its entries are what feeds `originals` on a re-run. That ordering is why a re-apply is idempotent (see 70) and why the log always shows the full count (see 92).",
+   "anchor": "A clerk overstamps every old address on a page, notes each old address once on a slip, tears off last year's slip and staples the new slip to the bottom.",
+   "tags": [
+    "provenance"
+   ],
+   "source": [
+    "rewrite_links.py:24-51"
+   ],
+   "evidence_quote": "new_text, count = LINK_RE.subn(repl, text)",
+   "source_refs": [
+    {
+     "path": "rewrite_links.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 24,
+     "end": 51
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 1,
+   "type": "trace",
+   "level": 3,
+   "concept": "Rebuild gates G0 to G6",
+   "question": "ghost-crm · planned Django rebuild: recite the 7 phases in gate order, G0 to G6.",
+   "steps": [
+    "G0 spec freeze -> diagnostics at baseline, screenshot-only schemas turned into rulings",
+    "G1 skeleton -> `app/` project, `AUTH_USER_MODEL` set before the first migrate",
+    "G2 tenancy + permission engine -> the permission matrix passes as pytest cells",
+    "G3 clients + projects -> first vertical slice, two-company isolation proof",
+    "G4 money + HR -> accounting first, then the payroll run, both idempotent",
+    "G5 CRM + collab -> sales, marketing, one shared Task / Meeting / Note / Document",
+    "G6 portal + integrations -> read-only portal, calendar aggregation"
+   ],
+   "answer": "spec freeze · skeleton · tenancy + permissions · clients + projects · money + HR · CRM + collab · portal — DESIGN TARGET",
+   "explanation": "Ordered by dependency: the permission engine cannot be retrofitted, so G2 precedes every domain slice; the portal is a read projection over everything, so it is last. Phases may overlap in coding, never in gating. No phase has run yet.",
+   "anchor": "A seven-storey scaffold: on each landing an inspector stamps a number before the crew may carry bricks one floor higher.",
+   "confusables": "Golden-inventory rows `G1`-`G14` in the `validation-and-qa` skill — same letter, but those are baseline NUMBERS, not rebuild phases.",
+   "tags": [
+    "per-docs",
+    "campaign"
+   ],
+   "source": [
+    ".claude/skills/campaign-django-rebuild/SKILL.md:296",
+    ".claude/skills/campaign-django-rebuild/SKILL.md:109",
+    ".claude/skills/campaign-django-rebuild/SKILL.md:184",
+    ".claude/skills/campaign-django-rebuild/SKILL.md:373",
+    ".claude/skills/campaign-django-rebuild/SKILL.md:439",
+    ".claude/skills/campaign-django-rebuild/SKILL.md:502-541"
+   ],
+   "evidence_quote": "## Phase 2 — TENANCY + PERMISSION ENGINE (gate G2 — the load-bearing gate)",
+   "source_refs": [
+    {
+     "path": ".claude/skills/campaign-django-rebuild/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 296
+    },
+    {
+     "path": ".claude/skills/campaign-django-rebuild/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 109
+    },
+    {
+     "path": ".claude/skills/campaign-django-rebuild/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 184
+    },
+    {
+     "path": ".claude/skills/campaign-django-rebuild/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 373
+    },
+    {
+     "path": ".claude/skills/campaign-django-rebuild/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 439
+    },
+    {
+     "path": ".claude/skills/campaign-django-rebuild/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 502,
+     "end": 541
+    }
+   ]
+  },
+  {
+   "category": 2,
+   "rank": 2,
+   "type": "recall",
+   "level": 2,
+   "concept": "Three permission layers",
+   "question": "ghost-crm rebuild: which three layers does the planned permission model apply, in order, before a member sees a row?",
+   "answer": "(1) package gating: billing bounds which grants can exist; (2) the five per-member app grants; (3) relationship-scoped row visibility: line-manager tree plus the org-wide HR overlay. DESIGN TARGET.",
+   "explanation": "Layer 1 is `billing.grantable_apps(company)`, layer 2 the `@requires_app_grant` decorator, layer 3 the scoped queryset helpers. Why computed and not stored: see 62.",
+   "example": "G2 gate test: 12 employees, 3 report to one manager -> that manager's HR-file list returns exactly 3",
+   "tags": [
+    "per-docs",
+    "permissions"
+   ],
+   "source": [
+    ".claude/skills/architecture-contract/SKILL.md:211-216",
+    ".claude/skills/campaign-django-rebuild/SKILL.md:346-347"
+   ],
+   "evidence_quote": "Three layers, applied in order: (1) **package gating**",
+   "source_refs": [
+    {
+     "path": ".claude/skills/architecture-contract/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 211,
+     "end": 216
+    },
+    {
+     "path": ".claude/skills/campaign-django-rebuild/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 346,
+     "end": 347
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 0,
+   "type": "cloze",
+   "level": 1,
+   "concept": "rewrite_links.py --apply flag",
+   "question": "ghost-crm: complete the command that makes the link rewriter actually WRITE its changes.",
+   "cloze": "python3 rewrite_links.py {{c1::--apply}}   # without the flag the run is a dry run",
+   "answer": "--apply",
+   "explanation": "Dry run is the default: it prints `would rewrite` lines and a `[DRY RUN]` summary and touches nothing. Rule N6: read a dry run and have a clean `git status` before any apply.",
+   "example": "python3 rewrite_links.py  # [DRY RUN] 69 link(s) across 43 file(s) of 45 scanned.",
+   "confusables": "`--docs PATH` — it only changes WHICH tree is walked (default: `docs/` beside the script, not the cwd); it never enables writing.",
+   "tags": [
+    "cli"
+   ],
+   "source": [
+    "rewrite_links.py:56-57",
+    "rewrite_links.py:74",
+    ".claude/skills/change-control/SKILL.md:299-303"
+   ],
+   "evidence_quote": "parser.add_argument(\"--apply\", action=\"store_true\", help=\"Write changes (default: dry run).\")",
+   "source_refs": [
+    {
+     "path": "rewrite_links.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 56,
+     "end": 57
+    },
+    {
+     "path": "rewrite_links.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 74
+    },
+    {
+     "path": ".claude/skills/change-control/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 299,
+     "end": 303
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 1,
+   "type": "output",
+   "level": 3,
+   "concept": "repl() dedupes originals",
+   "question": "ghost-crm · `rewrite_file`: a page holds the same skhokho.io link twice. Predict `count` and `len(originals)` after the lines below.",
+   "code_snippet": "text = \"[Docs](https://skhokho.io/a) and [Docs](https://skhokho.io/a)\"\n\ndef repl(match):\n    label, url = match.group(1), match.group(2)\n    key = (label, url)\n    if key not in seen:\n        seen.add(key)\n        originals.append(key)\n    return f\"[{label}]({NEW_URL})\"\n\nnew_text, count = LINK_RE.subn(repl, text)",
+   "expected_output": "count == 2\nlen(originals) == 1",
+   "answer": "`count` is 2 and `originals` holds 1 pair — every match is REPLACED, but a `(label, url)` pair is archived only once.",
+   "explanation": "(1) `LINK_RE` matches both links. (2) First call: the key is new, so it is added to `seen` and appended. (3) Second call: the key is already in `seen`, nothing is appended. (4) `subn` reports 2 substitutions. see 12",
+   "tags": [
+    "grounded:logic",
+    "dedupe"
+   ],
+   "source": [
+    "rewrite_links.py:26-37",
+    "rewrite_links.py:20"
+   ],
+   "evidence_quote": "if key not in seen:",
+   "source_refs": [
+    {
+     "path": "rewrite_links.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 26,
+     "end": 37
+    },
+    {
+     "path": "rewrite_links.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 20
+    }
+   ]
+  },
+  {
+   "category": 3,
+   "rank": 2,
+   "type": "output",
+   "level": 3,
+   "concept": "Missing docs dir guard",
+   "question": "ghost-crm · `rewrite_links.py`: predict the result of the call below, given that `/tmp/nope` does not exist.",
+   "code_snippet": "python3 rewrite_links.py --docs /tmp/nope",
+   "expected_output": "docs directory not found: /tmp/nope\n(exit code 1)",
+   "answer": "It stops: `docs directory not found: /tmp/nope` on stderr and exit code 1 — it NEVER falls back to another tree.",
+   "explanation": "`main()` tests `args.docs.is_dir()` before walking, and `raise SystemExit(main())` turns the returned 1 into the exit code. Without the guard, a walk that finds no page would end with a `0 link(s)` summary and return 0, which reads like a clean tree.",
+   "confusables": "`audit_branding.py` and the other four diagnostics — their missing-`docs/` guard returns 2 (cannot run); `rewrite_links.py` returns 1.",
+   "tags": [
+    "grounded:logic",
+    "intended-error"
+   ],
+   "source": [
+    "rewrite_links.py:60-62",
+    "rewrite_links.py:79-80",
+    ".claude/skills/diagnostics-and-tooling/scripts/audit_branding.py:46-49"
+   ],
+   "evidence_quote": "print(f\"docs directory not found: {args.docs}\", file=sys.stderr)",
+   "source_refs": [
+    {
+     "path": "rewrite_links.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 60,
+     "end": 62
+    },
+    {
+     "path": "rewrite_links.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 79,
+     "end": 80
+    },
+    {
+     "path": ".claude/skills/diagnostics-and-tooling/scripts/audit_branding.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 46,
+     "end": 49
+    }
+   ]
+  },
+  {
+   "category": 4,
+   "rank": 0,
+   "type": "locate",
+   "level": 1,
+   "concept": "The architecture-contract skill",
+   "question": "Which skill in ghost-crm is the single home of the app map, invariants I1-I6 and rulings R1-R10?",
+   "answer": "`architecture-contract` (`.claude/skills/architecture-contract/SKILL.md`): sibling skills cite its rulings by number.",
+   "explanation": "cf. [private project] `[private project]-architecture-contract`: the same skill template for another product.",
+   "anchor": "A court registry: every judge in the building walks to one ledger to look up decision number seven instead of deciding it again.",
+   "confusables": "`change-control` — it decides WHETHER a change may merge; this skill only records what was decided.",
+   "tags": [
+    "skill-library"
+   ],
+   "source": [
+    ".claude/skills/architecture-contract/SKILL.md:226-228",
+    ".claude/skills/architecture-contract/SKILL.md:24-27"
+   ],
+   "evidence_quote": "This skill is the home of rulings; sibling skills cite these by number.",
+   "source_refs": [
+    {
+     "path": ".claude/skills/architecture-contract/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 226,
+     "end": 228
+    },
+    {
+     "path": ".claude/skills/architecture-contract/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 24,
+     "end": 27
+    }
+   ]
+  },
+  {
+   "category": 4,
+   "rank": 1,
+   "type": "compare",
+   "level": 2,
+   "concept": "audit_branding.py baseline exit",
+   "question": "ghost-crm: `audit_branding.py` vs `docs_inventory.py` on the untouched baseline: what is the ONE difference in their exit codes?",
+   "answer": "`audit_branding.py` exits 1 BY DESIGN (the rebrand is incomplete, so findings remain); `docs_inventory.py` exits 0 and turns 1 only when a count deviates from `EXPECTED`.",
+   "explanation": "So the healthy battery reads 1,0,0,0,0 (see 90). Gate the audit on 'body count did not increase', not on exit 0.",
+   "anchor": "Two smoke alarms: one has beeped since move-in because the paint is still wet; the other stays silent until someone moves the furniture.",
+   "confusables": "`docs_inventory.py` — a 1 from the audit is the known baseline; a 1 from the inventory means the corpus CHANGED.",
+   "tags": [
+    "diagnostics"
+   ],
+   "source": [
+    ".claude/skills/diagnostics-and-tooling/scripts/audit_branding.py:11-13",
+    ".claude/skills/diagnostics-and-tooling/scripts/docs_inventory.py:12-13",
+    ".claude/skills/diagnostics-and-tooling/SKILL.md:358-360"
+   ],
+   "evidence_quote": "2026-08-30 baseline: exits 1 (the rebrand is known-incomplete).",
+   "source_refs": [
+    {
+     "path": ".claude/skills/diagnostics-and-tooling/scripts/audit_branding.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 11,
+     "end": 13
+    },
+    {
+     "path": ".claude/skills/diagnostics-and-tooling/scripts/docs_inventory.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 12,
+     "end": 13
+    },
+    {
+     "path": ".claude/skills/diagnostics-and-tooling/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 358,
+     "end": 360
+    }
+   ]
+  },
+  {
+   "category": 5,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Background jobs default",
+   "question": "ghost-crm rebuild: which background-job stack is the ranked default for the marketing app's bulk SMTP sends and async CSV import?",
+   "answer": "Celery + Redis — the marketing app needs real queued work. DESIGN TARGET.",
+   "explanation": "Nothing runs today: the repository has no server, no scheduler and no CI. Cron-style management commands are accepted only for the payroll trigger and recurring invoices or expenses.",
+   "confusables": "Django's built-in Tasks framework — ranked third because it is NOT part of the 5.2 LTS line pinned at G1.",
+   "tags": [
+    "per-docs",
+    "background-jobs"
+   ],
+   "source": [
+    ".claude/skills/campaign-django-rebuild/SKILL.md:616-622"
+   ],
+   "evidence_quote": "The marketing app needs real queued work: bulk SMTP sends with rate limiting and an async CSV import with progress",
+   "source_refs": [
+    {
+     "path": ".claude/skills/campaign-django-rebuild/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 616,
+     "end": 622
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 0,
+   "type": "why",
+   "level": 2,
+   "concept": "References blocks are immutable",
+   "question": "Why does ghost-crm forbid hand-editing or deleting a References block rather than tidying it up during the rebrand?",
+   "answer": "The link rewrite ran BEFORE the docs import was committed, so the pre-rewrite docs exist nowhere in git: the blocks are the only surviving record of the original app's routes.",
+   "explanation": "They are the raw material for the rebuild's URL design (ruling R10 keeps the originals as a legacy mapping). Breaks if undone: the deep links are gone for good, and a hand-edited separator makes the next `--apply` corrupt the page (see 91).",
+   "anchor": "A demolished house whose only floor plan is a carbon copy stapled to the back of each brochure: scribble on it and no architect can redraw the rooms.",
+   "confusables": "A grep-and-replace of `skhokho` across `docs/` — it would also rewrite the ARCHIVED URLs; the rebrand stops above the header (see 94).",
+   "tags": [
+    "provenance",
+    "per-docs"
+   ],
+   "source": [
+    ".claude/skills/diagnostics-and-tooling/scripts/check_references_integrity.py:4-6",
+    ".claude/skills/change-control/SKILL.md:171-176",
+    "rewrite_links.py:44-45"
+   ],
+   "evidence_quote": "the pre-rewrite docs were never committed. They must never be hand-edited.",
+   "source_refs": [
+    {
+     "path": ".claude/skills/diagnostics-and-tooling/scripts/check_references_integrity.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 4,
+     "end": 6
+    },
+    {
+     "path": ".claude/skills/change-control/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 171,
+     "end": 176
+    },
+    {
+     "path": "rewrite_links.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 44,
+     "end": 45
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 1,
+   "type": "why",
+   "level": 2,
+   "concept": "AUTH_USER_MODEL before migrate",
+   "question": "Why does ghost-crm's rebuild plan set `AUTH_USER_MODEL = 'accounts.User'` BEFORE the first `migrate` rather than start on the default `auth.User` and switch later?",
+   "answer": "The first `migrate` bakes a foreign key to whatever user model exists at that moment; switching afterwards is unsupported without dropping the database. DESIGN TARGET.",
+   "explanation": "It is the ONLY irreversible decision of the campaign, so it is made in step 1.3 of phase G1. Breaks if undone: `InconsistentMigrationHistory`; the clean fix is to delete `db.sqlite3` and the generated migrations.",
+   "anchor": "Concrete poured around the first door frame: to change the door afterwards, the whole foundation has to be broken out.",
+   "confusables": "Migrating on `auth.User`, then editing `django_migrations` (wrong path W1) — history and schema then DISAGREE forever.",
+   "tags": [
+    "per-docs",
+    "irreversible"
+   ],
+   "source": [
+    ".claude/skills/campaign-django-rebuild/SKILL.md:229-237",
+    ".claude/skills/campaign-django-rebuild/SKILL.md:252",
+    ".claude/skills/campaign-django-rebuild/SKILL.md:276-284"
+   ],
+   "evidence_quote": "Changing `AUTH_USER_MODEL` mid-project is officially unsupported without dropping the database.",
+   "source_refs": [
+    {
+     "path": ".claude/skills/campaign-django-rebuild/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 229,
+     "end": 237
+    },
+    {
+     "path": ".claude/skills/campaign-django-rebuild/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 252
+    },
+    {
+     "path": ".claude/skills/campaign-django-rebuild/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 276,
+     "end": 284
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 2,
+   "type": "why",
+   "level": 4,
+   "concept": "Computed permissions, not stored",
+   "question": "Why does ghost-crm's rebuild plan compute row visibility with decorators and scoped managers in `core` rather than store per-object permission rows with django-guardian? Give the verdict and what the alternative must first prove.",
+   "answer": "Verdict: computed wins. (1) Visibility derives from current FKs (line-manager tree, org-wide HR overlay, creator/assignee), so a reassignment needs ZERO permission writes. (2) Stored rows imply a bulk rewrite of grants on every `line_manager` change; guardian is admissible only with a written derivation of how they stay correct. (3) One engine is provable as the G2 permission matrix; per-view if-statements are wrong path W2. DESIGN TARGET.",
+   "explanation": "Breaks if undone: after a change of manager, stale rows keep granting access to former reports. see 22",
+   "anchor": "A guard who reads the org chart on the wall each time someone knocks, instead of a drawer of keys that must all be recut whenever a team changes boss.",
+   "confusables": "django-guardian — permissions are STORED rows that must be rewritten on reassignment; the chosen engine recomputes them from FKs.",
+   "tags": [
+    "per-docs",
+    "permissions"
+   ],
+   "source": [
+    ".claude/skills/campaign-django-rebuild/SKILL.md:608-614",
+    ".claude/skills/campaign-django-rebuild/SKILL.md:364-369"
+   ],
+   "evidence_quote": "they derive from current FKs, so nothing must be kept in sync on reassignment",
+   "source_refs": [
+    {
+     "path": ".claude/skills/campaign-django-rebuild/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 608,
+     "end": 614
+    },
+    {
+     "path": ".claude/skills/campaign-django-rebuild/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 364,
+     "end": 369
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 3,
+   "type": "why",
+   "level": 2,
+   "concept": "ExpenseClaim lives in accounting",
+   "question": "Why does ghost-crm's app map put `ExpenseClaim` in `accounting` and `LeaveApplication` in `hr` rather than give the docs' `personal` and `manager` modules their own Django apps?",
+   "answer": "Manager approves what personal requests, so two model apps would import each other. With the models in `hr` and `accounting`, `manager` and `personal` are only VIEW layers and no cycle exists. DESIGN TARGET.",
+   "explanation": "Bonus: approving a claim and creating its `Expense` stay inside one app, so the conversion is atomic. Payroll reaches accounting only through the `payroll_run_completed` signal; `hr` never imports accounting models.",
+   "confusables": "`personal` / `manager` apps with their own models — they would IMPORT each other; as view layers they own no models to import.",
+   "tags": [
+    "per-docs",
+    "app-boundaries"
+   ],
+   "source": [
+    ".claude/skills/architecture-contract/SKILL.md:142-147",
+    ".claude/skills/architecture-contract/SKILL.md:112"
+   ],
+   "evidence_quote": "LeaveApplication lives in `hr`; ExpenseClaim lives in `accounting`",
+   "source_refs": [
+    {
+     "path": ".claude/skills/architecture-contract/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 142,
+     "end": 147
+    },
+    {
+     "path": ".claude/skills/architecture-contract/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 112
+    }
+   ]
+  },
+  {
+   "category": 6,
+   "rank": 4,
+   "type": "recall",
+   "level": 1,
+   "concept": "R2: Concerted means CONVERTED",
+   "question": "ghost-crm: the docs tell users to update a hustle's status to `Concerted`. Which enum value does ruling R2 make the rebuild use?",
+   "answer": "`CONVERTED` — `Concerted` is a source typo; a code comment must cite it, and gate G5 greps `app/` for zero hits.",
+   "explanation": "The doc bug stays in `docs/sales/hustle.md`; the code follows the ruling (codifying the typo is wrong path W5). 'Hustle' is the docs' word for a sales lead.",
+   "tags": [
+    "per-docs",
+    "trap"
+   ],
+   "source": [
+    "docs/sales/hustle.md:60",
+    ".claude/skills/architecture-contract/SKILL.md:238-242",
+    ".claude/skills/campaign-django-rebuild/SKILL.md:634"
+   ],
+   "evidence_quote": "1. Update Hustle status to \"Concerted\"",
+   "source_refs": [
+    {
+     "path": "docs/sales/hustle.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 60
+    },
+    {
+     "path": ".claude/skills/architecture-contract/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 238,
+     "end": 242
+    },
+    {
+     "path": ".claude/skills/campaign-django-rebuild/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 634
+    }
+   ]
+  },
+  {
+   "category": 7,
+   "rank": 0,
+   "type": "recall",
+   "level": 2,
+   "concept": "Byte-idempotent re-apply",
+   "question": "ghost-crm has no database: its state is the committed `docs/` tree. What makes a second `rewrite_links.py --apply` leave an untouched page byte-identical?",
+   "answer": "The old block is cut off at the exact separator and REGENERATED from the same archived entries, which re-match `LINK_RE`; `rstrip()` plus the footer rebuilds the same bytes.",
+   "explanation": "Body links no longer match: they already point at the repo URL. Safe ONLY while the machine output was never hand-touched (see 91). The log still claims it wrote (see 92).",
+   "tags": [
+    "idempotency",
+    "provenance"
+   ],
+   "source": [
+    "rewrite_links.py:44-47",
+    ".claude/skills/change-control/SKILL.md:317-319"
+   ],
+   "evidence_quote": "new_text = new_text.rstrip() + footer",
+   "source_refs": [
+    {
+     "path": "rewrite_links.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 44,
+     "end": 47
+    },
+    {
+     "path": ".claude/skills/change-control/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 317,
+     "end": 319
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 0,
+   "type": "recall",
+   "level": 1,
+   "concept": "Base path /documentation/",
+   "question": "Under which URL path must ghost-crm's VuePress site be served for its assets and links to resolve?",
+   "answer": "`/documentation/` — `base` in `docs/.vuepress/config.js`; the dev server answers at `localhost:8080/documentation/`.",
+   "explanation": "A built `dist/` mounted at a web root 404s. No deployment exists in the repository.",
+   "tags": [
+    "vuepress"
+   ],
+   "source": [
+    "docs/.vuepress/config.js:2",
+    ".claude/skills/build-and-operate/SKILL.md:165-169"
+   ],
+   "evidence_quote": "base: '/documentation/',",
+   "source_refs": [
+    {
+     "path": "docs/.vuepress/config.js",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 2
+    },
+    {
+     "path": ".claude/skills/build-and-operate/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 165,
+     "end": 169
+    }
+   ]
+  },
+  {
+   "category": 8,
+   "rank": 1,
+   "type": "scenario",
+   "level": 3,
+   "concept": "ERR_OSSL_EVP_UNSUPPORTED on build",
+   "question": "ghost-crm: `npm run docs:dev` dies with `ERR_OSSL_EVP_UNSUPPORTED`. What is the cause and what do you change?",
+   "answer": "Run on Node 14/16, or `export NODE_OPTIONS=--openssl-legacy-provider` first. Cause: the lockfile pins webpack 4, which hashes with MD4; Node 17+ ships OpenSSL 3, which disables MD4.",
+   "explanation": "Install with `npm ci`, never `npm install`: the lockfile is `lockfileVersion` 1 and a modern npm rewrites it. The break is inferred from the pins; no live build was run when the skill was written.",
+   "tags": [
+    "trap",
+    "per-docs",
+    "inferred"
+   ],
+   "source": [
+    ".claude/skills/build-and-operate/SKILL.md:87-105",
+    "package-lock.json:4"
+   ],
+   "evidence_quote": "Webpack 4 hashes with MD4 via `crypto.createHash('md4')`.",
+   "source_refs": [
+    {
+     "path": ".claude/skills/build-and-operate/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 87,
+     "end": 105
+    },
+    {
+     "path": "package-lock.json",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 4
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 0,
+   "type": "recall",
+   "level": 2,
+   "concept": "Diagnostics battery passing sign",
+   "question": "How do you prove ghost-crm's docs corpus is still at its certified baseline, and what is the passing sign?",
+   "answer": "Run the five read-only diagnostics in `.claude/skills/diagnostics-and-tooling/scripts/`; healthy exits read 1,0,0,0,0, `audit_branding.py` FIRST.",
+   "explanation": "Exit contract: 0 pass, 1 findings, 2 cannot run. The leading 1 is red by design: see 41. There is no test suite and no CI: `npm test` is a hardcoded `exit 1`, so this battery plus the reviewer is the whole safety net.",
+   "example": "python3 .claude/skills/diagnostics-and-tooling/scripts/docs_inventory.py  # PASS: corpus matches the 2026-08-30 baseline exactly.",
+   "tags": [
+    "diagnostics",
+    "per-docs"
+   ],
+   "source": [
+    ".claude/skills/campaign-django-rebuild/SKILL.md:684",
+    ".claude/skills/diagnostics-and-tooling/SKILL.md:60-64",
+    "package.json:7"
+   ],
+   "evidence_quote": "exits 1,0,0,0,0 with the table's numbers",
+   "source_refs": [
+    {
+     "path": ".claude/skills/campaign-django-rebuild/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 684
+    },
+    {
+     "path": ".claude/skills/diagnostics-and-tooling/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 60,
+     "end": 64
+    },
+    {
+     "path": "package.json",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 7
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 1,
+   "type": "scenario",
+   "level": 3,
+   "concept": "Hand-edited separator corruption",
+   "question": "ghost-crm: someone removes one blank line above `## References (original links)` on a page, then `rewrite_links.py --apply` runs. What does the page look like afterwards?",
+   "answer": "Two References blocks: the header test still passes but the `split()` on the exact separator finds nothing, so the old block stays, its URLs already flattened, and a fresh block is appended.",
+   "explanation": "Fix: restore the page from git; never repair it by hand. Guard: `check_references_integrity.py` reports a separator that is not byte-exact BEFORE any apply, and flags more than one header.",
+   "anchor": "A tear-off coupon whose perforation was taped over: the machine cannot rip the old coupon off, so it glues a second one underneath.",
+   "tags": [
+    "trap",
+    "provenance"
+   ],
+   "source": [
+    "rewrite_links.py:44-45",
+    ".claude/skills/diagnostics-and-tooling/scripts/check_references_integrity.py:9-11",
+    ".claude/skills/diagnostics-and-tooling/scripts/check_references_integrity.py:65-70"
+   ],
+   "evidence_quote": "if REFERENCES_HEADER in new_text:",
+   "source_refs": [
+    {
+     "path": "rewrite_links.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 44,
+     "end": 45
+    },
+    {
+     "path": ".claude/skills/diagnostics-and-tooling/scripts/check_references_integrity.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 9,
+     "end": 11
+    },
+    {
+     "path": ".claude/skills/diagnostics-and-tooling/scripts/check_references_integrity.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 65,
+     "end": 70
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 2,
+   "type": "scenario",
+   "level": 3,
+   "concept": "The apply log is not evidence",
+   "question": "ghost-crm: on an unchanged tree `rewrite_links.py --apply` ends with `[APPLIED] 69 link(s) across 43 file(s) of 45 scanned.` What really changed, and what do you check instead of that log?",
+   "answer": "NOTHING but mtimes: the archived entries inside the References blocks re-match `LINK_RE` on every run, so the count is always the full 69. Check `git status` / `git diff`.",
+   "explanation": "`main()` prints `wrote` whenever `count` is non-zero, without comparing old and new text. Doctrine drawn from it for the whole campaign: a log is not evidence, a diff or a test tally is (wrong path W6).",
+   "tags": [
+    "trap",
+    "per-docs"
+   ],
+   "source": [
+    "rewrite_links.py:68-75",
+    ".claude/skills/change-control/SKILL.md:306-312"
+   ],
+   "evidence_quote": "print(f\"{'wrote' if args.apply else 'would rewrite'} {count:>2} link(s): {md.relative_to(args.docs)}\")",
+   "source_refs": [
+    {
+     "path": "rewrite_links.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 68,
+     "end": 75
+    },
+    {
+     "path": ".claude/skills/change-control/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 306,
+     "end": 312
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 3,
+   "type": "locate",
+   "level": 1,
+   "concept": "Surviving skhokho.io nav link",
+   "question": "ghost-crm's rewriter flattened every skhokho.io markdown link; which live skhokho.io link survived, and where?",
+   "answer": "The nav `Home` link in `docs/.vuepress/config.js` — the rewriter walks ONLY `*.md` files.",
+   "explanation": "Site `title` and `description` in the same file, and `name` in `package.json`, still say Skhokho: the repository is called Ghost-CRM but reads Skhokho. `audit_branding.py` reports this link on its own line.",
+   "tags": [
+    "drift",
+    "rebrand"
+   ],
+   "source": [
+    "docs/.vuepress/config.js:10",
+    "rewrite_links.py:64",
+    ".claude/skills/diagnostics-and-tooling/scripts/audit_branding.py:76-81"
+   ],
+   "evidence_quote": "{ text: 'Home', link: 'https://skhokho.io' },",
+   "source_refs": [
+    {
+     "path": "docs/.vuepress/config.js",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 10
+    },
+    {
+     "path": "rewrite_links.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 64
+    },
+    {
+     "path": ".claude/skills/diagnostics-and-tooling/scripts/audit_branding.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 76,
+     "end": 81
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 4,
+   "type": "scenario",
+   "level": 4,
+   "concept": "Finishing the rebrand safely",
+   "question": "ghost-crm: you must finish the Skhokho-to-Ghost-CRM rebrand. Why is a find-and-replace of `skhokho` across `docs/` forbidden, and what is the smallest safe procedure?",
+   "answer": "Verdict: rebrand ABOVE the References header only. (1) A blunt replace also rewrites the archived URLs inside the blocks, destroying the only route record. (2) Edit prose, the `config.js` title / description / nav and `package.json`; the progress metric is the body column of `audit_branding.py`, whose refs column must never move. (3) Keep a visible Skhokho origin statement: attribution may not be erased.",
+   "explanation": "`split_md()` in the audit cuts each page at the header, which is why body debt and archive are counted apart. Open direction (frontier F4): extend the rewrite-with-archive pattern to prose behind a dry-run default and anchor the block by header regex.",
+   "tags": [
+    "rebrand",
+    "provenance",
+    "per-docs"
+   ],
+   "source": [
+    ".claude/skills/change-control/SKILL.md:219-221",
+    ".claude/skills/diagnostics-and-tooling/scripts/audit_branding.py:31-36",
+    ".claude/skills/diagnostics-and-tooling/scripts/audit_branding.py:97-100",
+    ".claude/skills/engineering-standards/SKILL.md:361-366"
+   ],
+   "evidence_quote": "N2 says the References blocks and an explicit origin acknowledgment are exempt from that sweep.",
+   "source_refs": [
+    {
+     "path": ".claude/skills/change-control/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 219,
+     "end": 221
+    },
+    {
+     "path": ".claude/skills/diagnostics-and-tooling/scripts/audit_branding.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 31,
+     "end": 36
+    },
+    {
+     "path": ".claude/skills/diagnostics-and-tooling/scripts/audit_branding.py",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 97,
+     "end": 100
+    },
+    {
+     "path": ".claude/skills/engineering-standards/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 361,
+     "end": 366
+    }
+   ]
+  },
+  {
+   "category": 9,
+   "rank": 9,
+   "type": "recall",
+   "level": 2,
+   "concept": "Next step: G0 spec freeze",
+   "question": "What is the next planned step for ghost-crm, and why can no application code start before it?",
+   "answer": "Execute G0, the spec freeze: run the five diagnostics, transcribe the screenshot-only schemas (items A1-A7) into rulings, classify every `[open]` item. Coding against a drifted or half-read spec rebuilds the wrong product.",
+   "explanation": "After G0 comes `app/` with the custom user model (G1), then the permission matrix (G2). If any diagnostic deviates from its baseline: STOP and triage before anything else.",
+   "tags": [
+    "per-docs",
+    "resume"
+   ],
+   "source": [
+    ".claude/skills/campaign-django-rebuild/SKILL.md:109-114",
+    ".claude/skills/campaign-django-rebuild/SKILL.md:139-142",
+    ".claude/skills/campaign-django-rebuild/SKILL.md:173-180"
+   ],
+   "evidence_quote": "freeze the spec before the first line of code",
+   "source_refs": [
+    {
+     "path": ".claude/skills/campaign-django-rebuild/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 109,
+     "end": 114
+    },
+    {
+     "path": ".claude/skills/campaign-django-rebuild/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 139,
+     "end": 142
+    },
+    {
+     "path": ".claude/skills/campaign-django-rebuild/SKILL.md",
+     "branch": "claude/ghost-crm-skill-library-x37l4e",
+     "commit": "4b534f03a89f5349c54e3add2b7633e139c6b1df",
+     "line": 173,
+     "end": 180
+    }
+   ]
+  }
+ ]
+}
