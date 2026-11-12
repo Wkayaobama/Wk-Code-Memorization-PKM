@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import math
 import re
+import unicodedata
 from collections import Counter
 
 K1, B = 1.5, 0.75
@@ -34,18 +35,59 @@ FACT_KINDS = [   # (map key, label, title key, body keys, path key)
 ]
 
 
+def fold(text: str) -> str:
+    """Accents removed, so that "répétition" and "repetition" are one word."""
+    return "".join(ch for ch in unicodedata.normalize("NFKD", text or "") if not unicodedata.combining(ch))
+
+
+def stem(word: str) -> str:
+    """A light, symmetric stem: the same key for cache, caches, cached and caching, or for authenticate,
+    authenticating and authentication.  It is applied to passages and questions alike, so a rough edge
+    merges two words at worst; it never hides one."""
+    w = word
+    if len(w) <= 3 or w.isdigit():
+        return w
+    for suffix, replacement, keep in (("ization", "iz", 3), ("isation", "is", 3), ("ations", "at", 5), ("ation", "at", 5),
+                                      ("ings", "", 3), ("ing", "", 3), ("ies", "y", 2), ("ied", "y", 2), ("ed", "", 3),
+                                      ("es", "", 3), ("s", "", 3)):
+        if w.endswith(suffix) and len(w) - len(suffix) + len(replacement) >= keep + len(replacement) and not (suffix == "s" and w.endswith("ss")):
+            w = w[: len(w) - len(suffix)] + replacement
+            break
+    if len(w) >= 4 and w[-1] == w[-2] and w[-1] not in "aeiouls":      # runn -> run, mapp -> map
+        w = w[:-1]
+    if len(w) >= 5 and w.endswith("e"):
+        w = w[:-1]
+    return w
+
+
 def tokens(text: str, *, query: bool = False) -> list[str]:
-    """Lower-case words; an identifier also yields its parts (loadStation -> loadstation, load, station)."""
+    """Stemmed lower-case words; an identifier also yields its parts (loadStation -> loadstation, load, station)."""
     out: list[str] = []
-    for word in _WORD.findall(text or ""):
+    for word in _WORD.findall(fold(text)):
         low = word.lower()
         if query and low in _STOP:
             continue
-        out.append(low)
+        out.append(stem(low))
         parts = _CAMEL.findall(word)
         if len(parts) > 1:
-            out.extend(p.lower() for p in parts if len(p) > 1)
+            out.extend(stem(p.lower()) for p in parts if len(p) > 1)
     return out
+
+
+def words(text: str) -> frozenset:
+    """The stemmed whole words of a name, without its camel-case parts and without filler words."""
+    return frozenset(stem(w.lower()) for w in _WORD.findall(fold(text)) if w.lower() not in _STOP)
+
+
+def pieces(text: str) -> frozenset:
+    """The same name spelled apart: each camel-case word replaced by its parts (CloudBQ -> cloud, bq)."""
+    out = set()
+    for word in _WORD.findall(fold(text)):
+        if word.lower() in _STOP:
+            continue
+        split = [p for p in _CAMEL.findall(word) if len(p) > 1]
+        out.update(stem(p.lower()) for p in split) if len(split) > 1 else out.add(stem(word.lower()))
+    return frozenset(out)
 
 
 def _clean(text) -> str:
@@ -123,11 +165,12 @@ class Index:
         self.n = len(self.passages)
         self.avg = (sum(self.lengths) / self.n) if self.n else 0.0
         self.idf = {t: math.log(1 + (self.n - d + 0.5) / (d + 0.5)) for t, d in df.items()}
-        # the ways a project is named: its slug, its repository, its nicknames
+        # the ways a project is named: its slug, its repository, its nicknames; each as whole words
+        # (cloudbq) and spelled apart (cloud, bq), so that either way of typing it is recognised
         self.names: dict[str, list[frozenset]] = {}
         for p in edition["projects"]:
             spellings = [p["slug"], p.get("repo") or ""] + list(p.get("aliases") or [])
-            sets = {frozenset(t for t in tokens(s) if t not in _STOP) for s in spellings}
+            sets = {words(s) for s in spellings} | {pieces(s) for s in spellings}      # every word of the name must be in the question
             self.names[p["slug"]] = [s for s in sets if s]
 
     def named_projects(self, query_terms: set[str]) -> set[str]:
@@ -158,13 +201,24 @@ class Index:
                 score *= PROJECT_BOOST
             scored.append((score, i))
         scored.sort(key=lambda x: (-x[0], x[1]))
-        out, per = [], Counter()
+        # In an open question one project may not crowd every other out.  The limit does not apply to a
+        # project the question names, nor when a single project is in play, and passages it set aside
+        # fill the list again when the others did not.
+        several = len({self.passages[i]["slug"] for _, i in scored}) > 1
+        out, per, aside = [], Counter(), []
         for score, i in scored:
             passage = self.passages[i]
-            if wanted is None and per[passage["slug"]] >= per_project:
-                continue           # one project may not crowd every other out of an open question
-            per[passage["slug"]] += 1
+            slug = passage["slug"]
+            if wanted is None and several and slug not in named and per[slug] >= per_project:
+                aside.append((score, i))
+                continue
+            per[slug] += 1
             out.append({**passage, "score": round(score, 4)})
             if len(out) >= k:
                 break
+        for score, i in aside:
+            if len(out) >= k:
+                break
+            out.append({**self.passages[i], "score": round(score, 4)})
+        out.sort(key=lambda p: -p["score"])
         return out

@@ -22,8 +22,9 @@ DEFAULTS: dict = {
         "enabled": True,
         "model": "claude-opus-5-5",
         "effort": "medium",               # low | medium | high | xhigh | max
-        "max_tokens": 16000,
-        "timeout_seconds": 120,
+        "max_tokens": 16000,              # thinking counts toward it: leave room
+        "timeout_seconds": 60,            # the longest silence tolerated from the API
+        "answer_seconds": 180,            # the longest one answer may take in all
         "fallbacks": True,                # server-side refusal fallback
     },
     "retrieval": {
@@ -40,7 +41,8 @@ DEFAULTS: dict = {
     },
     "access": {
         "users_file": "",                 # JSON: who may open the page and which projects each person sees
-        "trust_user_header": "",          # e.g. X-Forwarded-User, only behind an authenticating proxy that sets it
+        "trust_user_header": "",          # e.g. X-Forwarded-User, set by an authenticating proxy
+        "trusted_proxies": [],            # addresses or ranges of that proxy: the header counts from nowhere else
         "only": [],                       # projects this deployment serves at all (empty: every project in the image)
     },
 }
@@ -92,11 +94,24 @@ def merge(overrides) -> dict:
             out[section][key] = value
     if out["llm"]["provider"] != "anthropic":
         raise ConfigError("llm.provider must be 'anthropic'")
+    if not out["llm"]["model"].strip():
+        raise ConfigError("llm.model must name a model")
+    if out["access"]["trust_user_header"]:
+        import ipaddress
+
+        if not out["access"]["trusted_proxies"]:
+            raise ConfigError("access.trust_user_header needs access.trusted_proxies: the addresses of the proxy that sets the header")
+        for entry in out["access"]["trusted_proxies"]:
+            try:
+                ipaddress.ip_network(entry, strict=False)
+            except ValueError:
+                raise ConfigError(f"access.trusted_proxies: {entry!r} is not an address or a range such as 10.42.0.0/16") from None
     if out["llm"]["effort"] not in ("low", "medium", "high", "xhigh", "max"):
         raise ConfigError("llm.effort must be low, medium, high, xhigh or max")
     if out["retrieval"]["engine"] != "bm25":
         raise ConfigError("retrieval.engine must be 'bm25'")
-    for section, key, low, high in (("llm", "max_tokens", 256, 128000), ("llm", "timeout_seconds", 5, 600), ("retrieval", "top_k", 1, 30),
+    for section, key, low, high in (("llm", "max_tokens", 4000, 128000), ("llm", "timeout_seconds", 5, 600), ("llm", "answer_seconds", 10, 1800),
+                                    ("retrieval", "top_k", 1, 30),
                                     ("retrieval", "per_project", 1, 30), ("server", "port", 1, 65535),
                                     ("server", "ask_per_10_minutes", 1, 10000), ("server", "max_concurrent_answers", 1, 64)):
         if not low <= out[section][key] <= high:

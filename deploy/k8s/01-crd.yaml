@@ -43,6 +43,7 @@ spec:
             required:
             - image
             - configRef
+            - usersRef
             properties:
               image:
                 type: string
@@ -64,6 +65,13 @@ spec:
                     name:
                       type: string
                       minLength: 1
+              projects:
+                type: array
+                items:
+                  type: string
+                  minLength: 1
+                description: 'What this deployment serves: project slugs, repository names or two-digit codes. Empty: every
+                  project in the image.'
               configRef:
                 type: object
                 required:

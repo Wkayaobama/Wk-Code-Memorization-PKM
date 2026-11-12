@@ -339,14 +339,22 @@ def cmd_serve(args) -> int:
         else:
             token = args.token
             if not server.is_loopback(host) and not token:
+                # A generated link is shown on a terminal, for a phone on the same network.  Anywhere else
+                # (a container, a service) it would land in a log: there, name the people or the token.
+                if not sys.stdout.isatty():
+                    sys.exit("Refusing to listen beyond this machine without knowing who may come in: pass --users users.json "
+                             "(a personal link per person) or --token <value>.")
                 import secrets
 
                 token = secrets.token_urlsafe(18)
+                generated = True
             site = server.Site(edition, progress_path=args.progress, token=token if not server.is_loopback(host) or token else None,
                                settings=settings, client=client)
     except (OSError, ValueError) as exc:
         sys.exit(f"cannot start: {exc}")
     httpd, token = server.create_server(os.path.join(args.root, "app"), host=host, port=port, site=site)
+    if token and not locals().get("generated"):
+        token = "<the token you passed>"                      # a token given on purpose is never echoed
     shown = "127.0.0.1" if host in ("0.0.0.0", "::") else host
     base = f"http://{shown}:{httpd.server_address[1]}/"
     print(f"Recurser: {len(edition['cards'])} cards on {len(edition['projects'])} projects ({edition['edition']} edition)")
@@ -396,7 +404,8 @@ def cmd_ask(args) -> int:
         return 0
     try:
         result = assistant.ask(args.question, found, client=client, model=settings["llm"]["model"], effort=settings["llm"]["effort"],
-                               max_tokens=settings["llm"]["max_tokens"], fallbacks=settings["llm"]["fallbacks"])
+                               max_tokens=settings["llm"]["max_tokens"], fallbacks=settings["llm"]["fallbacks"],
+                               answer_seconds=settings["llm"]["answer_seconds"])
     except assistant.AssistantError as exc:
         sys.exit(f"the assistant failed: {exc}")
     titles = {p["id"]: p["title"] for p in found}

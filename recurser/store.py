@@ -143,10 +143,12 @@ def public_vocabulary(private_names, repo_dirs, max_bytes: int = 2_000_000) -> s
     return {n for n in private_names if _norm_name(n) in seen}
 
 
-def privacy_gate(obj, private_names, keep=()):
+def privacy_gate(obj, private_names, keep=(), exempt=None):
     """Return (clean copy, findings).  Relations to private projects are dropped; any other mention of a
     private repository name is replaced, unless the name is in ``keep`` (names the public repository
-    already spells out itself).  Verbatim source fields are left alone: they quote public code."""
+    already spells out itself).  The ``exempt`` fields are left alone; by default those are the citations,
+    which quote the project's own code and must keep matching it."""
+    exempt = CITATION_FIELDS if exempt is None else frozenset(exempt)
     relation_pattern = _name_pattern(private_names)
     kept = {_norm_name(k) for k in keep}
     plain = _name_pattern([n for n in private_names if _norm_name(n) not in kept])
@@ -175,7 +177,7 @@ def privacy_gate(obj, private_names, keep=()):
             return out
         if isinstance(node, list):
             return [walk(v, key) for v in node]
-        if isinstance(node, str) and text_pattern is not None and key not in VERBATIM_FIELDS and text_pattern.search(node):
+        if isinstance(node, str) and text_pattern is not None and key not in exempt and text_pattern.search(node):
             findings.append(f"redacted a private repository name in '{key}'")
             return text_pattern.sub(REDACTED, node)
         return node
@@ -541,7 +543,9 @@ def load_edition(root: str, tiers: list[str] | None = None, today: date | None =
     }
 
 
-IDENTITY_KEYS = ("slug", "repo", "code", "visibility", "fork", "pushed_at", "branch", "commit", "tier", "analyzed_at", "card_count", "id")
+# What identifies an item itself and is therefore never rewritten.  A branch name is not in the list:
+# a branch can be named after another project, and the commit is enough to link to the code.
+IDENTITY_KEYS = ("slug", "repo", "code", "visibility", "fork", "pushed_at", "commit", "tier", "analyzed_at", "card_count", "id")
 
 
 def resolve_projects(edition: dict, names) -> list[str]:
@@ -568,7 +572,8 @@ def restrict(edition: dict, slugs) -> dict:
 
     The other projects disappear with their cards and their inventory rows, links to their cards are
     dropped, and wherever the remaining text names a private repository that is not part of the
-    selection, the name is replaced.  Citations are left alone: they belong to the chosen projects' code.
+    selection, the name is replaced, in quoted code, paths and branch names too.  Names too short to
+    match safely are listed under ``unmatched_private_names`` so the caller can refuse to go on.
     """
     wanted = set(slugs)
     unknown = wanted - {p["slug"] for p in edition["projects"]}
@@ -579,14 +584,11 @@ def restrict(edition: dict, slugs) -> dict:
                     | {r["name"] for r in edition["inventory"] if r.get("slug") not in wanted and not inventory.is_public(r.get("visibility"))})
 
     def gated(obj: dict) -> dict:
-        clean, _ = privacy_gate(obj, hidden)
+        clean, _ = privacy_gate(obj, hidden, exempt=())                  # an audience page is not checked against the code
         clean.update({k: obj[k] for k in IDENTITY_KEYS if k in obj})     # never rewrite what identifies the item itself
         return clean
 
     projects = [gated(p) for p in edition["projects"] if p["slug"] in wanted]
-    for p, original in zip(projects, [p for p in edition["projects"] if p["slug"] in wanted]):
-        if original.get("alts"):
-            p["alts"] = [{**alt, "branch": src.get("branch", ""), "commit": src.get("commit", "")} for alt, src in zip(p.get("alts") or [], original["alts"])]
     cards = [gated(c) for c in edition["cards"] if c["slug"] in wanted]
     known = {c["id"] for c in cards}
     for c in cards:
@@ -597,7 +599,8 @@ def restrict(edition: dict, slugs) -> dict:
             c.pop("see_also", None)
     return {**edition, "projects": projects, "cards": cards,
             "inventory": [r for r in edition["inventory"] if r.get("slug") in wanted],
-            "audience": sorted(wanted)}
+            "audience": sorted(wanted),
+            "unmatched_private_names": sorted(n for n in hidden if n and len(n) < MIN_NAME)}
 
 
 def find_stale(root: str, sources_root: str, tiers: list[str] | None = None) -> dict:

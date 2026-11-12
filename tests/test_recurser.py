@@ -825,6 +825,23 @@ class AudienceTests(unittest.TestCase):
         self.assertIn("[private project]", first["confusables"])
         self.assertEqual((first["id"], first["slug"]), ("tide-loader:00", "tide-loader"))
 
+    def test_an_audience_page_hides_names_in_quotes_paths_and_branches_too(self):
+        edition = demo_edition()
+        projects = [dict(p, visibility="private" if p["slug"] == "harbor-notes" else "public") for p in edition["projects"]]
+        tide = [p for p in projects if p["slug"] == "tide-loader"][0]
+        tide.update(branch="claude/harbor-notes-bridge-x1", commit="abc123", alts=[{"branch": "feat/harbor_notes", "note": "", "commit": "def456"}])
+        cards = [dict(c) for c in edition["cards"]]
+        first = [c for c in cards if c["id"] == "tide-loader:00"][0]
+        first.update(evidence_quote="import harbor-notes as hn", source_refs=[{"path": "vendor/harbor-notes/x.py", "line": 3, "branch": "claude/harbor-notes-bridge-x1", "commit": "abc123"}])
+        inventory = edition["inventory"] + [{"name": "ab", "visibility": "private", "slug": None}]
+        team = store.restrict({**edition, "projects": projects, "cards": cards, "inventory": inventory}, ["tide-loader"])
+        blob = json.dumps({"projects": team["projects"], "cards": team["cards"]})
+        self.assertNotIn("harbor-notes", blob)
+        self.assertNotIn("harbor_notes", blob)
+        self.assertEqual(team["projects"][0]["commit"], "abc123")                # the commit still links to the code
+        self.assertEqual(team["cards"][0]["source_refs"][0]["commit"], "abc123")
+        self.assertEqual(team["unmatched_private_names"], ["ab"])                # too short to hide: the caller must refuse
+
 
 class RetrievalTests(unittest.TestCase):
     def test_a_question_finds_its_card_inside_the_audience_only(self):
@@ -838,14 +855,43 @@ class RetrievalTests(unittest.TestCase):
         self.assertEqual(index.search("the of and", k=5), [])                     # nothing but stop words
         only_tide = retrieval.Index(store.restrict(edition, ["tide-loader"]))
         self.assertTrue(all(h["slug"] == "tide-loader" for h in only_tide.search("markdown file per note index", k=8)))
-        self.assertEqual(retrieval.tokens("loadStation(BRE)"), ["loadstation", "load", "station", "bre"])
+        self.assertEqual(retrieval.tokens("loadStation(BRE)"), ["loadstat", "load", "station", "bre"])     # the joined word is stemmed, the parts kept
+
+    def test_words_are_matched_by_their_stem_and_names_in_any_spelling(self):
+        for group in (("cache", "caches", "cached", "caching"), ("authenticate", "authenticating", "authentication"),
+                      ("tokenize", "tokenization"), ("load", "loads", "loading", "loaded"), ("query", "queries")):
+            self.assertEqual(len({retrieval.stem(w) for w in group}), 1, group)
+        self.assertEqual((retrieval.stem("station"), retrieval.stem("class"), retrieval.stem("run"), retrieval.stem("running")), ("station", "class", "run", "run"))
+        self.assertEqual(retrieval.tokens("répétition"), retrieval.tokens("repetition"))
+        edition = demo_edition()
+        edition = {**edition, "projects": [dict(p, aliases=["the TideGauge Loader"] if p["slug"] == "tide-loader" else []) for p in edition["projects"]]}
+        index = retrieval.Index(edition)
+        named = lambda q: index.named_projects(set(retrieval.tokens(q, query=True)))              # noqa: E731
+        self.assertEqual(named("what does the tidegauge loader do"), {"tide-loader"})            # lower case
+        self.assertEqual(named("what does the tide gauge loader do"), {"tide-loader"})           # spelled apart
+        self.assertEqual(named("is the TideGauge thing fast"), set())                            # a name needs all its words
+        self.assertTrue(index.search("loading stations", k=3))                                    # inflected words still find their cards
+
+    def test_the_per_project_limit_spares_a_single_or_named_project(self):
+        edition = demo_edition()
+        only = retrieval.Index(store.restrict(edition, ["tide-loader"]))
+        self.assertEqual(len(only.search("tide loader station batch merge receipt load file", k=8, per_project=2)), 8)
+        index = retrieval.Index(edition)
+        hits = index.search("how does tide-loader load a station batch and merge the receipt", k=8, per_project=2)
+        self.assertGreater(sum(h["slug"] == "tide-loader" for h in hits), 2)                      # named in the question: not limited
+        open_hits = index.search("file per note station batch merge index markdown", k=8, per_project=2)
+        self.assertEqual(len(open_hits), 8)                                                       # set-aside passages fill the list again
+        self.assertEqual(open_hits, sorted(open_hits, key=lambda h: -h["score"]))
 
     def test_settings_file(self):
         merged = config.merge({"llm": {"effort": "high"}, "access": {"only": ["tide-loader"]}})
         self.assertEqual((merged["llm"]["model"], merged["llm"]["effort"], merged["server"]["port"]), ("claude-opus-5-5", "high", 8000))
-        for bad in ({"llm": {"modle": "x"}}, {"llm": {"provider": "other"}}, {"server": {"port": "8000"}}, {"nope": {}}, {"llm": {"effort": "extreme"}}):
+        for bad in ({"llm": {"modle": "x"}}, {"llm": {"provider": "other"}}, {"server": {"port": "8000"}}, {"nope": {}}, {"llm": {"effort": "extreme"}},
+                    {"llm": {"max_tokens": 512}}, {"llm": {"model": " "}}, {"access": {"trust_user_header": "X-User"}},
+                    {"access": {"trust_user_header": "X-User", "trusted_proxies": ["not-an-address"]}}):
             with self.assertRaises(config.ConfigError):
                 config.merge(bad)
+        self.assertEqual(config.merge({"access": {"trust_user_header": "X-User", "trusted_proxies": ["10.42.0.0/16"]}})["access"]["trusted_proxies"], ["10.42.0.0/16"])
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "config.yaml")
             with open(path, "w") as fh:
@@ -906,6 +952,40 @@ class AssistantTests(unittest.TestCase):
         with self.assertRaises(assistant.AssistantError) as caught:           # nothing listens there: a network failure, not a crash
             assistant.ask("q", self.passages, client=unreachable)
         self.assertIn(caught.exception.status, (502, 504))
+
+    def test_failures_in_the_middle_of_an_answer_are_answered_not_raised(self):
+        for mode, status in (("midstream_error", 503), ("cut", 502), ("thinking_only", 500)):
+            self.api.mode = mode
+            with self.assertRaises(assistant.AssistantError) as caught:
+                assistant.ask("q", self.passages, client=self.client)
+            self.assertEqual(caught.exception.status, status, mode)
+        self.assertIn("max_tokens", str(caught.exception))
+        self.api.mode = "midstream_error"
+        with self.assertRaises(assistant.AssistantError) as caught:
+            assistant.critique({"slug": "x", "question": "q", "answer": "a"}, {}, "typed", client=self.client)
+        self.assertEqual((caught.exception.status, caught.exception.retry_after), (503, 20))
+        self.api.mode = "pause"                                               # a stop reason this code does not know: not a full answer
+        self.assertTrue(assistant.ask("q", self.passages, client=self.client)["truncated"])
+        self.api.mode = "answer"
+        with self.assertRaises(assistant.AssistantError) as caught:           # the whole answer has a deadline
+            assistant.ask("q", self.passages, client=self.client, answer_seconds=-1)
+        self.assertEqual(caught.exception.status, 504)
+
+    def test_a_credential_that_cannot_be_loaded_turns_the_assistant_off(self):
+        saved = {k: os.environ.pop(k, None) for k in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_PROFILE", "ANTHROPIC_FEDERATION_RULE_ID")}
+        try:
+            for env in ({}, {"ANTHROPIC_API_KEY": "   "}, {"ANTHROPIC_API_KEY": "abc def"}, {"ANTHROPIC_API_KEY": "abcdef\n"},
+                        {"ANTHROPIC_PROFILE": "no-such-profile-here"}):
+                os.environ.update(env)
+                with self.assertRaises(assistant.AssistantUnavailable, msg=str(env)):
+                    assistant.make_client()
+                for k in env:
+                    del os.environ[k]
+            os.environ["ANTHROPIC_API_KEY"] = "placeholder-value-for-the-test"
+            self.assertEqual(assistant.make_client(timeout=7.0).max_retries, 1)
+        finally:
+            os.environ.pop("ANTHROPIC_API_KEY", None)
+            os.environ.update({k: v for k, v in saved.items() if v is not None})
 
     def test_critique_compares_with_the_reference(self):
         edition = demo_edition()
@@ -976,12 +1056,72 @@ class TeamServerTests(ServerTests):
         with self.assertRaises(ValueError):                                    # a typo in a project list stops the server
             server.Site(demo_edition(), users=[{"name": "x", "token": "t" * 24, "projects": ["tide"]}])
 
-    def test_a_proxy_header_is_trusted_only_when_asked(self):
+    def test_a_proxy_header_is_believed_only_from_the_named_proxy(self):
         base, _ = self.team()
         self.assertEqual(self.call(base + "/api/health", headers={"X-Forwarded-User": "sam"})[0], 401)
-        base, _ = self.team(user_header="X-Forwarded-User")
+        elsewhere = {"access": {"trust_user_header": "X-Forwarded-User", "trusted_proxies": ["10.42.0.0/16"]}}
+        base, _ = self.team(user_header="X-Forwarded-User", settings=elsewhere)             # this test does not come from 10.42.x.x
+        self.assertEqual(self.call(base + "/api/health", headers={"X-Forwarded-User": "sam"})[0], 401)
+        owner = self.cookie(base, self.USERS[0])
+        info = json.loads(self.call(base + "/api/health", headers={**owner, "X-Forwarded-User": "sam"})[1])
+        self.assertEqual(info["user"], "owner")                                              # a forged header does not replace a sign-in
+        here = {"access": {"trust_user_header": "X-Forwarded-User", "trusted_proxies": ["127.0.0.1"]}}
+        base, _ = self.team(user_header="X-Forwarded-User", settings=here)
         self.assertEqual(json.loads(self.call(base + "/api/health", headers={"X-Forwarded-User": "sam"})[1])["user"], "sam")
         self.assertEqual(self.call(base + "/api/health", headers={"X-Forwarded-User": "nobody"})[0], 401)
+
+    def test_no_spelling_of_the_bundle_path_reaches_a_file_on_disk(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = os.path.join(tmp, "app")
+            os.makedirs(os.path.join(app, "data"))
+            os.makedirs(os.path.join(app, "js"))
+            with open(os.path.join(app, "data", "bundle.js"), "w") as fh:
+                fh.write("window.RECURSER_BUNDLE = 'EVERY-DECK-ON-DISK';")                   # what `recurser build` leaves behind
+            with open(os.path.join(app, "index.html"), "w") as fh:
+                fh.write("<title>Recurser</title>")
+            site = server.Site(demo_edition(), users=[dict(u) for u in self.USERS], progress_dir=tmp)
+            httpd = server.ThreadingHTTPServer(("127.0.0.1", 0), server.make_handler(app, site))
+            threading.Thread(target=httpd.serve_forever, daemon=True).start()
+            self.addCleanup(httpd.server_close)
+            self.addCleanup(httpd.shutdown)
+            base = f"http://127.0.0.1:{httpd.server_address[1]}"
+            sam = self.cookie(base, self.USERS[1])
+            proper = self.call(base + "/data/bundle.js", headers=sam)[1].decode("utf-8")
+            self.assertTrue(proper.startswith('window.RECURSER_VIEWER = {"user": "sam", "team": true};'))
+            for alias in ("/data//bundle.js", "/./data/bundle.js", "/js/../data/bundle.js", "/data/./bundle.js", "/data/bundle.js/",
+                          "/data/%62undle.js", "//data/bundle.js", "/data%2Fbundle.js", "/data/"):
+                status, body, _ = self.call(base + alias, headers=sam)
+                self.assertNotIn(b"EVERY-DECK-ON-DISK", body, alias)
+                self.assertNotIn(b"harbor-notes:", body, alias)
+                self.assertIn(status, (200, 404), alias)
+
+    def test_a_history_holds_only_what_its_person_may_see(self):
+        base, _ = self.team()
+        sam, owner = self.cookie(base, self.USERS[1]), self.cookie(base, self.USERS[0])
+        mixed = {"updated": 9, "cards": {"tide-loader:00": {"last": 9, "reps": 1}, "harbor-notes:00": {"last": 8, "reps": 3}},
+                 "log": [{"id": "tide-loader:00", "t": 9, "r": 2}, {"id": "harbor-notes:00", "t": 8, "r": 2}],
+                 "flags": {"harbor-notes:60": {"v": "suspended", "t": 5}}, "gaps": {"harbor-notes:00": {"t": 5, "text": "a note that is not sam's"}},
+                 "touch": {"harbor-notes": 8, "tide-loader": 9}}
+        merged = json.loads(self.call(base + "/api/progress", mixed, headers=sam)[1])       # e.g. a browser that held the owner's history
+        stored = json.loads(self.call(base + "/api/progress", headers=sam)[1])
+        for history in (merged, stored):
+            self.assertEqual((sorted(history["cards"]), [e["id"] for e in history["log"]]), (["tide-loader:00"], ["tide-loader:00"]))
+            self.assertEqual((history["flags"], history["gaps"], history["touch"]), ({}, {}, {"tide-loader": 9}))
+        self.assertEqual(sorted(json.loads(self.call(base + "/api/progress", mixed, headers=owner)[1])["cards"]), ["harbor-notes:00", "tide-loader:00"])
+
+    def test_odd_bodies_get_an_answer_not_a_dropped_connection(self):
+        base, _ = self.team()
+        sam = self.cookie(base, self.USERS[1])
+        huge = '{"cards": {"tide-loader:00": {"last": ' + "9" * 400 + '}}, "updated": ' + "9" * 400 + "}"
+        req = urllib.request.Request(base + "/api/progress", data=huge.encode(), method="PUT", headers=sam)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            self.assertEqual((resp.status, json.loads(resp.read())["updated"]), (200, 0))
+        deep = ("[" * 30000 + "]" * 30000).encode()
+        req = urllib.request.Request(base + "/api/progress", data=deep, method="PUT", headers=sam)
+        with self.assertRaises(urllib.error.HTTPError) as caught:
+            urllib.request.urlopen(req, timeout=10)
+        self.assertEqual(caught.exception.code, 400)
+        self.assertEqual(self.call(base + "/api/health", headers=sam)[0], 200)               # the server is still there
 
     @unittest.skipIf(anthropic is None, "the anthropic package is not installed")
     def test_questions_stay_inside_what_the_person_may_see(self):
@@ -1001,6 +1141,8 @@ class TeamServerTests(ServerTests):
         self.assertEqual(answer["sources"][0]["slug"], "tide-loader")
         self.assertTrue(answer["sources"][0]["text"])
         self.assertEqual(self.call(base + "/api/ask", {"question": "q", "slug": "harbor-notes"}, headers=sam, method="POST")[0], 404)
+        self.assertEqual(self.call(base + "/api/ask", {"question": "q", "slug": []}, headers=sam, method="POST")[0], 404)
+        self.assertEqual(self.call(base + "/api/ask", {"question": "lone \ud800 surrogate"}, headers=sam, method="POST")[0], 400)   # refused before it counts
         self.assertEqual(self.call(base + "/api/ask", {"question": "x" * 2001}, headers=sam, method="POST")[0], 400)
         self.assertEqual(self.call(base + "/api/critique", {"id": "harbor-notes:00", "answer": "a"}, headers=sam, method="POST")[0], 404)
         status, body, _ = self.call(base + "/api/critique", {"id": "tide-loader:00", "answer": "it loads tide files"}, headers=sam, method="POST")
@@ -1087,6 +1229,9 @@ class KubernetesTests(unittest.TestCase):
         bare = self.by_kind({"image": "x:1", "configRef": {"name": "c"}})
         box = bare["Deployment"]["spec"]["template"]["spec"]["containers"][0]
         self.assertEqual((box["env"], box["args"]), ([], ["serve", "--config", "/app/config/config.yaml"]))      # no Secret: no key, no users file
+        some = self.by_kind({"image": "x:1", "configRef": {"name": "c"}, "projects": ["tide-loader", "60"]})
+        self.assertEqual(some["Deployment"]["spec"]["template"]["spec"]["containers"][0]["args"][-2:], ["--only", "tide-loader,60"])
+        self.assertTrue(k8s.validate_spec({"image": "x:1", "configRef": {"name": "c"}, "projects": "tide-loader"}))
         full = self.by_kind({"image": "x:1", "configRef": {"name": "c"}, "storage": {"existingClaim": "kept"}, "networkPolicy": {"enabled": False},
                              "ingress": {"host": "recurser.example.internal", "className": "nginx", "tlsSecretName": "tls"}})
         self.assertEqual(sorted(full), ["Deployment", "Ingress", "Service"])
@@ -1095,9 +1240,12 @@ class KubernetesTests(unittest.TestCase):
         with_ingress = self.by_kind({"image": "x:1", "configRef": {"name": "c"}, "ingress": {"host": "h.example.internal"}})
         sources = with_ingress["NetworkPolicy"]["spec"]["ingress"][0]["from"]
         self.assertIn({"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "ingress-nginx"}}}, sources)
-        for bad in ({"image": "", "configRef": {"name": "c"}}, {"image": "x"}, {"image": "x", "configRef": {"name": "c"}, "nope": 1},
-                    {"image": "x", "configRef": {"name": "c"}, "storage": {"size": "lots"}},
-                    {"image": "x", "configRef": {"name": "c"}, "ingress": {"tlsSecretName": "t"}}, "not a mapping"):
+        users = {"usersRef": {"name": "u"}}
+        self.assertEqual(k8s.validate_spec({"image": "x", "configRef": {"name": "c"}, **users}), [])
+        self.assertEqual(k8s.validate_spec({"image": "x", "configRef": {"name": "c"}}), ["spec.usersRef: required"])      # never one shared link
+        for bad in ({"image": "", "configRef": {"name": "c"}, **users}, {"image": "x", **users}, {"image": "x", "configRef": {"name": "c"}, "nope": 1, **users},
+                    {"image": "x", "configRef": {"name": "c"}, "storage": {"size": "lots"}, **users},
+                    {"image": "x", "configRef": {"name": "c"}, "ingress": {"tlsSecretName": "t"}, **users}, "not a mapping"):
             self.assertTrue(k8s.validate_spec(bad), bad)
 
     def test_the_files_on_disk_are_what_the_generator_writes(self):

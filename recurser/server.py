@@ -22,15 +22,17 @@ from __future__ import annotations
 import hmac
 import json
 import math
+import ipaddress
 import mimetypes
 import os
+import posixpath
 import re
 import secrets
 import threading
 import time
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 MAX_BODY = 8 * 1024 * 1024
 LOG_CAP = 3000      # same cap as the browser
@@ -43,7 +45,12 @@ mimetypes.add_type("application/manifest+json", ".webmanifest")
 
 def _num(value, default=0):
     """A finite number, or the default (NaN, infinities, booleans and other types never get stored)."""
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return default
+    try:
+        if not math.isfinite(value) or abs(value) > 1e15:      # also refuses integers too large to be a time or a count
+            return default
+    except OverflowError:
         return default
     return value
 
@@ -74,8 +81,7 @@ def clean_progress(data) -> dict:
     cards = {}
     for cid, state in table("cards").items():
         if isinstance(cid, str) and isinstance(state, dict):
-            cards[cid] = {k: _num(v) for k, v in state.items() if isinstance(k, str) and isinstance(v, (int, float)) and not isinstance(v, bool)
-                          and math.isfinite(v)}
+            cards[cid] = {k: v for k, v in state.items() if isinstance(k, str) and _num(v, None) is not None}
     log = []
     for entry in data.get("log") if isinstance(data.get("log"), list) else []:
         if isinstance(entry, dict) and isinstance(entry.get("id"), str) and entry["id"]:
@@ -88,8 +94,7 @@ def clean_progress(data) -> dict:
     for key, val in table("days").items():
         if isinstance(key, str) and isinstance(val, dict):
             days[key] = {"n": int(_num(val.get("n"))), "ok": int(_num(val.get("ok"))), "fresh": int(_num(val.get("fresh"))), "t": _num(val.get("t"))}
-    prefs = {k: v for k, v in table("prefs").items()
-             if isinstance(k, str) and (isinstance(v, (str, bool)) or (isinstance(v, (int, float)) and math.isfinite(v)))}
+    prefs = {k: v for k, v in table("prefs").items() if isinstance(k, str) and (isinstance(v, (str, bool)) or _num(v, None) is not None)}
     return {
         "version": 1,
         "updated": _num(data.get("updated")),
@@ -263,6 +268,7 @@ class Site:
         self.users = users or []
         self.team = bool(self.users)
         self.user_header = user_header.strip()
+        self.proxies = [ipaddress.ip_network(entry, strict=False) for entry in self.settings["access"]["trusted_proxies"]]
         self.progress_path = progress_path or os.path.join(os.path.expanduser("~"), ".recurser", "progress.json")
         self.progress_dir = progress_dir or os.path.dirname(self.progress_path)
         self.client = client                      # an Anthropic client, or None: then nothing is asked of the API
@@ -278,6 +284,9 @@ class Site:
                     user["_slugs"] = tuple(sorted(store.resolve_projects(edition, user.get("projects") or [])))
                 except KeyError as exc:
                     raise ValueError(f"user {user['name']!r}: unknown project {exc.args[0]}") from None
+                short = self.view(user).edition.get("unmatched_private_names")
+                if short:      # a name the gate cannot match would stay readable in this person's page
+                    raise ValueError(f"user {user['name']!r}: these private repository names are too short to hide: {', '.join(short)}")
 
     # -- identity ------------------------------------------------------
     def by_token(self, supplied: str) -> dict | None:
@@ -286,6 +295,34 @@ class Site:
             if hmac.compare_digest(supplied.encode("utf-8"), user["token"].encode("utf-8")):
                 found = user
         return found
+
+    def from_proxy(self, address: str) -> bool:
+        """True when the peer is one of the proxies whose user header is to be believed."""
+        try:
+            peer = ipaddress.ip_address(address)
+        except ValueError:
+            return False
+        return any(peer in net for net in self.proxies)
+
+    def own(self, user: dict | None, history: dict) -> dict:
+        """A person's history holds only what that person may see: entries about other projects are dropped,
+        whichever browser sent them."""
+        if not user or user.get("projects") == "*":
+            return history
+        slugs = set(self.view(user).projects)
+
+        def mine(card_id) -> bool:
+            return isinstance(card_id, str) and card_id.rsplit(":", 1)[0] in slugs
+
+        out = dict(history)
+        for key in ("cards", "flags", "gaps"):
+            if isinstance(history.get(key), dict):
+                out[key] = {k: v for k, v in history[key].items() if mine(k)}
+        if isinstance(history.get("log"), list):
+            out["log"] = [e for e in history["log"] if isinstance(e, dict) and mine(e.get("id"))]
+        if isinstance(history.get("touch"), dict):
+            out["touch"] = {k: v for k, v in history["touch"].items() if k in slugs}
+        return out
 
     def by_name(self, name: str) -> dict | None:
         name = name.strip().lower()
@@ -424,11 +461,31 @@ def make_handler(app_dir: str, site: Site):
                     return value
             return ""
 
+        def _route(self) -> tuple[str, dict]:
+            """The request path with one spelling per resource (no doubled slash, no dot segment), and the query."""
+            url = urlsplit(self.path)
+            path = posixpath.normpath("/" + unquote(url.path).replace("\\", "/"))
+            return "/" + path.lstrip("/"), parse_qs(url.query)
+
+        def _safely(self, handle):
+            """No request ends in a dropped connection: an unexpected failure is answered, not raised."""
+            try:
+                return handle()
+            except (BrokenPipeError, ConnectionResetError):
+                return None
+            except RecursionError:
+                return self._json(HTTPStatus.BAD_REQUEST, {"error": "the body is nested too deeply"})
+            except Exception as exc:
+                try:
+                    return self._json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": f"the server could not handle this request ({type(exc).__name__})"})
+                except Exception:
+                    return None
+
         def _who(self, query: dict) -> tuple[bool, dict | None, dict]:
             """(allowed, user, headers to add).  ``user`` is None when the server is not serving a team."""
             supplied = (query.get("token") or [""])[0]
             if site.team:
-                if site.user_header:                       # an authenticating proxy in front names the person
+                if site.user_header and site.from_proxy(self.client_address[0]):   # only the named proxy is believed
                     user = site.by_name(self.headers.get(site.user_header, ""))
                     if user:
                         return True, user, {}
@@ -486,31 +543,43 @@ def make_handler(app_dir: str, site: Site):
 
         # -- routes ------------------------------------------------------
         def do_HEAD(self):
-            self.do_GET()
+            self._safely(self._get)
 
         def do_GET(self):
-            url = urlsplit(self.path)
-            if url.path == "/healthz":                     # liveness and readiness probes: no sign-in, no data
+            self._safely(self._get)
+
+        def do_PUT(self):
+            self._safely(self._put)
+
+        do_POST = do_PUT
+
+        def _get(self):
+            path, query = self._route()
+            if path == "/healthz":                         # liveness and readiness probes: no sign-in, no data
                 return self._send(200, b"ok\n", "text/plain; charset=utf-8")
             if self._foreign():
                 return self._send(HTTPStatus.FORBIDDEN, b"This page only answers its own tab.", "text/plain; charset=utf-8")
-            ok, user, extra = self._who(parse_qs(url.query))
+            ok, user, extra = self._who(query)
             if not ok:
                 hint = b"Open your personal link (it carries your token)." if site.team else b"Open the link printed by `recurser serve` (it carries the token)."
                 return self._send(HTTPStatus.UNAUTHORIZED, hint, "text/plain; charset=utf-8")
-            if url.path == "/api/health":
+            if path == "/api/health":
                 return self._json(200, {"ok": True, **site.info(user)})
-            if url.path == "/api/progress":
-                return self._json(200, site.progress(user).read())
-            if url.path == "/openapi.json":
+            if path == "/api/progress":
+                return self._json(200, site.own(user, site.progress(user).read()))
+            if path == "/openapi.json":
                 return self._json(200, OPENAPI)
-            if url.path == "/docs":
+            if path == "/docs":
                 return self._send(200, docs_page(), "text/html; charset=utf-8")
-            if url.path == "/data/bundle.js":              # built in memory for this person: nothing is written to disk
-                return self._send(200, site.view(user).bundle_js, "application/javascript; charset=utf-8", extra)
-            rel = url.path.lstrip("/") or "index.html"
+            if path == "/data/bundle.js":                  # built in memory for this person: nothing is read from disk
+                viewer = json.dumps({"user": user["name"] if user else "", "team": site.team})
+                body = f"window.RECURSER_VIEWER = {viewer};\n".encode("utf-8") + site.view(user).bundle_js
+                return self._send(200, body, "application/javascript; charset=utf-8", extra)
+            rel = path.lstrip("/") or "index.html"
             full = os.path.realpath(os.path.join(app_dir, rel))
-            if not (full == app_dir or full.startswith(app_dir + os.sep)) or not os.path.isfile(full):
+            data_dir = os.path.join(app_dir, "data")       # a bundle left there by `recurser build` holds every deck: never served
+            inside = full == app_dir or full.startswith(app_dir + os.sep)
+            if not inside or full == data_dir or full.startswith(data_dir + os.sep) or not os.path.isfile(full):
                 return self._send(HTTPStatus.NOT_FOUND, b"Not found", "text/plain; charset=utf-8")
             ctype = mimetypes.guess_type(full)[0] or "application/octet-stream"
             if ctype.startswith("text/") or ctype in ("application/javascript", "application/json"):
@@ -518,25 +587,23 @@ def make_handler(app_dir: str, site: Site):
             with open(full, "rb") as fh:
                 self._send(200, fh.read(), ctype, extra)
 
-        def do_PUT(self):
-            url = urlsplit(self.path)
+        def _put(self):
+            path, query = self._route()
             if self._foreign():
                 return self._json(HTTPStatus.FORBIDDEN, {"error": "cross-origin write refused"})
-            ok, user, _ = self._who(parse_qs(url.query))
+            ok, user, _ = self._who(query)
             if not ok:
                 return self._json(HTTPStatus.UNAUTHORIZED, {"error": "token required"})
-            if url.path == "/api/progress":
+            if path == "/api/progress":
                 incoming = self._body(MAX_BODY)
                 if incoming is None:
                     return None
                 if not isinstance(incoming.get("cards", {}), dict):
                     return self._json(HTTPStatus.BAD_REQUEST, {"error": "expected a progress object with a 'cards' map"})
-                return self._json(200, site.progress(user).merge_in(incoming))
-            if self.command == "POST" and url.path in ("/api/ask", "/api/critique"):
-                return self._assistant(url.path, user)
+                return self._json(200, site.own(user, site.progress(user).merge_in(site.own(user, incoming))))
+            if self.command == "POST" and path in ("/api/ask", "/api/critique"):
+                return self._assistant(path, user)
             return self._json(HTTPStatus.NOT_FOUND, {"error": "unknown endpoint"})
-
-        do_POST = do_PUT
 
         def _assistant(self, path: str, user: dict | None):
             from . import assistant
@@ -552,7 +619,7 @@ def make_handler(app_dir: str, site: Site):
                 if not isinstance(question, str) or not question.strip() or len(question) > 2000:
                     return self._json(HTTPStatus.BAD_REQUEST, {"error": "'question' must be 1 to 2000 characters"})
                 slug = data.get("slug")
-                if slug is not None and slug not in view.projects:
+                if slug is not None and (not isinstance(slug, str) or slug not in view.projects):
                     return self._json(HTTPStatus.NOT_FOUND, {"error": "unknown project"})
             else:
                 card, typed = view.cards.get(str(data.get("id"))), data.get("answer")
@@ -560,13 +627,18 @@ def make_handler(app_dir: str, site: Site):
                     return self._json(HTTPStatus.NOT_FOUND, {"error": "unknown card"})
                 if not isinstance(typed, str) or not typed.strip() or len(typed) > 4000:
                     return self._json(HTTPStatus.BAD_REQUEST, {"error": "'answer' must be 1 to 4000 characters"})
+            try:                                             # text the API could not be sent is refused before it counts
+                (question if path == "/api/ask" else typed).encode("utf-8")
+            except UnicodeEncodeError:
+                return self._json(HTTPStatus.BAD_REQUEST, {"error": "the text holds characters that cannot be sent"})
             wait = site.allow_question(user)
             if wait:
                 return self._json(HTTPStatus.TOO_MANY_REQUESTS, {"error": "too many questions for now", "retry_after": wait}, {"Retry-After": str(wait)})
             if not site.slots.acquire(timeout=30):
                 return self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "the assistant is busy, try again in a moment"}, {"Retry-After": "10"})
             try:
-                options = dict(client=site.client, model=llm["model"], max_tokens=llm["max_tokens"], fallbacks=llm["fallbacks"])
+                options = dict(client=site.client, model=llm["model"], max_tokens=llm["max_tokens"], fallbacks=llm["fallbacks"],
+                               answer_seconds=llm["answer_seconds"])
                 if path == "/api/ask":
                     found = view.index.search(question, k=site.settings["retrieval"]["top_k"], slugs=[slug] if slug else None,
                                               per_project=site.settings["retrieval"]["per_project"])

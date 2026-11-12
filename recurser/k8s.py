@@ -8,7 +8,7 @@ The layers, as in the usual "application behind a custom resource" pattern:
    Secret holds ``users.json`` (who may open the page), mounted as a file.
 4. **Service**: port ``80`` to the container's ``8000``; ``kubectl port-forward svc/<name> 8000:80`` for local
    access, with the API described at ``/docs`` and ``/openapi.json``.
-5. **Custom resource**: a ``RecurserApp`` names the image, ``configRef``, ``secretRef`` and ``usersRef``; the
+5. **Custom resource**: a ``RecurserApp`` names the image, the ``projects`` it serves, ``configRef``, ``secretRef`` and ``usersRef``; the
    controller (``recurser.operator``) validates them and generates the Deployment and the Service, plus the
    volume claim for the review histories, a NetworkPolicy and, when a host is given, an Ingress.
 
@@ -42,6 +42,7 @@ SPEC_DEFAULTS = {
     "image": "",
     "imagePullPolicy": "IfNotPresent",
     "imagePullSecrets": [],
+    "projects": [],
     "configRef": {"name": ""},
     "secretRef": {"name": "", "key": API_KEY_ENV},
     "usersRef": {"name": ""},
@@ -62,11 +63,13 @@ def crd() -> dict:
     quantity = {"type": "string", "pattern": r"^[0-9]+(\.[0-9]+)?(m|k|Ki|Mi|Gi|Ti|M|G|T)?$"}
     spec = {
         "type": "object",
-        "required": ["image", "configRef"],
+        "required": ["image", "configRef", "usersRef"],     # a shared deployment always names its people
         "properties": {
             "image": {"type": "string", "minLength": 1, "description": "The Recurser image, with the decks this deployment serves."},
             "imagePullPolicy": {"type": "string", "enum": ["Always", "IfNotPresent", "Never"]},
             "imagePullSecrets": {"type": "array", "items": ref()},
+            "projects": {"type": "array", "items": {"type": "string", "minLength": 1},
+                         "description": "What this deployment serves: project slugs, repository names or two-digit codes. Empty: every project in the image."},
             "configRef": ref() | {"description": f"ConfigMap holding {CONFIG_KEY}; mounted at {CONFIG_DIR}/{CONFIG_KEY}."},
             "secretRef": ref({"key": {"type": "string", "minLength": 1}})
             | {"description": f"Secret holding the Anthropic credential (key {API_KEY_ENV} unless 'key' says otherwise). Without it the assistant is off."},
@@ -215,7 +218,8 @@ def render(name: str, namespace: str, spec: dict, *, owner: dict | None = None, 
         "image": s["image"],
         "imagePullPolicy": s["imagePullPolicy"],
         # the users file is passed explicitly: a mounted users Secret is always in force, whatever config.yaml says
-        "args": ["serve", "--config", f"{CONFIG_DIR}/{CONFIG_KEY}"] + (["--users", f"{SECRETS_DIR}/{USERS_KEY}"] if s["usersRef"]["name"] else []),
+        "args": ["serve", "--config", f"{CONFIG_DIR}/{CONFIG_KEY}"] + (["--users", f"{SECRETS_DIR}/{USERS_KEY}"] if s["usersRef"]["name"] else [])
+                + (["--only", ",".join(s["projects"])] if s["projects"] else []),      # the sources this app is declared to serve
         "ports": [{"name": "http", "containerPort": PORT, "protocol": "TCP"}],        # layer 1
         "env": env,
         "volumeMounts": mounts,

@@ -45,7 +45,10 @@ python3 -m recurser serve --host 0.0.0.0 --users users.json
 ```
 
 With a users file the server serves a team. Each person signs in with a personal link, sees
-only the projects listed for them, and keeps a review history of their own. A page for
+only the projects listed for them, and keeps a review history of their own. Started from a
+terminal without one, `--host 0.0.0.0` prints a single link for your own phone; started
+anywhere else, the server refuses to listen beyond the machine until it is given `--users`
+or `--token`. A page for
 chosen projects can also be built as a file: `python3 -m recurser build --only a,b
 --single-file dist/team.html`. In both cases the names of the other private repositories
 are removed from what remains.

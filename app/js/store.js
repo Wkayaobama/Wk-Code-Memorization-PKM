@@ -8,12 +8,17 @@
   'use strict';
   var R = root.Recurser = root.Recurser || {};
   var srs = R.srs, model = R.model;
-  var KEY = 'recurser.progress.v1';
+  /* On a team server the history is kept per person, in this browser too: two people (or one person trying a
+     teammate's link) on the same browser profile never mix their reviews.  The server says who is signed in
+     in the same script that carries the decks, so the right key is known before anything is read. */
+  var viewer = root.RECURSER_VIEWER || {};
+  var BASE_KEY = 'recurser.progress.v1';
+  var KEY = BASE_KEY + (viewer.team && viewer.user ? '.' + viewer.user : '');
   var LOG_CAP = 3000, DAY = 86400000, KEEPALIVE_MAX = 60000;
 
   var progress = blank();
   var listeners = [];
-  var status = { local: 'on', server: 'off', claude: 'off', note: '', user: '', team: false };
+  var status = { local: 'on', server: 'off', claude: 'off', note: '', user: viewer.user || '', team: !!viewer.team };
   var caps = { db: null, uid: null, sample: null, downloads: null, assistant: false };
 
   function blank() {
@@ -231,6 +236,9 @@
         clearTimeout(t);
         if (!info || !info.ok) return false;
         caps.assistant = !!info.assistant; status.user = info.user || ''; status.team = !!info.team;
+        if (info.team && info.user && KEY !== BASE_KEY + '.' + info.user) {   /* an older bundle did not name the person */
+          KEY = BASE_KEY + '.' + info.user; progress = loadLocal();
+        }
         return root.fetch('api/progress').then(function (r) { return r.json(); }).then(function (remote) {
           status.server = 'on';
           var before = JSON.stringify(clean(remote));

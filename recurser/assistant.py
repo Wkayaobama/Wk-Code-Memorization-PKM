@@ -15,9 +15,12 @@ fallback model inside the same call.  Set ``llm.fallbacks: false`` in the config
 """
 from __future__ import annotations
 
+import time
+
 DEFAULT_MODEL = "claude-opus-5-5"
 DEFAULT_EFFORT = "medium"
 DEFAULT_MAX_TOKENS = 16000
+DEFAULT_ANSWER_SECONDS = 180
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
 
@@ -52,18 +55,30 @@ class AssistantError(RuntimeError):
         self.retry_after = retry_after
 
 
-def make_client(timeout: float = 120.0, max_retries: int = 2):
-    """A client that takes its credential from the environment (never from a file in the repository)."""
+def make_client(timeout: float = 60.0, max_retries: int = 1):
+    """A client that takes its credential from the environment (never from a file in the repository).
+
+    ``timeout`` is the longest silence tolerated from the API; connecting gets five seconds.  One retry:
+    a person is waiting, so a dead endpoint must fail in about twice the timeout, not many times it.
+    """
     try:
         import anthropic
     except ImportError as exc:
         raise AssistantUnavailable("the anthropic package is not installed: pip install anthropic") from exc
     import os
 
-    if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN") or os.environ.get("ANTHROPIC_PROFILE")
-            or os.environ.get("ANTHROPIC_FEDERATION_RULE_ID")):
+    names = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_PROFILE", "ANTHROPIC_FEDERATION_RULE_ID")
+    values = {name: os.environ.get(name) for name in names}
+    if not any(values.values()):
         raise AssistantUnavailable("no Anthropic credential in the environment (ANTHROPIC_API_KEY)")
-    return anthropic.Anthropic(timeout=timeout, max_retries=max_retries)
+    for name in names[:2]:
+        value = values[name]
+        if value and (not value.strip() or value != value.strip() or any(ch.isspace() for ch in value)):
+            raise AssistantUnavailable(f"{name} holds white space: check how the secret was created")
+    try:
+        return anthropic.Anthropic(timeout=anthropic.Timeout(timeout, connect=5.0), max_retries=max_retries)
+    except Exception as exc:      # a profile that does not exist, a federation setup that is incomplete...
+        raise AssistantUnavailable(f"the Anthropic credential could not be loaded: {exc}") from exc
 
 
 def search_result_blocks(passages: list[dict]) -> list:
@@ -82,9 +97,16 @@ def search_result_blocks(passages: list[dict]) -> list:
     ]
 
 
-def _send(client, *, system: str, content: list, model: str, effort: str, max_tokens: int, fallbacks: bool):
-    """One streamed request; returns the final message.  Typed SDK errors become AssistantError."""
+def _send(client, *, system: str, content: list, model: str, effort: str, max_tokens: int, fallbacks: bool,
+          answer_seconds: float = DEFAULT_ANSWER_SECONDS):
+    """One streamed request; returns the final message.  Every failure becomes an AssistantError, including
+    the ones that arrive after the stream has opened."""
     import anthropic
+
+    try:
+        import httpx2 as transport          # the SDK's HTTP library: its errors can surface while a stream is read
+    except ImportError:                     # pragma: no cover
+        transport = None
 
     if effort not in EFFORTS:
         raise AssistantError(f"effort must be one of {', '.join(EFFORTS)}", status=500)
@@ -98,9 +120,15 @@ def _send(client, *, system: str, content: list, model: str, effort: str, max_to
     )
     if fallbacks:
         params.update(betas=[FALLBACK_BETA], fallbacks="default")
+    deadline = time.monotonic() + answer_seconds
     try:
         with client.beta.messages.stream(**params) as stream:
+            for _ in stream:                # the client's timeout bounds each silence; this bounds the whole answer
+                if time.monotonic() > deadline:
+                    raise AssistantError("the answer took too long and was abandoned", status=504)
             return stream.get_final_message()
+    except AssistantError:
+        raise
     except anthropic.AuthenticationError as exc:
         raise AssistantError("the server's Anthropic credential was refused", status=503) from exc
     except anthropic.PermissionDeniedError as exc:
@@ -114,11 +142,35 @@ def _send(client, *, system: str, content: list, model: str, effort: str, max_to
     except anthropic.BadRequestError as exc:
         raise AssistantError(f"the Anthropic API rejected the request: {exc.message}", status=502) from exc
     except anthropic.APIStatusError as exc:
+        if exc.status_code < 400:           # an error event inside a stream that had started with 200
+            body = exc.body if isinstance(exc.body, dict) else {}
+            kind = (body.get("error") or {}).get("type") or "error"
+            raise AssistantError(f"the Anthropic API stopped the answer ({kind}); try again in a moment", status=503, retry_after=20) from exc
         raise AssistantError(f"the Anthropic API answered {exc.status_code}", status=502 if exc.status_code >= 500 else 500) from exc
     except anthropic.APITimeoutError as exc:
         raise AssistantError("the Anthropic API did not answer in time", status=504) from exc
     except anthropic.APIConnectionError as exc:
         raise AssistantError("the Anthropic API could not be reached from this server", status=502) from exc
+    except anthropic.AnthropicError as exc:
+        raise AssistantError(f"the request to the Anthropic API failed ({type(exc).__name__})", status=502) from exc
+    except Exception as exc:
+        if transport is not None and isinstance(exc, transport.TimeoutException):
+            raise AssistantError("the Anthropic API went silent in the middle of the answer", status=504) from exc
+        if transport is not None and isinstance(exc, transport.HTTPError):
+            raise AssistantError("the connection to the Anthropic API broke in the middle of the answer", status=502) from exc
+        if isinstance(exc, UnicodeError):
+            raise AssistantError("the text holds characters that cannot be sent", status=400) from exc
+        raise
+
+
+def _complete(message) -> bool:
+    """True when the answer ended on its own.  Refusals are handled before this is asked."""
+    if message.stop_reason is None:
+        raise AssistantError("the answer stopped before it was complete; try again", status=502)
+    has_text = any(block.type == "text" and block.text.strip() for block in message.content)
+    if message.stop_reason == "max_tokens" and not has_text:
+        raise AssistantError("the model used the whole of llm.max_tokens before writing an answer: raise it in the config", status=500)
+    return message.stop_reason in ("end_turn", "stop_sequence")
 
 
 def _usage(message) -> dict:
@@ -127,7 +179,7 @@ def _usage(message) -> dict:
 
 
 def ask(question: str, passages: list[dict], *, client, model: str = DEFAULT_MODEL, effort: str = DEFAULT_EFFORT,
-        max_tokens: int = DEFAULT_MAX_TOKENS, fallbacks: bool = True) -> dict:
+        max_tokens: int = DEFAULT_MAX_TOKENS, fallbacks: bool = True, answer_seconds: float = DEFAULT_ANSWER_SECONDS) -> dict:
     """Answer a question from retrieved passages.
 
     Returns ``{"text", "segments": [{"text", "cites": [passage ids]}], "sources": [passage ids in order of
@@ -140,10 +192,12 @@ def ask(question: str, passages: list[dict], *, client, model: str = DEFAULT_MOD
     from anthropic.types import TextBlockParam
 
     content = search_result_blocks(passages) + [TextBlockParam(type="text", text=question)]
-    message = _send(client, system=ASK_SYSTEM, content=content, model=model, effort=effort, max_tokens=max_tokens, fallbacks=fallbacks)
+    message = _send(client, system=ASK_SYSTEM, content=content, model=model, effort=effort, max_tokens=max_tokens, fallbacks=fallbacks,
+                    answer_seconds=answer_seconds)
     if message.stop_reason == "refusal":      # always checked before the content is read
         return {"text": "Claude declined to answer this question.", "segments": [], "sources": [], "refused": True,
                 "truncated": False, "model": message.model, "usage": _usage(message)}
+    complete = _complete(message)
     by_source = {p["source"]: p["id"] for p in passages}
     segments, sources = [], []
     for block in message.content:
@@ -162,7 +216,7 @@ def ask(question: str, passages: list[dict], *, client, model: str = DEFAULT_MOD
                 sources.append(pid)
         segments.append({"text": block.text, "cites": cites})
     return {"text": "".join(s["text"] for s in segments), "segments": segments, "sources": sources, "refused": False,
-            "truncated": message.stop_reason == "max_tokens", "model": message.model, "usage": _usage(message)}
+            "truncated": not complete, "model": message.model, "usage": _usage(message)}
 
 
 def critique_prompt(card: dict, project: dict, typed: str) -> str:
@@ -183,14 +237,15 @@ def critique_prompt(card: dict, project: dict, typed: str) -> str:
 
 
 def critique(card: dict, project: dict, typed: str, *, client, model: str = DEFAULT_MODEL, effort: str = "low",
-             max_tokens: int = DEFAULT_MAX_TOKENS, fallbacks: bool = True) -> dict:
+             max_tokens: int = DEFAULT_MAX_TOKENS, fallbacks: bool = True, answer_seconds: float = DEFAULT_ANSWER_SECONDS) -> dict:
     """Compare a typed answer with the card's reference.  Returns ``{"text", "refused", "truncated", "model", "usage"}``."""
     from anthropic.types import TextBlockParam
 
     content = [TextBlockParam(type="text", text=critique_prompt(card, project, typed))]
-    message = _send(client, system=CRITIQUE_SYSTEM, content=content, model=model, effort=effort, max_tokens=max_tokens, fallbacks=fallbacks)
+    message = _send(client, system=CRITIQUE_SYSTEM, content=content, model=model, effort=effort, max_tokens=max_tokens, fallbacks=fallbacks,
+                    answer_seconds=answer_seconds)
     if message.stop_reason == "refusal":
         return {"text": "Claude declined to check this one.", "refused": True, "truncated": False, "model": message.model, "usage": _usage(message)}
+    complete = _complete(message)
     text = "".join(block.text for block in message.content if block.type == "text")
-    return {"text": text.strip(), "refused": False, "truncated": message.stop_reason == "max_tokens", "model": message.model,
-            "usage": _usage(message)}
+    return {"text": text.strip(), "refused": False, "truncated": not complete, "model": message.model, "usage": _usage(message)}

@@ -12,7 +12,7 @@ that are answered from the decks through the Anthropic SDK.
 | 2. ConfigMap | `config.yaml` (model, retrieval, limits), mounted at `/app/config/config.yaml` | `k8s/03-config.yaml` |
 | 3. Secret | The Anthropic credential, injected as `ANTHROPIC_API_KEY` with `secretKeyRef`. A second Secret holds `users.json`, mounted as a file | `k8s/04-secrets.example.yaml` |
 | 4. Service | Port `80` inside the cluster to the container's `8000`. `kubectl port-forward` for local access, the API described at `/docs` and `/openapi.json` | generated |
-| 5. Custom resource | A `RecurserApp` names the image, `configRef`, `secretRef` and `usersRef`. The controller checks them and generates the Deployment and the Service | `k8s/01-crd.yaml`, `k8s/02-controller.yaml`, `k8s/05-recurserapp.yaml` |
+| 5. Custom resource | A `RecurserApp` names the image, the `projects` it serves, `configRef`, `secretRef` and `usersRef`. The controller checks them and generates the Deployment and the Service | `k8s/01-crd.yaml`, `k8s/02-controller.yaml`, `k8s/05-recurserapp.yaml` |
 
 The controller also generates a volume claim for the review histories, a NetworkPolicy, and
 an Ingress when `spec.ingress.host` is set. Every generated object is owned by the
@@ -56,10 +56,14 @@ Without the controller, skip `01` and `02` and apply `my-k8s/plain/recurser.yaml
 
 ## Who sees what
 
+`spec.projects` on the `RecurserApp` limits what the whole deployment serves. Leave it out to
+serve every project in the image. Inside that, each person has a list of their own.
+
 `users.json` lists the people. `"projects": "*"` gives every project in the image. A list
 gives only those projects: the others are absent from that person's page, from their
-search, and from what is sent to the API on their behalf. Names of private repositories
-outside the list are replaced in the remaining text.
+search, from their stored history, and from what is sent to the API on their behalf. Names
+of private repositories outside the list are replaced in the remaining text, quoted code,
+paths and branch names included.
 
 To change access, edit the file with `recurser users add` or `remove`, then replace the
 Secret. The controller notices the new version and restarts the pod.
@@ -69,9 +73,13 @@ kubectl -n recurser create secret generic team-users --from-file=users.json=user
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
+`usersRef` is required. A shared deployment never runs on one link for everybody, and no
+sign-in token is ever written to the pod's log.
+
 Behind an authenticating proxy that sets a header with the person's name, set
-`access.trust_user_header` in `config.yaml`. Names are matched against `users.json`. Use it
-only when nothing can reach the pod without passing that proxy.
+`access.trust_user_header` and `access.trusted_proxies` in `config.yaml`. The header is
+believed only when the request comes from one of those addresses, and names are matched
+against `users.json`. From anywhere else the header is ignored and the personal link decides.
 
 ## Network
 
@@ -81,7 +89,8 @@ only when nothing can reach the pod without passing that proxy.
 - **Out:** DNS, and HTTPS to public addresses only. Private ranges and the node metadata
   address are excluded, so the pod can call the Anthropic API and nothing inside the
   cluster. A plain NetworkPolicy cannot filter by host name. With a network plugin that
-  can, narrow the HTTPS rule to `api.anthropic.com`.
+  can, narrow the HTTPS rule to `api.anthropic.com`. If your cluster reaches the internet
+  through a proxy on a private address, that address must be added to the policy.
 - **Outside the cluster:** set `spec.ingress.host`, and `tlsSecretName` for HTTPS. The
   sign-in cookie is marked `Secure` when the request arrived over HTTPS.
 
@@ -97,6 +106,8 @@ answer comes back with the passage each sentence rests on.
 | `llm.model` | `claude-opus-5-5` | the model |
 | `llm.effort` | `medium` | `low`, `medium`, `high`, `xhigh` or `max` |
 | `llm.fallbacks` | `true` | when a safety classifier declines a request, the API re-runs it on a fallback model in the same call |
+| `llm.timeout_seconds` | `60` | the longest silence tolerated from the API |
+| `llm.answer_seconds` | `180` | the longest one answer may take in all |
 | `llm.enabled` | `true` | `false` turns the assistant off |
 | `retrieval.top_k` | `8` | passages sent with a question |
 | `server.ask_per_10_minutes` | `30` | questions per person |

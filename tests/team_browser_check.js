@@ -65,6 +65,16 @@ const TOKENS = { owner: 'owner-token-0123456789abcdef', sam: 'sam-token-01234567
   await sam.page.click('text=End');
   await sam.page.waitForTimeout(2200);
   const samCards = await sam.page.evaluate(() => fetch('api/progress').then(r => r.json()).then(p => Object.keys(p.cards).length));
+  // the same browser profile then opens the owner's link: the two histories must not mix
+  const samLog = await sam.page.evaluate(() => fetch('api/progress').then(r => r.json()).then(p => p.log.length));
+  await sam.page.goto(base + '/?token=' + TOKENS.owner);
+  await sam.page.waitForSelector('.hero-figure');
+  await sam.page.waitForFunction(() => Recurser.store.status().server === 'on' && Recurser.store.status().user === 'owner');
+  await sam.page.waitForTimeout(1500);
+  const mixed = await sam.page.evaluate(() => fetch('api/progress').then(r => r.json()).then(p => p.log.length + Object.keys(p.cards).length));
+  check(samLog >= 1 && mixed === 0, 'same browser, other link: the owner history received nothing from sam (' + samLog + ' entries stayed with sam)');
+  const keys = await sam.page.evaluate(() => Object.keys(localStorage).filter(k => k.indexOf('recurser.progress') === 0).sort().join(','));
+  check(keys === 'recurser.progress.v1.owner,recurser.progress.v1.sam', 'same browser: one stored history per person (' + keys + ')');
   check(sam.errors.length === 0, 'sam: no script errors' + (sam.errors.length ? ': ' + sam.errors[0] : ''));
   await sam.ctx.close();
 

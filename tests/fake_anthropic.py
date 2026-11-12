@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 class FakeAnthropic:
     def __init__(self):
         self.requests: list[dict] = []        # {"path", "headers", "body"}
-        self.mode = "answer"                  # answer | refusal | status:<code>
+        self.mode = "answer"                  # answer | refusal | status:<code> | midstream_error | cut | thinking_only | pause
         fake = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -59,6 +59,19 @@ class FakeAnthropic:
                                                         "stop_details": {"type": "refusal", "category": None, "explanation": "simulated"}},
                      "usage": {"output_tokens": 1}},
                     {"type": "message_stop"}]
+        opening = [start,
+                   {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}},
+                   {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "Half an ans"}}]
+        if self.mode == "midstream_error":       # the usual shape of an overload after the stream has opened
+            return opening + [{"type": "error", "error": {"type": "overloaded_error", "message": "Overloaded"}}]
+        if self.mode == "cut":                   # the body simply ends: no stop reason ever arrives
+            return opening
+        if self.mode == "thinking_only":         # the whole budget went to thinking
+            return [start,
+                    {"type": "content_block_start", "index": 0, "content_block": {"type": "thinking", "thinking": "", "signature": ""}},
+                    {"type": "content_block_stop", "index": 0},
+                    {"type": "message_delta", "delta": {"stop_reason": "max_tokens", "stop_sequence": None}, "usage": {"output_tokens": 4000}},
+                    {"type": "message_stop"}]
         results = [b for b in body["messages"][0]["content"] if isinstance(b, dict) and b.get("type") == "search_result"]
         events = [start,
                   {"type": "content_block_start", "index": 0, "content_block": {"type": "thinking", "thinking": "", "signature": ""}},
@@ -80,6 +93,7 @@ class FakeAnthropic:
                 {"type": "content_block_start", "index": 1, "content_block": {"type": "text", "text": ""}},
                 {"type": "content_block_delta", "index": 1, "delta": {"type": "text_delta", "text": "partly. You named the loader but missed the batch key."}},
                 {"type": "content_block_stop", "index": 1}]
-        events += [{"type": "message_delta", "delta": {"stop_reason": "end_turn", "stop_sequence": None}, "usage": {"output_tokens": 42}},
+        events += [{"type": "message_delta", "delta": {"stop_reason": "pause_turn" if self.mode == "pause" else "end_turn", "stop_sequence": None},
+                    "usage": {"output_tokens": 42}},
                    {"type": "message_stop"}]
         return events

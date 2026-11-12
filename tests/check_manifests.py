@@ -83,8 +83,8 @@ def main(folder: str) -> int:
                 problems += [f"{name}: {p}" for p in found]
     # the generator and the files on disk must agree, and every spec variant must render valid objects
     variants = [k8s.example()["app"]["spec"],
-                {"image": "x:1", "configRef": {"name": "c"}},
-                {"image": "x:1", "configRef": {"name": "c"}, "storage": {"existingClaim": "kept", "storageClassName": "fast"},
+                {"image": "x:1", "configRef": {"name": "c"}, "usersRef": {"name": "u"}, "projects": ["tide-loader"]},
+                {"image": "x:1", "configRef": {"name": "c"}, "usersRef": {"name": "u"}, "storage": {"existingClaim": "kept", "storageClassName": "fast"},
                  "networkPolicy": {"enabled": True, "ingressNamespaces": ["tools"]},
                  "ingress": {"host": "recurser.example.internal", "className": "nginx", "tlsSecretName": "recurser-tls"},
                  "imagePullSecrets": [{"name": "regcred"}]}]
