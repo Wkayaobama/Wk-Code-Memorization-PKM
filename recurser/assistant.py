@@ -15,6 +15,7 @@ fallback model inside the same call.  Set ``llm.fallbacks: false`` in the config
 """
 from __future__ import annotations
 
+import threading
 import time
 
 DEFAULT_MODEL = "claude-opus-5-5"
@@ -76,9 +77,15 @@ def make_client(timeout: float = 60.0, max_retries: int = 1):
         if value and (not value.strip() or value != value.strip() or any(ch.isspace() for ch in value)):
             raise AssistantUnavailable(f"{name} holds white space: check how the secret was created")
     try:
-        return anthropic.Anthropic(timeout=anthropic.Timeout(timeout, connect=5.0), max_retries=max_retries)
+        client = anthropic.Anthropic(timeout=anthropic.Timeout(timeout, connect=5.0), max_retries=max_retries)
     except Exception as exc:      # a profile that does not exist, a federation setup that is incomplete...
         raise AssistantUnavailable(f"the Anthropic credential could not be loaded: {exc}") from exc
+    if not (client.api_key or client.auth_token or client.custom_auth is not None):
+        # e.g. ANTHROPIC_FEDERATION_RULE_ID without the organization id and the identity token it needs:
+        # the client is built, and every question would then fail when it is sent
+        raise AssistantUnavailable("the Anthropic settings in the environment do not add up to a credential "
+                                   "(a federation rule also needs ANTHROPIC_ORGANIZATION_ID and an identity token)")
+    return client
 
 
 def search_result_blocks(passages: list[dict]) -> list:
@@ -100,14 +107,11 @@ def search_result_blocks(passages: list[dict]) -> list:
 def _send(client, *, system: str, content: list, model: str, effort: str, max_tokens: int, fallbacks: bool,
           answer_seconds: float = DEFAULT_ANSWER_SECONDS):
     """One streamed request; returns the final message.  Every failure becomes an AssistantError, including
-    the ones that arrive after the stream has opened."""
-    import anthropic
+    the ones that arrive after the stream has opened.
 
-    try:
-        import httpx2 as transport          # the SDK's HTTP library: its errors can surface while a stream is read
-    except ImportError:                     # pragma: no cover
-        transport = None
-
+    Two limits apply.  The client's timeout is the longest silence tolerated; with one retry, an API that
+    never answers is given up after about twice that.  ``answer_seconds`` is the longest one answer may take
+    once it has started, keep-alives included; the settings keep it at twice the timeout or more."""
     if effort not in EFFORTS:
         raise AssistantError(f"effort must be one of {', '.join(EFFORTS)}", status=500)
     params = dict(
@@ -121,46 +125,83 @@ def _send(client, *, system: str, content: list, model: str, effort: str, max_to
     if fallbacks:
         params.update(betas=[FALLBACK_BETA], fallbacks="default")
     deadline = time.monotonic() + answer_seconds
+    expired = threading.Event()
+    too_long = "the answer took too long and was abandoned"
+
+    def give_up(stream) -> None:
+        # Runs on a timer.  The loop below only sees real events: an answer that sends nothing but keep-alives
+        # would be waited for as long as they keep coming.  Closing the stream ends that wait at the next read.
+        expired.set()
+        try:
+            stream.close()
+        except Exception:
+            pass
+
     try:
         with client.beta.messages.stream(**params) as stream:
-            for _ in stream:                # the client's timeout bounds each silence; this bounds the whole answer
-                if time.monotonic() > deadline:
-                    raise AssistantError("the answer took too long and was abandoned", status=504)
-            return stream.get_final_message()
+            timer = threading.Timer(max(0.0, deadline - time.monotonic()), give_up, args=(stream,))
+            timer.daemon = True
+            timer.start()
+            try:
+                for _ in stream:            # the client's timeout bounds each silence; the deadline bounds the whole answer
+                    if expired.is_set() or time.monotonic() > deadline:
+                        raise AssistantError(too_long, status=504)
+                if expired.is_set():
+                    raise AssistantError(too_long, status=504)
+                return stream.get_final_message()
+            finally:
+                timer.cancel()
     except AssistantError:
         raise
-    except anthropic.AuthenticationError as exc:
-        raise AssistantError("the server's Anthropic credential was refused", status=503) from exc
-    except anthropic.PermissionDeniedError as exc:
-        raise AssistantError("the server's Anthropic credential may not use this model or feature", status=503) from exc
-    except anthropic.NotFoundError as exc:
-        raise AssistantError(f"model {model!r} was not found: check llm.model in the config", status=503) from exc
-    except anthropic.RateLimitError as exc:
+    except Exception as exc:
+        if expired.is_set():                # whatever the closed stream raised, the cause is the deadline
+            raise AssistantError(too_long, status=504) from exc
+        failure = _failure(exc, model)
+        if failure is None:
+            raise
+        raise failure from exc
+
+
+def _failure(exc: Exception, model: str):
+    """The AssistantError that stands for ``exc``, or None when ``exc`` is not a failure of the request."""
+    import anthropic
+
+    try:
+        import httpx2 as transport          # the SDK's HTTP library: its errors can surface while a stream is read
+    except ImportError:                     # pragma: no cover
+        transport = None
+
+    if isinstance(exc, anthropic.AuthenticationError):
+        return AssistantError("the server's Anthropic credential was refused", status=503)
+    if isinstance(exc, anthropic.PermissionDeniedError):
+        return AssistantError("the server's Anthropic credential may not use this model or feature", status=503)
+    if isinstance(exc, anthropic.NotFoundError):
+        return AssistantError(f"model {model!r} was not found: check llm.model in the config", status=503)
+    if isinstance(exc, anthropic.RateLimitError):
         retry = exc.response.headers.get("retry-after") if getattr(exc, "response", None) is not None else None
-        raise AssistantError("the Anthropic API is rate limiting this server", status=429,
-                             retry_after=int(retry) if retry and str(retry).isdigit() else 60) from exc
-    except anthropic.BadRequestError as exc:
-        raise AssistantError(f"the Anthropic API rejected the request: {exc.message}", status=502) from exc
-    except anthropic.APIStatusError as exc:
+        return AssistantError("the Anthropic API is rate limiting this server", status=429,
+                              retry_after=int(retry) if retry and str(retry).isdigit() else 60)
+    if isinstance(exc, anthropic.BadRequestError):
+        return AssistantError(f"the Anthropic API rejected the request: {exc.message}", status=502)
+    if isinstance(exc, anthropic.APIStatusError):
         if exc.status_code < 400:           # an error event inside a stream that had started with 200
             body = exc.body if isinstance(exc.body, dict) else {}
             kind = (body.get("error") or {}).get("type") or "error"
-            raise AssistantError(f"the Anthropic API stopped the answer ({kind}); try again in a moment", status=503, retry_after=20) from exc
-        raise AssistantError(f"the Anthropic API answered {exc.status_code}", status=502 if exc.status_code >= 500 else 500) from exc
-    except anthropic.APITimeoutError as exc:
-        raise AssistantError("the Anthropic API did not answer in time", status=504) from exc
-    except anthropic.APIConnectionError as exc:
-        raise AssistantError("the Anthropic API could not be reached from this server", status=502) from exc
-    except anthropic.AnthropicError as exc:
-        raise AssistantError(f"the request to the Anthropic API failed ({type(exc).__name__})", status=502) from exc
-    except Exception as exc:
-        if transport is not None and isinstance(exc, transport.TimeoutException):
-            raise AssistantError("the Anthropic API went silent in the middle of the answer", status=504) from exc
-        if transport is not None and isinstance(exc, transport.HTTPError):
-            raise AssistantError("the connection to the Anthropic API broke in the middle of the answer", status=502) from exc
-        if isinstance(exc, UnicodeError):
-            raise AssistantError("the text holds characters that cannot be sent", status=400) from exc
-        raise
+            return AssistantError(f"the Anthropic API stopped the answer ({kind}); try again in a moment", status=503, retry_after=20)
+        return AssistantError(f"the Anthropic API answered {exc.status_code}", status=502 if exc.status_code >= 500 else 500)
+    if isinstance(exc, anthropic.APITimeoutError):
+        return AssistantError("the Anthropic API did not answer in time", status=504)
+    if isinstance(exc, anthropic.APIConnectionError):
+        return AssistantError("the Anthropic API could not be reached from this server", status=502)
+    if isinstance(exc, anthropic.AnthropicError):
+        return AssistantError(f"the request to the Anthropic API failed ({type(exc).__name__})", status=502)
+    if transport is not None and isinstance(exc, transport.TimeoutException):
+        return AssistantError("the Anthropic API went silent in the middle of the answer", status=504)
+    if transport is not None and isinstance(exc, transport.HTTPError):
+        return AssistantError("the connection to the Anthropic API broke in the middle of the answer", status=502)
+    if isinstance(exc, UnicodeError):
+        return AssistantError("the text holds characters that cannot be sent", status=400)
+    return None
 
 
 def _complete(message) -> bool:

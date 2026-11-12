@@ -52,6 +52,21 @@ SPEC_DEFAULTS = {
     "ingress": {"host": "", "className": "", "tlsSecretName": "", "controllerNamespace": "ingress-nginx"},
 }
 
+# Objects that exist only when the spec asks for them: the controller removes its own when it no longer does.
+OPTIONAL_KINDS = (("networking.k8s.io/v1", "NetworkPolicy"), ("networking.k8s.io/v1", "Ingress"))
+ALIVE_FILE = "/tmp/recurser-controller.alive"      # touched by the controller at every pass; its liveness probe reads the age
+NAME_LIMIT = 58                                     # the volume claim is named <name>-data and a name holds 63 characters
+
+
+def validate_name(name) -> list[str]:
+    """A RecurserApp names a Service, so its name must be a DNS label: lower case, digits, '-', starting with a letter."""
+    import re
+
+    if not isinstance(name, str) or not re.match(r"^[a-z]([-a-z0-9]*[a-z0-9])?$", name) or len(name) > NAME_LIMIT:
+        return [f"metadata.name: must start with a letter, hold only lower-case letters, digits and '-', and be at most {NAME_LIMIT} characters"]
+    return []
+
+
 # Addresses a pod may never reach on port 443: other tenants of the cluster network and the node metadata service.
 PRIVATE_RANGES = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16", "100.64.0.0/10"]
 
@@ -197,7 +212,10 @@ def render(name: str, namespace: str, spec: dict, *, owner: dict | None = None, 
         pvc_spec = {"accessModes": ["ReadWriteOnce"], "resources": {"requests": {"storage": s["storage"]["size"]}}}
         if s["storage"]["storageClassName"]:
             pvc_spec["storageClassName"] = s["storage"]["storageClassName"]
-        objects.append({"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {**copy.deepcopy(meta), "name": claim}, "spec": pvc_spec})
+        # The claim holds everybody's review history.  It carries no owner reference, so deleting the RecurserApp
+        # leaves it in place, and an app created again under the same name finds its histories.
+        kept = {k: v for k, v in copy.deepcopy(meta).items() if k != "ownerReferences"}
+        objects.append({"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {**kept, "name": claim}, "spec": pvc_spec})
 
     env = []
     if s["secretRef"]["name"]:        # layer 3: the credential never appears in a manifest, only a reference to it
@@ -218,7 +236,10 @@ def render(name: str, namespace: str, spec: dict, *, owner: dict | None = None, 
         "image": s["image"],
         "imagePullPolicy": s["imagePullPolicy"],
         # the users file is passed explicitly: a mounted users Secret is always in force, whatever config.yaml says
-        "args": ["serve", "--config", f"{CONFIG_DIR}/{CONFIG_KEY}"] + (["--users", f"{SECRETS_DIR}/{USERS_KEY}"] if s["usersRef"]["name"] else [])
+        # What the rest of the pod spec relies on is passed explicitly and wins over config.yaml: the address and
+        # port the probes and the Service expect, the folder the volume is mounted on, the mounted users file.
+        "args": ["serve", "--config", f"{CONFIG_DIR}/{CONFIG_KEY}", "--host", "0.0.0.0", "--port", str(PORT), "--progress-dir", DATA_DIR]
+                + (["--users", f"{SECRETS_DIR}/{USERS_KEY}"] if s["usersRef"]["name"] else [])
                 + (["--only", ",".join(s["projects"])] if s["projects"] else []),      # the sources this app is declared to serve
         "ports": [{"name": "http", "containerPort": PORT, "protocol": "TCP"}],        # layer 1
         "env": env,
@@ -234,6 +255,7 @@ def render(name: str, namespace: str, spec: dict, *, owner: dict | None = None, 
         template_meta["annotations"] = {f"{GROUP}/inputs": checksum(checksums)}
     pod = {
         "automountServiceAccountToken": False,
+        "terminationGracePeriodSeconds": 10,
         "securityContext": {"runAsNonRoot": True, "runAsUser": RUN_AS, "runAsGroup": RUN_AS, "fsGroup": RUN_AS,
                             "seccompProfile": {"type": "RuntimeDefault"}},
         "containers": [container],
@@ -284,7 +306,7 @@ def render(name: str, namespace: str, spec: dict, *, owner: dict | None = None, 
     return objects
 
 
-def controller_manifests(namespace: str, image: str) -> list[dict]:
+def controller_manifests(namespace: str, image: str, pull_secret: str = "") -> list[dict]:
     """ServiceAccount, Role, RoleBinding and Deployment of the controller, for one namespace."""
     name = "recurser-controller"
     meta = {"name": name, "namespace": namespace, "labels": {"app.kubernetes.io/name": name}}
@@ -296,8 +318,10 @@ def controller_manifests(namespace: str, image: str) -> list[dict]:
         {"apiGroups": [""], "resources": ["configmaps", "secrets"], "verbs": ["get"]},
         {"apiGroups": [""], "resources": ["services", "persistentvolumeclaims"], "verbs": ["get", "create", "patch"]},
         {"apiGroups": ["apps"], "resources": ["deployments"], "verbs": ["get", "create", "patch"]},
-        {"apiGroups": ["networking.k8s.io"], "resources": ["networkpolicies", "ingresses"], "verbs": ["get", "create", "patch"]},
+        # these two exist only while the spec asks for them, so the controller must be able to remove its own
+        {"apiGroups": ["networking.k8s.io"], "resources": ["networkpolicies", "ingresses"], "verbs": ["get", "create", "patch", "delete"]},
     ]
+    alive = ("import os,sys,time; sys.exit(0 if time.time() - os.path.getmtime('" + ALIVE_FILE + "') < 240 else 1)")
     return [
         {"apiVersion": "v1", "kind": "ServiceAccount", "metadata": copy.deepcopy(meta)},
         {"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "Role", "metadata": copy.deepcopy(meta), "rules": rules},
@@ -309,6 +333,8 @@ def controller_manifests(namespace: str, image: str) -> list[dict]:
                   "selector": {"matchLabels": {"app.kubernetes.io/name": name}},
                   "template": {"metadata": {"labels": {"app.kubernetes.io/name": name}},
                                "spec": {"serviceAccountName": name,
+                                        "terminationGracePeriodSeconds": 10,
+                                        **({"imagePullSecrets": [{"name": pull_secret}]} if pull_secret else {}),
                                         "securityContext": {"runAsNonRoot": True, "runAsUser": RUN_AS, "seccompProfile": {"type": "RuntimeDefault"}},
                                         "containers": [{
                                             "name": "controller", "image": image, "imagePullPolicy": "IfNotPresent",
@@ -316,13 +342,16 @@ def controller_manifests(namespace: str, image: str) -> list[dict]:
                                             "args": ["--namespace", namespace],
                                             "resources": {"requests": {"cpu": "20m", "memory": "96Mi"}, "limits": {"memory": "192Mi"}},
                                             "volumeMounts": [{"name": "tmp", "mountPath": "/tmp"}],
+                                            # a controller whose connection went dead stops touching the file and is restarted
+                                            "livenessProbe": {"exec": {"command": ["python", "-c", alive]}, "initialDelaySeconds": 60,
+                                                              "periodSeconds": 30, "timeoutSeconds": 10, "failureThreshold": 3},
                                             "securityContext": {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True,
                                                                 "capabilities": {"drop": ["ALL"]}}}],
                                         "volumes": [{"name": "tmp", "emptyDir": {"sizeLimit": "16Mi"}}]}}}},
     ]
 
 
-def example(name: str = "team", namespace: str = "recurser", image: str = "ghcr.io/OWNER/recurser:0.2.0") -> dict:
+def example(name: str = "team", namespace: str = "recurser", image: str = "ghcr.io/OWNER/recurser:0.2.0", pull_secret: str = "") -> dict:
     """The objects a person writes by hand: the ConfigMap, the two Secrets (placeholders only) and the RecurserApp."""
     from . import config as config_mod
 
@@ -336,7 +365,8 @@ def example(name: str = "team", namespace: str = "recurser", image: str = "ghcr.
         "namespace": {"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": namespace}},
         "config": {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": f"{name}-config", "namespace": namespace}, "data": {CONFIG_KEY: settings}},
         "app": {"apiVersion": API_VERSION, "kind": KIND, "metadata": {"name": name, "namespace": namespace},
-                "spec": {"image": image, "configRef": {"name": f"{name}-config"}, "secretRef": {"name": f"{name}-anthropic", "key": API_KEY_ENV},
+                "spec": {"image": image, **({"imagePullSecrets": [{"name": pull_secret}]} if pull_secret else {}),
+                         "configRef": {"name": f"{name}-config"}, "secretRef": {"name": f"{name}-anthropic", "key": API_KEY_ENV},
                          "usersRef": {"name": f"{name}-users"}, "storage": {"size": "1Gi"}}},
     }
 

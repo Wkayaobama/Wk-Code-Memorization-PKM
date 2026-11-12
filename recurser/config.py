@@ -116,6 +116,9 @@ def merge(overrides) -> dict:
                                     ("server", "ask_per_10_minutes", 1, 10000), ("server", "max_concurrent_answers", 1, 64)):
         if not low <= out[section][key] <= high:
             raise ConfigError(f"{section}.{key} must be between {low} and {high}")
+    if out["llm"]["answer_seconds"] < 2 * out["llm"]["timeout_seconds"]:
+        # an API that never answers is given up after two silences (one retry): the whole-answer limit must cover that
+        raise ConfigError("llm.answer_seconds must be at least twice llm.timeout_seconds")
     return out
 
 

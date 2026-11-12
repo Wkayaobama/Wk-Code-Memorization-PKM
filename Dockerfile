@@ -24,7 +24,10 @@ RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin recurser \
 USER 10001
 
 # Layer 1: an API service on port 8000.  In Kubernetes the settings arrive at /app/config/config.yaml
-# and the Deployment passes its own arguments; this default is for `docker run`.
+# and the Deployment passes its own arguments.  With plain `docker run`, say who may come in, or the
+# server refuses to listen beyond the container:
+#   docker run -p 8000:8000 -v "$PWD/users.json:/app/secrets/users.json:ro" -v recurser-data:/var/lib/recurser \
+#     <image> serve --host 0.0.0.0 --port 8000 --users /app/secrets/users.json --progress-dir /var/lib/recurser
 EXPOSE 8000
 ENTRYPOINT ["python", "-m", "recurser"]
 CMD ["serve", "--host", "0.0.0.0", "--port", "8000"]

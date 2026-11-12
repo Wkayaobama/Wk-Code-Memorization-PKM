@@ -30,6 +30,7 @@ import re
 import secrets
 import threading
 import time
+import unicodedata
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlsplit
@@ -421,6 +422,22 @@ def docs_page() -> bytes:
     return page.encode("utf-8")
 
 
+def _within(path: str, folder: str, top: str) -> bool:
+    """True when ``path`` is ``folder`` or lies in it under any spelling the file system accepts for it (another
+    letter case, a link): the question is put to the file system, one folder at a time, up to ``top``."""
+    try:
+        while len(path) >= len(top):
+            if os.path.samefile(path, folder):
+                return True
+            parent = os.path.dirname(path)
+            if parent == path:
+                break
+            path = parent
+    except OSError:               # no such folder, or no such file: nothing to protect, nothing to serve
+        pass
+    return False
+
+
 def make_handler(app_dir: str, site: Site):
     app_dir = os.path.realpath(app_dir)
     token = site.token
@@ -579,7 +596,10 @@ def make_handler(app_dir: str, site: Site):
             full = os.path.realpath(os.path.join(app_dir, rel))
             data_dir = os.path.join(app_dir, "data")       # a bundle left there by `recurser build` holds every deck: never served
             inside = full == app_dir or full.startswith(app_dir + os.sep)
-            if not inside or full == data_dir or full.startswith(data_dir + os.sep) or not os.path.isfile(full):
+            # "Data" is the same folder on a disk that ignores letter case, where the resolved path keeps the spelling it was given
+            folded = unicodedata.normalize("NFKC", rel.split("/", 1)[0]).casefold()
+            if (not inside or folded == "data" or full == data_dir or full.startswith(data_dir + os.sep) or _within(full, data_dir, app_dir)
+                    or not os.path.isfile(full)):
                 return self._send(HTTPStatus.NOT_FOUND, b"Not found", "text/plain; charset=utf-8")
             ctype = mimetypes.guess_type(full)[0] or "application/octet-stream"
             if ctype.startswith("text/") or ctype in ("application/javascript", "application/json"):

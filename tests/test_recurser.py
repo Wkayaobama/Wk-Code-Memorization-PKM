@@ -9,11 +9,13 @@ import tempfile
 import threading
 import unittest
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import date
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
+sys.path.insert(1, os.path.join(ROOT, "tests"))      # the stand-in servers, however the tests are started
 
 from recurser import address, anki, assistant, bundle, config, db, fuzzy, inventory, k8s, kb, operator, retrieval, schema, server, srs, store  # noqa: E402
 
@@ -21,6 +23,10 @@ try:
     import anthropic
 except ImportError:  # the assistant tests need the SDK
     anthropic = None
+try:
+    import kubernetes
+except ImportError:  # the tests that drive the official client need it; the others do not
+    kubernetes = None
 
 DEMO = os.path.join(ROOT, "tests", "fixtures", "demo")
 DEMO_LINK = "demo-" + "link-0123456789"      # a made-up sign-in value for the server tests
@@ -888,9 +894,12 @@ class RetrievalTests(unittest.TestCase):
         self.assertEqual((merged["llm"]["model"], merged["llm"]["effort"], merged["server"]["port"]), ("claude-opus-5-5", "high", 8000))
         for bad in ({"llm": {"modle": "x"}}, {"llm": {"provider": "other"}}, {"server": {"port": "8000"}}, {"nope": {}}, {"llm": {"effort": "extreme"}},
                     {"llm": {"max_tokens": 512}}, {"llm": {"model": " "}}, {"access": {"trust_user_header": "X-User"}},
-                    {"access": {"trust_user_header": "X-User", "trusted_proxies": ["not-an-address"]}}):
+                    {"access": {"trust_user_header": "X-User", "trusted_proxies": ["not-an-address"]}},
+                    {"llm": {"timeout_seconds": 120}},                              # two silences would outlast the whole-answer limit
+                    {"llm": {"timeout_seconds": 600, "answer_seconds": 900}}):
             with self.assertRaises(config.ConfigError):
                 config.merge(bad)
+        self.assertEqual(config.merge({"llm": {"timeout_seconds": 120, "answer_seconds": 240}})["llm"]["answer_seconds"], 240)
         self.assertEqual(config.merge({"access": {"trust_user_header": "X-User", "trusted_proxies": ["10.42.0.0/16"]}})["access"]["trusted_proxies"], ["10.42.0.0/16"])
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "config.yaml")
@@ -971,11 +980,29 @@ class AssistantTests(unittest.TestCase):
             assistant.ask("q", self.passages, client=self.client, answer_seconds=-1)
         self.assertEqual(caught.exception.status, 504)
 
+    def test_an_answer_that_only_sends_keep_alives_is_abandoned_at_the_deadline(self):
+        import time
+
+        self.api.mode = "pings:4"
+        begun = time.monotonic()
+        with self.assertRaises(assistant.AssistantError) as caught:
+            assistant.ask("Which key does the loader merge on?", self.passages, client=self.client, answer_seconds=1)
+        took = time.monotonic() - begun
+        self.assertEqual(caught.exception.status, 504)
+        self.assertIn("took too long", str(caught.exception))
+        self.assertLess(took, 3, f"abandoned only after {took:.1f} s")       # not the four seconds the keep-alives last
+        # the same slow answer is read to its end when the deadline allows it
+        self.api.mode = "pings:0.5"
+        answer = assistant.ask("Which key does the loader merge on?", self.passages, client=self.client, answer_seconds=20)
+        self.assertFalse(answer["truncated"])
+        self.assertTrue(answer["text"])
+
     def test_a_credential_that_cannot_be_loaded_turns_the_assistant_off(self):
         saved = {k: os.environ.pop(k, None) for k in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_PROFILE", "ANTHROPIC_FEDERATION_RULE_ID")}
         try:
             for env in ({}, {"ANTHROPIC_API_KEY": "   "}, {"ANTHROPIC_API_KEY": "abc def"}, {"ANTHROPIC_API_KEY": "abcdef\n"},
-                        {"ANTHROPIC_PROFILE": "no-such-profile-here"}):
+                        {"ANTHROPIC_PROFILE": "no-such-profile-here"},
+                        {"ANTHROPIC_FEDERATION_RULE_ID": "rule_without_the_rest"}):       # builds a client that could send nothing
                 os.environ.update(env)
                 with self.assertRaises(assistant.AssistantUnavailable, msg=str(env)):
                     assistant.make_client()
@@ -1094,6 +1121,23 @@ class TeamServerTests(ServerTests):
                 self.assertNotIn(b"EVERY-DECK-ON-DISK", body, alias)
                 self.assertNotIn(b"harbor-notes:", body, alias)
                 self.assertIn(status, (200, 404), alias)
+            # A disk that ignores letter case answers "Data" with the data folder.  Two guards, each tried alone.
+            # The name itself: a folder spelled Data is never served, even where it is a folder of its own.
+            os.makedirs(os.path.join(app, "Data"))
+            with open(os.path.join(app, "Data", "bundle.js"), "w") as fh:
+                fh.write("window.RECURSER_BUNDLE = 'EVERY-DECK-ON-DISK';")
+            for alias in ("/Data/bundle.js", "/DATA/bundle.js", "/dAtA/bundle.js", "/%44ata/bundle.js", "/\uff24ata/bundle.js"):
+                status, body, _ = self.call(base + urllib.parse.quote(alias, safe="/%"), headers=sam)
+                self.assertEqual((status, b"EVERY-DECK-ON-DISK" in body), (404, False), alias)
+            # The folder itself: a second name for it that path resolution leaves alone, as such a disk does.
+            from unittest import mock
+
+            os.symlink(os.path.join(app, "data"), os.path.join(app, "other-name"))
+            self.assertEqual(self.call(base + "/other-name/bundle.js", headers=sam)[0], 404)               # resolved: plainly inside data
+            with mock.patch.object(server.os.path, "realpath", os.path.abspath):
+                status, body, _ = self.call(base + "/other-name/bundle.js", headers=sam)                  # not resolved: the file system is asked
+            self.assertEqual((status, b"EVERY-DECK-ON-DISK" in body), (404, False))
+            self.assertEqual(self.call(base + "/index.html", headers=sam)[0], 200)                         # everything else is still served
 
     def test_a_history_holds_only_what_its_person_may_see(self):
         base, _ = self.team()
@@ -1158,11 +1202,11 @@ class TeamServerTests(ServerTests):
 
 
 class FakeCluster:
-    """The four calls the controller makes, on a dictionary."""
+    """The calls the controller makes, on a dictionary."""
 
     def __init__(self, objects=()):
         self.objects = {(o["apiVersion"], o["kind"], o["metadata"]["namespace"], o["metadata"]["name"]): o for o in objects}
-        self.applied, self.statuses = [], []
+        self.applied, self.statuses, self.deleted = [], [], []
 
     def get(self, api_version, kind, namespace, name):
         return self.objects.get((api_version, kind, namespace, name))
@@ -1172,6 +1216,10 @@ class FakeCluster:
         key = (obj["apiVersion"], obj["kind"], obj["metadata"]["namespace"], obj["metadata"]["name"])
         kept = {"status": self.objects[key]["status"]} if "status" in self.objects.get(key, {}) else {}   # an apply never touches the status
         self.objects[key] = {**obj, **kept}
+
+    def delete(self, api_version, kind, namespace, name):
+        self.deleted.append((api_version, kind, namespace, name))
+        self.objects.pop((api_version, kind, namespace, name), None)
 
     def set_status(self, app, status):
         self.statuses.append(status)
@@ -1199,7 +1247,11 @@ class KubernetesTests(unittest.TestCase):
         box = pod["containers"][0]
         # 1. the container: an API service on port 8000
         self.assertEqual(box["ports"], [{"name": "http", "containerPort": 8000, "protocol": "TCP"}])
-        self.assertEqual(box["args"], ["serve", "--config", "/app/config/config.yaml", "--users", "/app/secrets/users.json"])
+        # what the probes, the Service and the volume rely on is passed as flags, which win over config.yaml
+        self.assertEqual(box["args"], ["serve", "--config", "/app/config/config.yaml", "--host", "0.0.0.0", "--port", "8000",
+                                       "--progress-dir", "/var/lib/recurser", "--users", "/app/secrets/users.json"])
+        self.assertIn({"name": "data", "mountPath": "/var/lib/recurser"}, box["volumeMounts"])
+        self.assertEqual(pod["terminationGracePeriodSeconds"], 10)
         # 2. the ConfigMap, mounted at /app/config/config.yaml
         self.assertIn({"name": "config", "mountPath": "/app/config", "readOnly": True}, box["volumeMounts"])
         self.assertEqual(pod["volumes"][0], {"name": "config", "configMap": {"name": "team-config", "items": [{"key": "config.yaml", "path": "config.yaml"}]}})
@@ -1210,8 +1262,10 @@ class KubernetesTests(unittest.TestCase):
         self.assertEqual(objs["Service"]["spec"]["ports"], [{"name": "http", "port": 80, "targetPort": "http", "protocol": "TCP"}])
         self.assertEqual(objs["Service"]["spec"]["selector"], objs["Deployment"]["spec"]["selector"]["matchLabels"])
         self.assertTrue(set(objs["Service"]["spec"]["selector"].items()) <= set(objs["Deployment"]["spec"]["template"]["metadata"]["labels"].items()))
-        # every generated object belongs to the RecurserApp, and a change of settings rolls the pod
-        self.assertTrue(all(o["metadata"]["ownerReferences"] == [self.OWNER] for o in objs.values()))
+        # every generated object belongs to the RecurserApp and goes with it, except the claim that holds the histories
+        self.assertTrue(all(o["metadata"]["ownerReferences"] == [self.OWNER] for kind, o in objs.items() if kind != "PersistentVolumeClaim"))
+        self.assertNotIn("ownerReferences", objs["PersistentVolumeClaim"]["metadata"])
+        # a change of settings rolls the pod
         other = self.by_kind(spec, owner=self.OWNER, checksums={"config": "8"})
         self.assertNotEqual(objs["Deployment"]["spec"]["template"]["metadata"]["annotations"], other["Deployment"]["spec"]["template"]["metadata"]["annotations"])
         # hardening and the network
@@ -1228,7 +1282,8 @@ class KubernetesTests(unittest.TestCase):
     def test_optional_parts_and_bad_specs(self):
         bare = self.by_kind({"image": "x:1", "configRef": {"name": "c"}})
         box = bare["Deployment"]["spec"]["template"]["spec"]["containers"][0]
-        self.assertEqual((box["env"], box["args"]), ([], ["serve", "--config", "/app/config/config.yaml"]))      # no Secret: no key, no users file
+        self.assertEqual(box["env"], [])                                                # no Secret: no key, no users file
+        self.assertEqual(box["args"], ["serve", "--config", "/app/config/config.yaml", "--host", "0.0.0.0", "--port", "8000", "--progress-dir", "/var/lib/recurser"])
         some = self.by_kind({"image": "x:1", "configRef": {"name": "c"}, "projects": ["tide-loader", "60"]})
         self.assertEqual(some["Deployment"]["spec"]["template"]["spec"]["containers"][0]["args"][-2:], ["--only", "tide-loader,60"])
         self.assertTrue(k8s.validate_spec({"image": "x:1", "configRef": {"name": "c"}, "projects": "tide-loader"}))
@@ -1280,7 +1335,8 @@ class KubernetesTests(unittest.TestCase):
         cluster, app = self.cluster(), self.app()
         status = operator.reconcile(cluster, app)
         self.assertEqual([o["kind"] for o in cluster.applied], ["PersistentVolumeClaim", "Deployment", "Service", "NetworkPolicy"])
-        self.assertTrue(all(o["metadata"]["ownerReferences"][0]["uid"] == "uid-1" for o in cluster.applied))
+        self.assertTrue(all(o["metadata"]["ownerReferences"][0]["uid"] == "uid-1" for o in cluster.applied[1:]))
+        self.assertNotIn("ownerReferences", cluster.applied[0]["metadata"])                  # the histories outlive the object
         cond = status["conditions"][0]
         self.assertEqual((cond["status"], cond["reason"], status["observedGeneration"], status["url"]), ("False", "Progressing", 1, "http://team.recurser.svc"))
         # once the pod is ready, the status says so; an unchanged state is not written again
@@ -1328,6 +1384,159 @@ class KubernetesTests(unittest.TestCase):
         cond = operator.reconcile(cluster, app)["conditions"][0]
         self.assertEqual((cond["status"], cond["reason"]), ("False", "ApplyFailed"))
         self.assertIn("PersistentVolumeClaim team-data was refused", cond["message"])
+        # the refusal does not hold the other objects back
+        self.assertEqual([o["kind"] for o in cluster.applied], ["Deployment", "Service", "NetworkPolicy"])
+
+    INGRESS = ("networking.k8s.io/v1", "Ingress", "recurser", "team")
+    POLICY = ("networking.k8s.io/v1", "NetworkPolicy", "recurser", "team")
+
+    def test_what_the_spec_no_longer_asks_for_is_removed(self):
+        base = k8s.example()["app"]["spec"]
+        cluster, app = self.cluster(), self.app({**base, "ingress": {"host": "recurser.example.internal"}})
+        operator.reconcile(cluster, app)
+        self.assertIn(self.INGRESS, cluster.objects)
+        self.assertIn(self.POLICY, cluster.objects)
+        self.assertEqual(cluster.deleted, [])
+        # the Ingress and the NetworkPolicy leave the spec: the controller removes the ones it made, and only those
+        app["spec"] = {**base, "networkPolicy": {"enabled": False}}
+        status = operator.reconcile(cluster, app)
+        self.assertEqual(sorted(cluster.deleted), [self.INGRESS, self.POLICY])
+        self.assertEqual(status["conditions"][0]["reason"], "Progressing")
+        kept = {("v1", "PersistentVolumeClaim", "recurser", "team-data"), ("apps/v1", "Deployment", "recurser", "team"), ("v1", "Service", "recurser", "team")}
+        self.assertTrue(kept <= set(cluster.objects))
+        # a second pass finds nothing left to remove
+        operator.reconcile(cluster, app)
+        self.assertEqual(len(cluster.deleted), 2)
+
+    def test_objects_somebody_else_made_are_left_alone(self):
+        cluster = self.cluster()
+        app = self.app({**k8s.example()["app"]["spec"], "networkPolicy": {"enabled": False}})
+        other = {"apiVersion": "networking.k8s.io/v1", "kind": "Ingress", "metadata": {"namespace": "recurser", "name": "team", "ownerReferences": [{"uid": "someone-else"}]}}
+        handmade = {"apiVersion": "networking.k8s.io/v1", "kind": "NetworkPolicy", "metadata": {"namespace": "recurser", "name": "team"}}
+        cluster.objects[self.INGRESS], cluster.objects[self.POLICY] = other, handmade
+        operator.reconcile(cluster, app)
+        self.assertEqual(cluster.deleted, [])
+        self.assertIs(cluster.objects[self.INGRESS], other)
+        self.assertIs(cluster.objects[self.POLICY], handmade)
+
+    def test_a_refused_removal_is_reported_in_the_status(self):
+        base = k8s.example()["app"]["spec"]
+        cluster, app = self.cluster(), self.app({**base, "ingress": {"host": "recurser.example.internal"}})
+        operator.reconcile(cluster, app)
+
+        def refuse(*key):
+            raise RuntimeError("ingresses.networking.k8s.io \"team\" is forbidden")
+
+        cluster.delete = refuse
+        app["spec"] = base
+        cond = operator.reconcile(cluster, app)["conditions"][0]
+        self.assertEqual(cond["reason"], "ApplyFailed")
+        self.assertIn("Ingress team could not be removed", cond["message"])
+        self.assertIn(self.INGRESS, cluster.objects)
+
+    def test_a_name_that_cannot_name_a_service_is_refused(self):
+        for bad in ("Team", "9lives", "team_a", "-team", "team-", "t" * 59, "te.am", ""):
+            cluster, app = self.cluster(), self.app()
+            app["metadata"]["name"] = bad
+            cond = operator.reconcile(cluster, app)["conditions"][0]
+            self.assertEqual(cond["reason"], "InvalidSpec", bad)
+            self.assertIn("metadata.name", cond["message"])
+            self.assertEqual(cluster.applied, [], bad)
+        for good in ("team", "t", "team-2", "t" * 58):
+            self.assertEqual(k8s.validate_name(good), [], good)
+        # the longest accepted name still leaves room for the volume claim's suffix
+        longest = k8s.render("t" * 58, "recurser", k8s.example()["app"]["spec"])
+        self.assertTrue(all(len(o["metadata"]["name"]) <= 63 for o in longest))
+
+    def test_an_image_from_a_private_registry(self):
+        controller = [o for o in k8s.controller_manifests("recurser", "registry.example.internal/recurser:1", "regcred") if o["kind"] == "Deployment"][0]
+        self.assertEqual(controller["spec"]["template"]["spec"]["imagePullSecrets"], [{"name": "regcred"}])
+        declared = k8s.example(image="registry.example.internal/recurser:1", pull_secret="regcred")["app"]["spec"]
+        self.assertEqual(declared["imagePullSecrets"], [{"name": "regcred"}])
+        self.assertEqual(k8s.validate_spec(declared), [])
+        generated = self.by_kind(declared)["Deployment"]["spec"]["template"]["spec"]
+        self.assertEqual(generated["imagePullSecrets"], [{"name": "regcred"}])
+        # not asked for: not there
+        plain = [o for o in k8s.controller_manifests("recurser", "x:1") if o["kind"] == "Deployment"][0]
+        self.assertNotIn("imagePullSecrets", plain["spec"]["template"]["spec"])
+        self.assertNotIn("imagePullSecrets", k8s.example()["app"]["spec"])
+
+    def test_the_controller_may_do_what_it_does_and_no_more(self):
+        role = [o for o in k8s.controller_manifests("recurser", "x:1") if o["kind"] == "Role"][0]
+        verbs = {res: set(rule["verbs"]) for rule in role["rules"] for res in rule["resources"]}
+        self.assertEqual(verbs["networkpolicies"], {"get", "create", "patch", "delete"})
+        self.assertEqual(verbs["ingresses"], {"get", "create", "patch", "delete"})
+        for kept in ("services", "persistentvolumeclaims", "deployments"):       # never removed by the controller
+            self.assertEqual(verbs[kept], {"get", "create", "patch"}, kept)
+        self.assertEqual(verbs["secrets"], {"get"})
+        self.assertEqual(verbs["configmaps"], {"get"})
+
+    def test_the_controller_leaves_a_sign_of_life_and_the_probe_reads_it(self):
+        from unittest import mock
+
+        controller = [o for o in k8s.controller_manifests("recurser", "x:1") if o["kind"] == "Deployment"][0]
+        box = controller["spec"]["template"]["spec"]["containers"][0]
+        probe = box["livenessProbe"]["exec"]["command"]
+        self.assertEqual(probe[:2], ["python", "-c"])
+        self.assertIn(k8s.ALIVE_FILE, probe[2])
+        self.assertTrue(k8s.ALIVE_FILE.startswith(box["volumeMounts"][0]["mountPath"] + "/"))       # the only writable place in that pod
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "alive")
+            code = probe[2].replace(k8s.ALIVE_FILE, path)
+            check = lambda: subprocess.run([sys.executable, "-c", code], capture_output=True).returncode
+            self.assertNotEqual(check(), 0)                                # no pass yet
+            cluster, stop, lines = self.cluster(), threading.Event(), []
+            cluster.objects[(k8s.API_VERSION, k8s.KIND, "recurser", "team")] = self.app()
+
+            def log(line):
+                lines.append(line)
+                stop.set()
+
+            with mock.patch.dict(os.environ, {"RECURSER_ALIVE_FILE": path}):
+                operator.run(cluster, "recurser", resync=1, stop=stop, log=log)
+            self.assertEqual(check(), 0)                                   # a pass was made a moment ago
+            old = os.path.getmtime(path) - 600
+            os.utime(path, (old, old))
+            self.assertEqual(check(), 1)                                   # nothing for ten minutes: restart
+
+    def test_every_call_to_the_cluster_has_a_time_limit(self):
+        if kubernetes is None:          # the calls only import the name of one error class
+            import types
+            from unittest import mock
+
+            errors = types.ModuleType("kubernetes.dynamic.exceptions")
+            errors.NotFoundError = type("NotFoundError", (Exception,), {})
+            stand_in = {"kubernetes": types.ModuleType("kubernetes"), "kubernetes.dynamic": types.ModuleType("kubernetes.dynamic"),
+                        "kubernetes.dynamic.exceptions": errors}
+            patcher = mock.patch.dict(sys.modules, stand_in)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        calls = []
+
+        class Resource:
+            status = None
+
+            def __getattr__(self, verb):
+                def call(**kw):
+                    calls.append((verb, kw))
+                    if verb == "get" and "name" not in kw:
+                        return type("Found", (), {"items": []})()
+                    return type("One", (), {"to_dict": lambda self: {}})()
+                return call
+
+        resource = Resource()
+        resource.status = resource
+        cluster = operator.KubeCluster.__new__(operator.KubeCluster)        # no cluster needed: the client object is replaced
+        cluster._cache = {}
+        cluster._resource = lambda api_version, kind: resource
+        cluster.get("v1", "ConfigMap", "recurser", "team-config")
+        cluster.apply({"apiVersion": "v1", "kind": "Service", "metadata": {"name": "team", "namespace": "recurser"}})
+        cluster.delete("networking.k8s.io/v1", "Ingress", "recurser", "team")
+        cluster.set_status({"metadata": {"name": "team", "namespace": "recurser"}}, {})
+        cluster.list_apps("recurser")
+        self.assertEqual([verb for verb, _ in calls], ["get", "server_side_apply", "delete", "patch", "get"])
+        for verb, kw in calls:
+            self.assertEqual(kw.get("_request_timeout"), operator.KubeCluster.TIMEOUT, verb)
 
     def test_the_loop_survives_a_bad_object(self):
         cluster = self.cluster()
@@ -1345,6 +1554,265 @@ class KubernetesTests(unittest.TestCase):
         operator.run(cluster, "recurser", resync=1, stop=stop, log=log)
         self.assertTrue(any("reconcile failed" in line for line in lines))
         self.assertTrue(any("team: Ready=" in line for line in lines))
+
+
+@unittest.skipUnless(kubernetes, "needs the official client: pip install kubernetes")
+class ControllerThroughTheClientTests(unittest.TestCase):
+    """The controller's calls, sent by the official Python client to a local stand-in for the API server."""
+
+    def setUp(self):
+        from unittest import mock
+
+        from fake_kube_api import FakeKubeApi
+        from kubernetes import client
+
+        self.api = FakeKubeApi((k8s.API_VERSION, k8s.PLURAL, k8s.KIND))
+        self.addCleanup(self.api.close)
+        tmp = tempfile.TemporaryDirectory()          # the client keeps a discovery cache file in the temp folder
+        self.addCleanup(tmp.cleanup)
+        patcher = mock.patch.object(tempfile, "tempdir", tmp.name)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        configuration = client.Configuration(host=self.api.url)
+        configuration.proxy = None                   # a local server, whatever the environment says about proxies
+        self.cluster = operator.KubeCluster(client.ApiClient(configuration))
+        self.addCleanup(self.cluster.dyn.client.close)
+        meta = lambda name: {"namespace": "recurser", "name": name}
+        self.api.put({"apiVersion": "v1", "kind": "ConfigMap", "metadata": meta("team-config"), "data": {"config.yaml": "llm:\n  effort: low\n"}})
+        self.api.put({"apiVersion": "v1", "kind": "Secret", "metadata": meta("team-anthropic"), "data": {"ANTHROPIC_API_KEY": "eA=="}})
+        self.api.put({"apiVersion": "v1", "kind": "Secret", "metadata": meta("team-users"), "data": {"users.json": "eA=="}})
+        spec = {**k8s.example()["app"]["spec"], "ingress": {"host": "recurser.example.internal"}}
+        self.api.put({"apiVersion": k8s.API_VERSION, "kind": k8s.KIND, "metadata": meta("team"), "spec": spec})
+
+    def app(self):
+        return self.cluster.list_apps("recurser")[0]
+
+    def test_generate_report_and_remove(self):
+        app = self.app()
+        self.assertEqual((app["metadata"]["name"], bool(app["metadata"]["uid"])), ("team", True))
+        self.assertEqual(operator.reconcile(self.cluster, app)["conditions"][0]["reason"], "Progressing")
+        # every generated object went as a server-side apply under the controller's name
+        applies = [r for r in self.api.sent("PATCH") if r["content_type"] == "application/apply-patch+yaml"]
+        self.assertEqual([r["path"].split("/")[-2:] for r in applies],
+                         [["persistentvolumeclaims", "team-data"], ["deployments", "team"], ["services", "team"], ["networkpolicies", "team"], ["ingresses", "team"]])
+        for r in applies:
+            self.assertEqual(r["query"]["fieldManager"], [k8s.MANAGER], r["path"])
+            self.assertEqual(r["query"]["force"][0].lower(), "true", r["path"])
+        deployment = self.api.get("apps/v1", "deployments", "recurser", "team")
+        self.assertEqual(deployment["metadata"]["ownerReferences"][0]["uid"], app["metadata"]["uid"])
+        self.assertNotIn("ownerReferences", self.api.get("v1", "persistentvolumeclaims", "recurser", "team-data")["metadata"])
+        self.assertEqual(deployment["spec"]["template"]["spec"]["containers"][0]["ports"][0]["containerPort"], 8000)
+        # the status went to the status subresource, as a merge patch
+        written = self.api.sent("PATCH", "/recurserapps/team/status")
+        self.assertEqual((len(written), written[0]["content_type"]), (1, "application/merge-patch+json"))
+        stored = self.api.get(k8s.API_VERSION, k8s.PLURAL, "recurser", "team")
+        self.assertEqual((stored["status"]["conditions"][0]["reason"], stored["status"]["url"]), ("Progressing", "http://team.recurser.svc"))
+        self.assertIn("ingress", stored["spec"])                                # the status patch left the spec alone
+        # the pod becomes ready: the next pass says so, and a pass that changes nothing writes nothing
+        self.api.put({**deployment, "status": {"availableReplicas": 1}})
+        self.assertEqual(operator.reconcile(self.cluster, self.app())["conditions"][0]["reason"], "Available")
+        operator.reconcile(self.cluster, self.app())
+        self.assertEqual(len(self.api.sent("PATCH", "/recurserapps/team/status")), 2)
+        # the Ingress and the NetworkPolicy leave the spec: both are removed, nothing else is
+        stored = self.api.get(k8s.API_VERSION, k8s.PLURAL, "recurser", "team")
+        self.api.put({**stored, "spec": {**k8s.example()["app"]["spec"], "networkPolicy": {"enabled": False}}})
+        operator.reconcile(self.cluster, self.app())
+        self.assertEqual(sorted(r["path"].split("/")[-2] for r in self.api.sent("DELETE")), ["ingresses", "networkpolicies"])
+        self.assertIsNone(self.api.get("networking.k8s.io/v1", "ingresses", "recurser", "team"))
+        self.assertIsNotNone(self.api.get("v1", "persistentvolumeclaims", "recurser", "team-data"))
+        # what is not there reads as nothing, and removing it again is not an error
+        self.assertIsNone(self.cluster.get("v1", "ConfigMap", "recurser", "no-such-config"))
+        self.cluster.delete("networking.k8s.io/v1", "Ingress", "recurser", "team")
+
+    def test_the_words_of_the_api_reach_the_status(self):
+        words = 'PersistentVolumeClaim "team-data" is invalid: spec.resources.requests.storage: Forbidden: field can not be less than previous value'
+        self.api.refuse[("PATCH", "persistentvolumeclaims")] = (422, "Invalid", words)
+        cond = operator.reconcile(self.cluster, self.app())["conditions"][0]
+        self.assertEqual(cond["reason"], "ApplyFailed")
+        self.assertEqual(cond["message"], "PersistentVolumeClaim team-data was refused: " + words)
+        self.assertIsNotNone(self.api.get("apps/v1", "deployments", "recurser", "team"))        # the others were still applied
+        self.assertEqual(self.api.get(k8s.API_VERSION, k8s.PLURAL, "recurser", "team")["status"]["conditions"][0]["reason"], "ApplyFailed")
+        # a missing ConfigMap: nothing is generated, and the object says what to create
+        self.api.refuse.clear()
+        del self.api.objects[("v1", "configmaps", "recurser", "team-config")]
+        before = len(self.api.sent("PATCH", "/deployments/team"))
+        cond = operator.reconcile(self.cluster, self.app())["conditions"][0]
+        self.assertEqual((cond["reason"], cond["message"]), ("ConfigMissing", "ConfigMap team-config was not found"))
+        self.assertEqual(len(self.api.sent("PATCH", "/deployments/team")), before)
+
+    def test_the_loop_lists_watches_and_follows_a_change(self):
+        stop, lines = threading.Event(), []
+
+        def log(line):
+            lines.append(line)
+            if len(lines) == 2:                      # the first pass, then the same object as the watch presents it
+                stored = self.api.get(k8s.API_VERSION, k8s.PLURAL, "recurser", "team")
+                self.api.put({**stored, "spec": {**stored["spec"], "image": "registry.example.internal/recurser:2"}})
+            if len(lines) >= 3:                      # the change, seen through the watch
+                stop.set()
+
+        worker = threading.Thread(target=operator.run, args=(self.cluster, "recurser"), kwargs={"resync": 3, "stop": stop, "log": log, "pause": 0.1}, daemon=True)
+        worker.start()
+        worker.join(15)
+        self.assertFalse(worker.is_alive(), lines)
+        self.assertTrue(all(line.startswith("team: Ready=False (Progressing)") for line in lines), lines)
+        watch = [r for r in self.api.sent("GET", "/recurserapps") if "watch" in r["query"]]
+        self.assertEqual((watch[0]["query"]["watch"][0].lower(), watch[0]["query"]["timeoutSeconds"]), ("true", ["3"]))
+        image = self.api.get("apps/v1", "deployments", "recurser", "team")["spec"]["template"]["spec"]["containers"][0]["image"]
+        self.assertEqual(image, "registry.example.internal/recurser:2")
+
+    def test_a_connection_that_went_silent_does_not_stop_the_loop(self):
+        import time
+        from unittest import mock
+
+        self.api.silent_watch = 6
+        stop, lines = threading.Event(), []
+        with mock.patch.object(operator.KubeCluster, "WATCH_MARGIN", 1):
+            worker = threading.Thread(target=operator.run, args=(self.cluster, "recurser"),
+                                      kwargs={"resync": 1, "stop": stop, "log": lines.append, "pause": 0.1}, daemon=True)
+            begun = time.monotonic()
+            worker.start()
+            while time.monotonic() - begun < 12 and len(self.api.sent("GET", "/recurserapps")) < 4:      # list, watch, list, watch
+                time.sleep(0.05)
+            took = time.monotonic() - begun
+            stop.set()
+            worker.join(10)
+        self.assertFalse(worker.is_alive())
+        self.assertLess(took, 5, lines)              # given up after two seconds of silence, not the six the server stays mute
+        self.assertTrue(any(line.startswith("watch interrupted") for line in lines), lines)
+        self.assertGreaterEqual(sum(line.startswith("team: Ready=") for line in lines), 2)                # a second full pass was made
+
+
+class ContainerProcessTests(unittest.TestCase):
+    """The server and the controller as a pod starts them: real processes, the pod's flags, and (where this
+    machine allows it) as the first process of a process namespace, which is what a container's command is."""
+
+    FIRST = ["unshare", "--pid", "--fork", "--kill-child", "--mount-proc"]      # --kill-child: nothing outlives a failed test
+
+    @staticmethod
+    def free_port():
+        import socket
+
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            return sock.getsockname()[1]
+
+    @classmethod
+    def ways(cls):
+        """How to start the process: plainly, and as process 1 of its own namespace when that is permitted here."""
+        try:
+            allowed = subprocess.run(cls.FIRST + ["true"], capture_output=True, timeout=20).returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            allowed = False
+        return [False, True] if allowed else [False]
+
+    def start(self, argv, env, first):
+        """Start ``argv``; returns the process to wait for and the process id that takes the stop signal."""
+        import time
+
+        proc = subprocess.Popen((self.FIRST if first else []) + argv, cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        self.addCleanup(lambda: (proc.poll() is None and proc.kill(), proc.wait(), proc.stdout.close()))
+        if not first:
+            return proc, proc.pid
+        for _ in range(100):                           # the command is the one child of `unshare`
+            try:
+                children = _text(f"/proc/{proc.pid}/task/{proc.pid}/children").split()
+            except OSError:
+                children = []
+            if children:
+                pid = int(children[0])
+                inside = [line for line in _text(f"/proc/{pid}/status").splitlines() if line.startswith("NSpid:")]
+                self.assertEqual(inside[0].split()[-1], "1", "the command is not the first process of its namespace")
+                return proc, pid
+            time.sleep(0.05)
+        self.fail("the command did not start")
+
+    def stop(self, proc, pid):
+        """Send the stop request a pod receives; the process must end by itself, quickly, with a clean exit."""
+        import signal
+        import time
+
+        begun = time.monotonic()
+        os.kill(pid, signal.SIGTERM)
+        self.assertEqual(proc.wait(timeout=8), 0)
+        self.assertLess(time.monotonic() - begun, 5)
+
+    @staticmethod
+    def environment(**extra):
+        """This environment without its proxy settings: everything here talks to servers on this machine."""
+        return {**{k: v for k, v in os.environ.items() if "proxy" not in k.lower()}, "PYTHONUNBUFFERED": "1", **extra}
+
+    def test_the_pod_flags_win_over_the_settings_and_a_stop_request_ends_the_server(self):
+        import time
+
+        demo_edition()
+        link = DEMO_LINK + "-owner-0123456789"
+        for first in self.ways():
+            with self.subTest(first_process=first), tempfile.TemporaryDirectory() as tmp:
+                elsewhere, pinned = self.free_port(), self.free_port()
+                settings = os.path.join(tmp, "config.yaml")           # JSON is YAML: no extra package needed here
+                _dump({"llm": {"enabled": False}, "server": {"host": "127.0.0.1", "port": elsewhere, "progress_dir": os.path.join(tmp, "elsewhere")}}, settings)
+                users = os.path.join(tmp, "users.json")
+                _dump({"users": [{"name": "owner", "token": link, "projects": "*"}]}, users)
+                proc, pid = self.start([sys.executable, "-m", "recurser", "--data-root", DEMO, "serve", "--config", settings, "--host", "127.0.0.1",
+                                        "--port", str(pinned), "--progress-dir", os.path.join(tmp, "pinned"), "--users", users], self.environment(), first)
+                answered = None
+                for _ in range(100):
+                    try:
+                        with urllib.request.urlopen(f"http://127.0.0.1:{pinned}/healthz", timeout=2) as resp:
+                            answered = resp.status
+                            break
+                    except OSError:
+                        if proc.poll() is not None:
+                            break
+                        time.sleep(0.1)
+                self.assertEqual(answered, 200, "the server did not come up on the port given as a flag")
+                with self.assertRaises(OSError):
+                    urllib.request.urlopen(f"http://127.0.0.1:{elsewhere}/healthz", timeout=2)
+                # a history lands in the folder given as a flag
+                req = urllib.request.Request(f"http://127.0.0.1:{pinned}/api/progress", method="PUT", data=json.dumps({"version": 2, "cards": {}}).encode(),
+                                             headers={"Content-Type": "application/json", "Cookie": "recurser_token=" + link})
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    self.assertEqual(resp.status, 200)
+                self.assertTrue(os.path.exists(os.path.join(tmp, "pinned", "owner.json")))
+                self.assertFalse(os.path.exists(os.path.join(tmp, "elsewhere")))
+                self.stop(proc, pid)
+                self.assertNotIn(DEMO_LINK, proc.stdout.read())        # no sign-in value in what the pod logs
+
+    @unittest.skipUnless(kubernetes, "needs the official client: pip install kubernetes")
+    def test_the_controller_process_reconciles_shows_life_and_stops(self):
+        import time
+
+        from fake_kube_api import FakeKubeApi
+
+        for first in self.ways():
+            with self.subTest(first_process=first), tempfile.TemporaryDirectory() as tmp:
+                api = FakeKubeApi((k8s.API_VERSION, k8s.PLURAL, k8s.KIND))
+                self.addCleanup(api.close)
+                meta = lambda name: {"namespace": "recurser", "name": name}
+                api.put({"apiVersion": "v1", "kind": "ConfigMap", "metadata": meta("team-config"), "data": {"config.yaml": "llm:\n  effort: low\n"}})
+                api.put({"apiVersion": "v1", "kind": "Secret", "metadata": meta("team-anthropic"), "data": {"ANTHROPIC_API_KEY": "eA=="}})
+                api.put({"apiVersion": "v1", "kind": "Secret", "metadata": meta("team-users"), "data": {"users.json": "eA=="}})
+                api.put({"apiVersion": k8s.API_VERSION, "kind": k8s.KIND, "metadata": meta("team"), "spec": k8s.example()["app"]["spec"]})
+                where = os.path.join(tmp, "kubeconfig")                # how the client finds a cluster outside one
+                _dump({"apiVersion": "v1", "kind": "Config", "current-context": "here",
+                       "clusters": [{"name": "here", "cluster": {"server": api.url}}], "users": [{"name": "controller", "user": {}}],
+                       "contexts": [{"name": "here", "context": {"cluster": "here", "user": "controller"}}]}, where)
+                alive = os.path.join(tmp, "alive")
+                env = self.environment(KUBECONFIG=where, RECURSER_ALIVE_FILE=alive, TMPDIR=tmp)
+                proc, pid = self.start([sys.executable, "-m", "recurser.operator", "--namespace", "recurser", "--resync", "2"], env, first)
+                for _ in range(150):                                   # a first full pass ends where the watch begins
+                    if any("watch" in r["query"] for r in api.sent("GET", "/recurserapps")) or proc.poll() is not None:
+                        break
+                    time.sleep(0.1)
+                self.assertIsNone(proc.poll(), "the controller ended by itself")
+                self.assertIsNotNone(api.get("apps/v1", "deployments", "recurser", "team"), "no Deployment was generated")
+                self.assertIsNotNone(api.get("v1", "services", "recurser", "team"))
+                status = api.get(k8s.API_VERSION, k8s.PLURAL, "recurser", "team").get("status") or {"conditions": [{}]}
+                self.assertEqual(status["conditions"][0].get("reason"), "Progressing")
+                self.assertTrue(os.path.exists(alive))                 # what the liveness probe reads
+                self.stop(proc, pid)
+                self.assertIn("team: Ready=False (Progressing)", proc.stdout.read())
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
 # What the team server and the controller need on top of the standard library.
 anthropic>=2.8,<3      # answers through the Anthropic SDK
 pyyaml>=6              # config.yaml, the way a ConfigMap delivers it
-kubernetes>=31         # only the controller (python -m recurser.operator) uses it
+kubernetes>=37,<38     # only the controller (python -m recurser.operator) uses it; 37.0.2 is the one it was tested with

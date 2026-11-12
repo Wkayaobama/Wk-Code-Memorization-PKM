@@ -10,7 +10,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 class FakeAnthropic:
     def __init__(self):
         self.requests: list[dict] = []        # {"path", "headers", "body"}
-        self.mode = "answer"                  # answer | refusal | status:<code> | midstream_error | cut | thinking_only | pause
+        self.hung_up = False                  # True once a client closed a pings answer before its end
+        # answer | refusal | status:<code> | midstream_error | cut | thinking_only | pause | pings:<seconds>
+        self.mode = "answer"
         fake = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -31,6 +33,31 @@ class FakeAnthropic:
                         self.send_header("retry-after", "7")
                     self.end_headers()
                     self.wfile.write(payload)
+                    return
+                if fake.mode.startswith("pings:"):       # an answer that starts, then sends only keep-alives for a while
+                    import time
+
+                    def send(event):
+                        self.wfile.write(f"event: {event['type']}\ndata: {json.dumps(event)}\n\n".encode("utf-8"))
+                        self.wfile.flush()
+
+                    seconds, mode = float(fake.mode.split(":")[1]), fake.mode
+                    fake.mode = "answer"
+                    events = fake.events(body)
+                    fake.mode = mode
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/event-stream")
+                    self.end_headers()                   # no length: the body ends when the connection closes
+                    try:
+                        send(events[0])
+                        until = time.monotonic() + seconds
+                        while time.monotonic() < until:
+                            send({"type": "ping"})
+                            time.sleep(0.1)
+                        for event in events[1:]:
+                            send(event)
+                    except OSError:                      # the client hung up
+                        fake.hung_up = True
                     return
                 events = fake.events(body)
                 data = "".join(f"event: {e['type']}\ndata: {json.dumps(e)}\n\n" for e in events).encode("utf-8")

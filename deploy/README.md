@@ -15,8 +15,14 @@ that are answered from the decks through the Anthropic SDK.
 | 5. Custom resource | A `RecurserApp` names the image, the `projects` it serves, `configRef`, `secretRef` and `usersRef`. The controller checks them and generates the Deployment and the Service | `k8s/01-crd.yaml`, `k8s/02-controller.yaml`, `k8s/05-recurserapp.yaml` |
 
 The controller also generates a volume claim for the review histories, a NetworkPolicy, and
-an Ingress when `spec.ingress.host` is set. Every generated object is owned by the
-`RecurserApp`: delete it and they go with it.
+an Ingress when `spec.ingress.host` is set. The Deployment, the Service, the NetworkPolicy and
+the Ingress are owned by the `RecurserApp`: delete it and they go with it. The volume claim
+is not: the histories stay, and a `RecurserApp` created again under the same name finds them.
+To discard them, delete the claim yourself (`kubectl -n recurser delete pvc team-data`).
+
+Take the Ingress out of the spec, or set `networkPolicy.enabled: false`, and the controller
+removes the object it had made. Its Role is limited to its own namespace. It reads ConfigMaps
+and Secrets there, looking only at the names of their keys.
 
 ## Step by step
 
@@ -27,10 +33,15 @@ docker build -t ghcr.io/<you>/recurser:0.2.0 .
 docker push ghcr.io/<you>/recurser:0.2.0
 
 # 1. Your own copy of the files, with your image in them (deploy/k8s/ holds the same with a placeholder).
-python3 -m recurser k8s write --image ghcr.io/<you>/recurser:0.2.0 --namespace recurser --name team --out my-k8s
+#    --image-pull-secret names the registry credential of step 2. Leave it out if the cluster can
+#    already pull the image.
+python3 -m recurser k8s write --image ghcr.io/<you>/recurser:0.2.0 --image-pull-secret regcred \
+  --namespace recurser --name team --out my-k8s
 
-# 2. Namespace, custom resource definition, controller, settings.
+# 2. Namespace and custom resource definition, the registry credential, then controller and settings.
 kubectl apply -f my-k8s/00-namespace.yaml -f my-k8s/01-crd.yaml
+kubectl -n recurser create secret docker-registry regcred --docker-server=ghcr.io \
+  --docker-username=<you> --docker-password=<a token that may read packages>
 kubectl apply -f my-k8s/02-controller.yaml -f my-k8s/03-config.yaml
 
 # 3. Secrets, created with kubectl so that no credential is ever written to a file in git.
@@ -66,11 +77,19 @@ of private repositories outside the list are replaced in the remaining text, quo
 paths and branch names included.
 
 To change access, edit the file with `recurser users add` or `remove`, then replace the
-Secret. The controller notices the new version and restarts the pod.
+Secret. The controller notices the new version within about half a minute and restarts the
+pod. The same holds for the settings and for the Anthropic key.
 
 ```bash
 kubectl -n recurser create secret generic team-users --from-file=users.json=users.json \
   --dry-run=client -o yaml | kubectl apply -f -
+```
+
+Without the controller nothing restarts the pod. After replacing a Secret or the ConfigMap,
+run this, or people you removed keep their access:
+
+```bash
+kubectl -n recurser rollout restart deployment/team
 ```
 
 `usersRef` is required. A shared deployment never runs on one link for everybody, and no
@@ -107,7 +126,7 @@ answer comes back with the passage each sentence rests on.
 | `llm.effort` | `medium` | `low`, `medium`, `high`, `xhigh` or `max` |
 | `llm.fallbacks` | `true` | when a safety classifier declines a request, the API re-runs it on a fallback model in the same call |
 | `llm.timeout_seconds` | `60` | the longest silence tolerated from the API |
-| `llm.answer_seconds` | `180` | the longest one answer may take in all |
+| `llm.answer_seconds` | `180` | the longest one answer may take in all; at least twice `llm.timeout_seconds` |
 | `llm.enabled` | `true` | `false` turns the assistant off |
 | `retrieval.top_k` | `8` | passages sent with a question |
 | `server.ask_per_10_minutes` | `30` | questions per person |
@@ -123,15 +142,26 @@ Without a `secretRef` the page works and the assistant is off.
   it, for example a project name in `users.json` that is not in the image.
 - History is not saved: the volume must be writable by user and group `10001`. Most
   storage classes honour `fsGroup`; a class that does not needs its own fix.
+- `ImagePullBackOff`: the cluster may not pull the image. See `--image-pull-secret` in step 1.
+- After updating these files from a newer version of the tool, apply `01-crd.yaml` and
+  `02-controller.yaml` again: the controller's permissions are part of them.
+- OpenShift is not covered. It assigns user ids itself and would refuse the fixed id `10001`.
 
 ## What was tested, and what was not
 
-Tested here: the server started with these exact arguments and this `config.yaml`; sign-in,
-per-person decks and histories; the SDK calls against a local stand-in that speaks the
-streaming protocol; every generated object against the typed models of the official
-Kubernetes Python client (`tests/check_manifests.py`); the controller's decisions against a
-simulated cluster.
+Tested here, without a cluster:
 
-Not tested: the image build, the objects on a real cluster, the controller's calls to a real
-API server, and a request to the live Anthropic API. Run steps 0 to 5 once on a test cluster
-before relying on it.
+- The server as a real process with the pod's exact arguments: the flags win over
+  `config.yaml`, and the stop signal a pod receives ends it at once.
+- Sign-in, per-person decks and histories, in a browser.
+- The SDK calls against a local stand-in that speaks the streaming protocol, including
+  refusals, errors in the middle of an answer and an answer that never ends.
+- Every generated object against the typed models of the official Kubernetes Python client
+  (`tests/check_manifests.py`).
+- The controller driven through that client, version 37.0.2, against a local stand-in for
+  the API server (`tests/fake_kube_api.py`): discovery, server-side apply, the status
+  subresource, removal, the watch, and a connection that goes silent.
+
+Not tested: the image build, the objects on a real cluster (admission, permissions as the
+cluster enforces them, storage, the NetworkPolicy, the probes), and a request to the live
+Anthropic API. Run steps 0 to 5 once on a test cluster before relying on it.
